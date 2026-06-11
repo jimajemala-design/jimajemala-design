@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="NutriBase Georgia — Interactive 3D nutrition explorer. Discover superfoods with real-time 3D models and complete nutritional profiles." />
+  <title>NutriBase Georgia — Premium Nutrition Explorer</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+  <!-- ── STICKY GLASS NAVBAR ─────────────────────────────────────────── -->
+  <header class="navbar" role="banner">
+    <div class="navbar-inner">
+      <a class="logo" href="/" aria-label="NutriBase Georgia home">
+        <div class="logo-mark" aria-hidden="true">
+          <svg width="16" height="18" viewBox="0 0 16 18" fill="none">
+            <path d="M8 1C8 1 1.5 4.5 1.5 10.5C1.5 13.8 4.5 16.5 8 16.5C11.5 16.5 14.5 13.8 14.5 10.5C14.5 4.5 8 1 8 1Z" fill="white" fill-opacity="0.9"/>
+            <path d="M8 7V13.5" stroke="#080c14" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M5.5 9.5L8 7L10.5 9.5" stroke="#080c14" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="logo-wordmark">
+          <span class="logo-name">NutriBase</span>
+          <span class="logo-geo">Georgia</span>
+        </div>
+      </a>
+
+      <nav class="navbar-nav" aria-label="Primary navigation">
+        <a class="nav-link" href="#gallery">Gallery</a>
+        <a class="nav-link" href="#about">Explore</a>
+      </nav>
+
+      <div class="navbar-badges">
+        <span class="nav-badge">
+          <span class="nav-badge-dot green"></span>
+          5 Superfoods
+        </span>
+        <span class="nav-badge">
+          <span class="nav-badge-dot gold"></span>
+          3D Interactive
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content">
+
+    <!-- ── GRID VIEW ──────────────────────────────────────────────────── -->
+    <section class="view-grid" id="gridView">
+
+      <!-- Hero -->
+      <div class="hero" id="hero">
+        <div class="hero-bg" aria-hidden="true">
+          <div class="hero-orb orb-1"></div>
+          <div class="hero-orb orb-2"></div>
+          <div class="hero-orb orb-3"></div>
+          <div class="hero-noise"></div>
+        </div>
+
+        <div class="hero-content">
+          <div class="hero-eyebrow">
+            <span class="eyebrow-pulse"></span>
+            Interactive Nutrition Explorer
+          </div>
+
+          <h1 class="hero-title">
+            <span class="hero-line-1">Discover</span>
+            <span class="hero-line-2">What You <em>Eat</em></span>
+          </h1>
+
+          <p class="hero-sub">
+            Explore superfoods in real-time 3D with complete nutritional
+            profiles, health benefits, and honest drawbacks.
+          </p>
+
+          <div class="hero-stats" role="list">
+            <div class="hero-stat" role="listitem">
+              <span class="hero-stat-num" data-count="5">5</span>
+              <span class="hero-stat-label">Superfoods</span>
+            </div>
+            <div class="hero-stat-sep" aria-hidden="true"></div>
+            <div class="hero-stat" role="listitem">
+              <span class="hero-stat-num" data-count="13">13</span>
+              <span class="hero-stat-label">Nutrients tracked</span>
+            </div>
+            <div class="hero-stat-sep" aria-hidden="true"></div>
+            <div class="hero-stat" role="listitem">
+              <span class="hero-stat-num" data-count="360">360</span>
+              <span class="hero-stat-label">° 3D rotation</span>
+            </div>
+          </div>
+
+          <a class="hero-cta" href="#gallery">
+            Explore Foods
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3 8h10M8.5 3.5L13 8l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        </div>
+
+        <div class="hero-scroll" aria-hidden="true">
+          <div class="scroll-track">
+            <div class="scroll-thumb"></div>
+          </div>
+          <span class="scroll-label">Scroll</span>
+        </div>
+      </div>
+
+      <!-- Gallery -->
+      <section class="gallery" id="gallery" aria-labelledby="gallery-heading">
+        <div class="gallery-header">
+          <div class="gallery-label">
+            <span class="label-line"></span>
+            <span class="label-text">Choose a food to explore</span>
+            <span class="label-line"></span>
+          </div>
+          <h2 class="gallery-title" id="gallery-heading">
+            Superfood <em>Gallery</em>
+          </h2>
+        </div>
+
+        <div class="bento-grid" id="foodGrid" role="list" aria-label="Food items">
+          <div class="bento-loading" aria-live="polite">
+            <div class="loading-ring" aria-hidden="true">
+              <div class="loading-ring-inner"></div>
+            </div>
+            <span>Loading superfoods…</span>
+          </div>
+        </div>
+      </section>
+
+    </section>
+
+    <!-- ── DETAIL VIEW ─────────────────────────────────────────────────── -->
+    <section class="view-detail" id="detailSection" style="display:none" aria-label="Food detail">
+
+      <div class="detail-bar">
+        <button class="back-btn" id="backBtn" aria-label="Return to food gallery">
+          <span class="back-icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10 3.5L5 8l5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="back-label">All Foods</span>
+        </button>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <span class="bc-item">Gallery</span>
+          <span class="bc-sep" aria-hidden="true">/</span>
+          <span class="bc-item bc-current" id="bcCurrent" aria-current="page"></span>
+        </nav>
+      </div>
+
+      <div class="detail-layout">
+
+        <!-- 3D Viewer column -->
+        <div class="viewer-col">
+          <div class="canvas-card">
+            <div class="canvas-frame">
+              <canvas id="threeCanvas" aria-label="3D food model — drag to rotate, scroll to zoom"></canvas>
+              <div class="canvas-ui" aria-hidden="true">
+                <div class="canvas-badge">LIVE 3D</div>
+                <div class="canvas-hint">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1"/>
+                    <path d="M3.5 5h3M5 3.5v3" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+                  </svg>
+                  Drag · Scroll
+                </div>
+              </div>
+              <div class="canvas-glow" aria-hidden="true"></div>
+            </div>
+          </div>
+
+          <div class="macro-row" id="quickStats" role="region" aria-label="Macronutrients"></div>
+        </div>
+
+        <!-- Info panel column -->
+        <div class="info-col">
+          <article class="info-panel" id="infoPanel" aria-live="polite"></article>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── FOOTER ──────────────────────────────────────────────────────── -->
+  <footer class="footer" id="about" role="contentinfo">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="footer-name">NutriBase</span>
+        <span class="footer-geo">Georgia</span>
+      </div>
+      <p class="footer-note">
+        Nutritional values per standard serving · Data for informational purposes only
+      </p>
+      <div class="footer-meta">
+        <span class="footer-tag">Built with Three.js</span>
+        <span class="footer-tag">WebGL</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Page transition overlay -->
+  <div class="page-overlay" id="pageOverlay" aria-hidden="true"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/js/scene.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

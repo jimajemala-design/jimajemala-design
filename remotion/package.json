@@ -1,0 +1,22 @@
+{
+  "name": "nutribase-remotion",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render:floating":  "remotion render src/index.ts FloatingFoods  out/FloatingFoods.mp4",
+    "render:wave":      "remotion render src/index.ts GradientWave   out/GradientWave.mp4",
+    "render:particles": "remotion render src/index.ts ParticleFlow   out/ParticleFlow.mp4",
+    "render:all": "npm run render:floating && npm run render:wave && npm run render:particles"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.290",
+    "remotion": "4.0.290",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.4.0"
+  }
+}
