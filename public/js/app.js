@@ -199,19 +199,34 @@ const App = (() => {
       sugar: 'Sugar', vitaminC: 'Vit C', potassium: 'Potassium',
       vitaminB12: 'Vit B12', sodium: 'Sodium', omega3: 'Omega-3',
       vitaminD: 'Vit D', vitaminE: 'Vit E', magnesium: 'Mg',
-      selenium: 'Selenium', choline: 'Choline', vitaminA: 'Vit A', vitaminB6: 'Vit B6'
+      selenium: 'Selenium', choline: 'Choline', vitaminA: 'Vit A', vitaminB6: 'Vit B6',
+      vitaminK: 'Vit K', folate: 'Folate', manganese: 'Manganese',
+      copper: 'Copper', zinc: 'Zinc', biotin: 'Biotin',
+      riboflavin: 'Riboflavin', calcium: 'Calcium', phosphorus: 'Phosphorus',
+      lycopene: 'Lycopene', allicin: 'Allicin', flavonoids: 'Flavonoids',
+      gingerol: 'Gingerol', betaGlucan: 'Beta-Glucan'
     };
     const units = {
       protein: 'g', carbs: 'g', fat: 'g', fiber: 'g', sugar: 'g',
       vitaminC: 'mg', potassium: 'mg', vitaminB12: 'µg', sodium: 'mg',
       omega3: 'g', vitaminD: 'IU', vitaminE: 'mg', magnesium: 'mg',
-      selenium: 'µg', choline: 'mg', vitaminA: 'µg', vitaminB6: 'mg'
+      selenium: 'µg', choline: 'mg', vitaminA: 'µg', vitaminB6: 'mg',
+      vitaminK: 'µg', folate: 'µg', manganese: 'mg',
+      copper: 'mg', zinc: 'mg', biotin: 'µg',
+      riboflavin: 'mg', calcium: 'mg', phosphorus: 'mg',
+      lycopene: 'mg', allicin: 'mg', flavonoids: 'mg',
+      gingerol: 'mg', betaGlucan: 'g'
     };
     const maxVals = {
       protein: 40, carbs: 60, fat: 20, fiber: 25, sugar: 30,
       vitaminC: 90, potassium: 700, vitaminB12: 2.4, sodium: 150,
       omega3: 3, vitaminD: 600, vitaminE: 15, magnesium: 200,
-      selenium: 55, choline: 550, vitaminA: 900, vitaminB6: 1.7
+      selenium: 55, choline: 550, vitaminA: 900, vitaminB6: 1.7,
+      vitaminK: 120, folate: 400, manganese: 2.3,
+      copper: 0.9, zinc: 11, biotin: 30,
+      riboflavin: 1.3, calcium: 1000, phosphorus: 700,
+      lycopene: 15, allicin: 10, flavonoids: 200,
+      gingerol: 50, betaGlucan: 6
     };
 
     const macroKeys = new Set(['protein', 'carbs', 'fat']);

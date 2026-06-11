@@ -8,13 +8,13 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
 
-  <!-- ── STICKY GLASS NAVBAR ─────────────────────────────────────────── -->
+  <!-- ── FLOATING PILL NAVBAR ─────────────────────────────────────────── -->
   <header class="navbar" role="banner">
     <div class="navbar-inner">
       <a class="logo" href="/" aria-label="NutriBase Georgia home">
@@ -33,17 +33,17 @@
 
       <nav class="navbar-nav" aria-label="Primary navigation">
         <a class="nav-link" href="#gallery">Gallery</a>
-        <a class="nav-link" href="#about">Explore</a>
+        <a class="nav-link" href="#about">About</a>
       </nav>
 
       <div class="navbar-badges">
         <span class="nav-badge">
           <span class="nav-badge-dot green"></span>
-          5 Superfoods
+          22 Foods
         </span>
         <span class="nav-badge">
-          <span class="nav-badge-dot gold"></span>
-          3D Interactive
+          <span class="nav-badge-dot cyan"></span>
+          3D Live
         </span>
       </div>
     </div>
@@ -57,21 +57,21 @@
       <!-- Hero -->
       <div class="hero" id="hero">
         <div class="hero-bg" aria-hidden="true">
-          <div class="hero-orb orb-1"></div>
-          <div class="hero-orb orb-2"></div>
-          <div class="hero-orb orb-3"></div>
-          <div class="hero-noise"></div>
+          <div class="aurora-blob blob-1"></div>
+          <div class="aurora-blob blob-2"></div>
+          <div class="aurora-blob blob-3"></div>
+          <div class="hero-grid-lines"></div>
         </div>
 
         <div class="hero-content">
           <div class="hero-eyebrow">
             <span class="eyebrow-pulse"></span>
-            Interactive Nutrition Explorer
+            Interactive Nutrition Explorer · 2035
           </div>
 
           <h1 class="hero-title">
-            <span class="hero-line-1">Discover</span>
-            <span class="hero-line-2">What You <em>Eat</em></span>
+            <span class="hero-line-1">Know What</span>
+            <span class="hero-line-2">You <em>Eat</em></span>
           </h1>
 
           <p class="hero-sub">
@@ -81,12 +81,12 @@
 
           <div class="hero-stats" role="list">
             <div class="hero-stat" role="listitem">
-              <span class="hero-stat-num" data-count="5">5</span>
+              <span class="hero-stat-num" data-count="22">22</span>
               <span class="hero-stat-label">Superfoods</span>
             </div>
             <div class="hero-stat-sep" aria-hidden="true"></div>
             <div class="hero-stat" role="listitem">
-              <span class="hero-stat-num" data-count="13">13</span>
+              <span class="hero-stat-num" data-count="31">31</span>
               <span class="hero-stat-label">Nutrients tracked</span>
             </div>
             <div class="hero-stat-sep" aria-hidden="true"></div>
@@ -105,9 +105,7 @@
         </div>
 
         <div class="hero-scroll" aria-hidden="true">
-          <div class="scroll-track">
-            <div class="scroll-thumb"></div>
-          </div>
+          <div class="scroll-track"><div class="scroll-thumb"></div></div>
           <span class="scroll-label">Scroll</span>
         </div>
       </div>
@@ -117,11 +115,11 @@
         <div class="gallery-header">
           <div class="gallery-label">
             <span class="label-line"></span>
-            <span class="label-text">Choose a food to explore</span>
+            <span class="label-text">Select a food to explore in 3D</span>
             <span class="label-line"></span>
           </div>
           <h2 class="gallery-title" id="gallery-heading">
-            Superfood <em>Gallery</em>
+            Superfood <em>Database</em>
           </h2>
         </div>
 
@@ -201,9 +199,13 @@
         Nutritional values per standard serving · Data for informational purposes only
       </p>
       <div class="footer-meta">
-        <span class="footer-tag">Built with Three.js</span>
+        <span class="footer-tag">Three.js</span>
+        <span class="footer-sep">·</span>
         <span class="footer-tag">WebGL</span>
+        <span class="footer-sep">·</span>
+        <span class="footer-tag">Express</span>
       </div>
+      <p class="footer-copy">© 2035 NutriBase Georgia. All rights reserved.</p>
     </div>
   </footer>
 
