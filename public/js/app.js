@@ -198,17 +198,20 @@ const App = (() => {
       protein: 'Protein', carbs: 'Carbs', fat: 'Fat', fiber: 'Fiber',
       sugar: 'Sugar', vitaminC: 'Vit C', potassium: 'Potassium',
       vitaminB12: 'Vit B12', sodium: 'Sodium', omega3: 'Omega-3',
-      vitaminD: 'Vit D', vitaminE: 'Vit E', magnesium: 'Mg'
+      vitaminD: 'Vit D', vitaminE: 'Vit E', magnesium: 'Mg',
+      selenium: 'Selenium', choline: 'Choline', vitaminA: 'Vit A', vitaminB6: 'Vit B6'
     };
     const units = {
       protein: 'g', carbs: 'g', fat: 'g', fiber: 'g', sugar: 'g',
       vitaminC: 'mg', potassium: 'mg', vitaminB12: 'µg', sodium: 'mg',
-      omega3: 'g', vitaminD: 'IU', vitaminE: 'mg', magnesium: 'mg'
+      omega3: 'g', vitaminD: 'IU', vitaminE: 'mg', magnesium: 'mg',
+      selenium: 'µg', choline: 'mg', vitaminA: 'µg', vitaminB6: 'mg'
     };
     const maxVals = {
       protein: 40, carbs: 60, fat: 20, fiber: 25, sugar: 30,
       vitaminC: 90, potassium: 700, vitaminB12: 2.4, sodium: 150,
-      omega3: 3, vitaminD: 600, vitaminE: 15, magnesium: 200
+      omega3: 3, vitaminD: 600, vitaminE: 15, magnesium: 200,
+      selenium: 55, choline: 550, vitaminA: 900, vitaminB6: 1.7
     };
 
     const macroKeys = new Set(['protein', 'carbs', 'fat']);

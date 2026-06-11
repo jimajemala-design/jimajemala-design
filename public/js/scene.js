@@ -337,6 +337,110 @@ const FoodScene = (() => {
     return new THREE.CanvasTexture(c);
   }
 
+  function makeEggTex() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 1024;
+    const ctx = c.getContext('2d');
+
+    // Warm cream/off-white base with subtle radial highlight
+    const g = ctx.createRadialGradient(512, 280, 20, 512, 480, 620);
+    g.addColorStop(0,   '#fefefc');
+    g.addColorStop(0.4, '#f5f0e8');
+    g.addColorStop(1,   '#e5ddd0');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    // Micro-pore speckle (real eggshells have thousands of tiny pores)
+    for (let i = 0; i < 2800; i++) {
+      const x = Math.random() * 1024, y = Math.random() * 1024;
+      ctx.beginPath();
+      ctx.arc(x, y, 0.6 + Math.random() * 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(155,120,85,${0.03 + Math.random() * 0.09})`;
+      ctx.fill();
+    }
+
+    // Subtle warm shadow on lower half
+    const shadow = ctx.createLinearGradient(0, 380, 0, 1024);
+    shadow.addColorStop(0, 'rgba(190,165,130,0)');
+    shadow.addColorStop(1, 'rgba(190,165,130,0.14)');
+    ctx.fillStyle = shadow;
+    ctx.fillRect(0, 380, 1024, 644);
+
+    // Soft specular highlight (upper-left)
+    const spec = ctx.createRadialGradient(340, 240, 5, 340, 240, 260);
+    spec.addColorStop(0, 'rgba(255,255,255,0.55)');
+    spec.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = spec;
+    ctx.fillRect(0, 0, 700, 600);
+
+    return new THREE.CanvasTexture(c);
+  }
+
+  function makeSweetPotatoTex() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 1024;
+    const ctx = c.getContext('2d');
+
+    // Longitudinal gradient: dark ends → bright orange center
+    const g = ctx.createLinearGradient(0, 0, 0, 1024);
+    g.addColorStop(0.00, '#6e2800');
+    g.addColorStop(0.12, '#c04400');
+    g.addColorStop(0.35, '#e85e1a');
+    g.addColorStop(0.50, '#ff7028');
+    g.addColorStop(0.65, '#e85e1a');
+    g.addColorStop(0.88, '#c04400');
+    g.addColorStop(1.00, '#6e2800');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    // Slight edge darkening
+    const edgeG = ctx.createLinearGradient(0, 0, 1024, 0);
+    edgeG.addColorStop(0.0,  'rgba(0,0,0,0.16)');
+    edgeG.addColorStop(0.12, 'rgba(0,0,0,0)');
+    edgeG.addColorStop(0.88, 'rgba(0,0,0,0)');
+    edgeG.addColorStop(1.0,  'rgba(0,0,0,0.16)');
+    ctx.fillStyle = edgeG;
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    // Longitudinal wrinkle lines (characteristic sweet potato surface)
+    for (let i = 0; i < 16; i++) {
+      const xBase = (i / 16) * 1024;
+      ctx.beginPath();
+      ctx.moveTo(xBase, 0);
+      for (let y = 0; y <= 1024; y += 7) {
+        const wave = Math.sin(y / 78 + i * 2.4) * 13 + Math.cos(y / 152 + i * 0.7) * 5;
+        ctx.lineTo(xBase + wave, y);
+      }
+      const isDark = i % 3 === 0;
+      ctx.strokeStyle = isDark
+        ? `rgba(55,14,0,${0.32 + Math.random() * 0.18})`
+        : `rgba(255,125,40,${0.14 + Math.random() * 0.13})`;
+      ctx.lineWidth = isDark ? 2.2 : 1.0;
+      ctx.stroke();
+    }
+
+    // Surface bumps and imperfections
+    for (let i = 0; i < 4500; i++) {
+      const x = Math.random() * 1024, y = Math.random() * 1024;
+      const dark = Math.random() > 0.38;
+      ctx.beginPath();
+      ctx.arc(x, y, 0.5 + Math.random() * 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = dark
+        ? `rgba(75,22,0,${0.04 + Math.random() * 0.13})`
+        : `rgba(255,145,48,${0.03 + Math.random() * 0.09})`;
+      ctx.fill();
+    }
+
+    // Subtle waxy sheen
+    const sheen = ctx.createRadialGradient(310, 220, 10, 310, 340, 360);
+    sheen.addColorStop(0, 'rgba(255,200,100,0.14)');
+    sheen.addColorStop(1, 'rgba(255,200,100,0)');
+    ctx.fillStyle = sheen;
+    ctx.fillRect(0, 0, 700, 680);
+
+    return new THREE.CanvasTexture(c);
+  }
+
   // ─── Food Model Builders ─────────────────────────────────────────────────
 
   function buildApple() {
@@ -706,6 +810,177 @@ const FoodScene = (() => {
     return g;
   }
 
+  function buildEgg() {
+    const g = new THREE.Group();
+    const eggTex = makeEggTex();
+
+    const shellMat = new THREE.MeshPhysicalMaterial({
+      map: eggTex,
+      color: 0xf5f0e8,
+      roughness: 0.30,
+      metalness: 0.10,
+      clearcoat: 0.45,
+      clearcoatRoughness: 0.10,
+    });
+
+    // Yolk: warm deep orange sphere, visible through shell
+    const yolkMat = new THREE.MeshStandardMaterial({
+      color: 0xff9a00,
+      emissive: 0xe06000,
+      emissiveIntensity: 0.28,
+      roughness: 0.55,
+      metalness: 0,
+    });
+
+    // Egg 1 — main foreground egg, tilted left
+    const yolk1 = new THREE.Mesh(new THREE.SphereGeometry(0.28, 18, 18), yolkMat);
+    yolk1.position.set(-0.45, -0.06, 0);
+    g.add(yolk1);
+
+    const shell1 = new THREE.Mesh(new THREE.SphereGeometry(0.60, 36, 36),
+      new THREE.MeshPhysicalMaterial({
+        ...shellMat,
+        transparent: true,
+        opacity: 0.88,
+      })
+    );
+    shell1.scale.set(1, 1.32, 1);
+    shell1.position.set(-0.45, 0, 0);
+    shell1.rotation.z = -0.16;
+    shell1.castShadow = true;
+    g.add(shell1);
+
+    // Egg 2 — slightly behind and right
+    const yolk2 = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), yolkMat);
+    yolk2.position.set(0.44, -0.10, -0.22);
+    g.add(yolk2);
+
+    const shell2 = new THREE.Mesh(new THREE.SphereGeometry(0.56, 32, 32),
+      new THREE.MeshPhysicalMaterial({
+        ...shellMat,
+        transparent: true,
+        opacity: 0.85,
+      })
+    );
+    shell2.scale.set(1, 1.30, 1);
+    shell2.position.set(0.44, -0.06, -0.22);
+    shell2.rotation.z = 0.20;
+    shell2.castShadow = true;
+    g.add(shell2);
+
+    // Nest materials
+    const nestDark = new THREE.MeshStandardMaterial({ color: 0x3e2208, roughness: 0.99, metalness: 0 });
+    const nestMid  = new THREE.MeshStandardMaterial({ color: 0x5c3412, roughness: 0.99, metalness: 0 });
+
+    // Nest bowl ring
+    const bowl = new THREE.Mesh(
+      new THREE.TorusGeometry(0.92, 0.26, 10, 42),
+      nestDark
+    );
+    bowl.rotation.x = Math.PI / 2;
+    bowl.position.y = -0.80;
+    bowl.scale.set(1, 1, 0.52);
+    bowl.receiveShadow = true;
+    g.add(bowl);
+
+    // Flat nest base disc
+    g.add(new THREE.Mesh(
+      new THREE.CylinderGeometry(0.76, 0.62, 0.18, 32),
+      nestDark
+    )).position.y = -0.96;
+
+    // Woven twig layers — radial and cross-hatched sticks
+    for (let i = 0; i < 14; i++) {
+      const angle  = (i / 14) * Math.PI;
+      const mat    = i % 3 === 0 ? nestMid : nestDark;
+      const radius = 0.60 + Math.random() * 0.28;
+      const twig   = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, radius * 2, 5), mat);
+      twig.rotation.z = Math.PI / 2;
+      twig.rotation.y = angle;
+      twig.position.y = -0.72 + (Math.random() - 0.5) * 0.16;
+      g.add(twig);
+    }
+    // A few crossing sticks at different angles for texture depth
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI + 0.2;
+      const twig  = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 1.5, 5), nestMid);
+      twig.rotation.z = Math.PI / 2;
+      twig.rotation.y = angle;
+      twig.position.set(0, -0.62 + i * 0.04, 0);
+      g.add(twig);
+    }
+
+    return g;
+  }
+
+  function buildSweetPotato() {
+    const g = new THREE.Group();
+    const tex = makeSweetPotatoTex();
+
+    // Elongated asymmetric lathe profile (wider in the lower-middle, tapered ends)
+    const pts = [
+      new THREE.Vector2(0.00, -1.32),
+      new THREE.Vector2(0.08, -1.25),
+      new THREE.Vector2(0.22, -1.06),
+      new THREE.Vector2(0.40, -0.78),
+      new THREE.Vector2(0.56, -0.44),
+      new THREE.Vector2(0.66, -0.06),
+      new THREE.Vector2(0.70,  0.24),
+      new THREE.Vector2(0.65,  0.54),
+      new THREE.Vector2(0.52,  0.82),
+      new THREE.Vector2(0.35,  1.05),
+      new THREE.Vector2(0.16,  1.24),
+      new THREE.Vector2(0.00,  1.32),
+    ];
+    const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 64),
+      new THREE.MeshStandardMaterial({
+        map: tex,
+        roughness: 0.72,
+        metalness: 0,
+      })
+    );
+    body.scale.set(1, 1, 0.80);
+    body.castShadow = body.receiveShadow = true;
+    g.add(body);
+
+    // Small surface bump protrusions (characteristic sweet potato lumps)
+    const bumpMat = new THREE.MeshStandardMaterial({ color: 0xc05018, roughness: 0.80, metalness: 0 });
+    const bumpPositions = [
+      [ 0.60, 0.10, 0.15], [-0.58, -0.20, 0.18], [ 0.52, -0.50, -0.16],
+      [-0.48,  0.40,-0.20], [ 0.44,  0.58, 0.12], [-0.40, -0.65,-0.12],
+    ];
+    bumpPositions.forEach(([x, y, z]) => {
+      const bump = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 8), bumpMat);
+      bump.position.set(x, y, z * 0.8);
+      bump.scale.set(1, 0.55, 0.85);
+      g.add(bump);
+    });
+
+    // Dried brown stem at the top end
+    const stemCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.00,  1.30, 0.00),
+      new THREE.Vector3(0.02,  1.48, 0.01),
+      new THREE.Vector3(0.05,  1.65,-0.01),
+      new THREE.Vector3(0.04,  1.80, 0.01),
+    ]);
+    g.add(new THREE.Mesh(
+      new THREE.TubeGeometry(stemCurve, 10, 0.028, 7, false),
+      new THREE.MeshStandardMaterial({ color: 0x361606, roughness: 0.97, metalness: 0 })
+    ));
+
+    // Short root tendrils at the bottom
+    const rootMat = new THREE.MeshStandardMaterial({ color: 0x5c2606, roughness: 0.98, metalness: 0 });
+    [[0, -1.32, 0], [0.05, -1.30, 0.04], [-0.04, -1.30,-0.04]].forEach(([x, y, z], i) => {
+      const root = new THREE.Mesh(new THREE.SphereGeometry(0.048, 6, 6), rootMat);
+      root.position.set(x, y, z);
+      root.scale.set(0.6, 2.0 + i * 0.3, 0.6);
+      g.add(root);
+    });
+
+    g.rotation.z = 0.16;
+    return g;
+  }
+
   // ─── Scene Setup ─────────────────────────────────────────────────────────
 
   function makeSceneBackground() {
@@ -883,10 +1158,12 @@ const FoodScene = (() => {
   const BUILDERS = {
     apple: buildApple, banana: buildBanana,
     chicken: buildChicken, fish: buildFish, almond: buildAlmond,
+    egg: buildEgg, sweetpotato: buildSweetPotato,
   };
   const PARTICLE_COLORS = {
     apple: 0xff4422, banana: 0xf5c600,
     chicken: 0xf0c080, fish: 0x60a5fa, almond: 0xd4b060,
+    egg: 0xfffce8, sweetpotato: 0xff6820,
   };
 
   // ─── Public API ────────────────────────────────────────────────────────────

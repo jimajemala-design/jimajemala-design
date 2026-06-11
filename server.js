@@ -121,6 +121,52 @@ const foods = [
     ],
     description: 'Nutrient-dense tree nut rich in healthy fats and vitamin E.',
     serving: '28g (about 23 almonds)'
+  },
+  {
+    id: 'egg',
+    name: 'Eggs',
+    emoji: '🥚',
+    color: '#F5E6C8',
+    calories: 70,
+    nutrition: { protein: 6, carbs: 0.6, fat: 5, fiber: 0, vitaminB12: 0.6, selenium: 15.4, choline: 147, sodium: 62 },
+    benefits: [
+      'Complete protein with all 9 essential amino acids',
+      'Rich in choline for brain health and memory',
+      'Lutein and zeaxanthin support eye health',
+      'Most affordable high-quality protein source',
+      'Supports muscle building and repair'
+    ],
+    drawbacks: [
+      'High dietary cholesterol (though largely benign for most people)',
+      'Common allergen — affects ~1-2% of children',
+      'Must be cooked properly to avoid Salmonella risk',
+      'Factory-farmed eggs lower in omega-3 than pasture-raised'
+    ],
+    description: "Nature's most complete food — affordable, versatile, and nutritionally dense.",
+    serving: '1 large (50g)'
+  },
+  {
+    id: 'sweetpotato',
+    name: 'Sweet Potato',
+    emoji: '🍠',
+    color: '#E8611A',
+    calories: 103,
+    nutrition: { protein: 2, carbs: 24, fat: 0.1, fiber: 3.9, vitaminA: 961, vitaminC: 19.6, potassium: 438, vitaminB6: 0.3, sodium: 41 },
+    benefits: [
+      'Extraordinary beta-carotene source — over 960% daily vitamin A',
+      'Powerful anti-inflammatory carotenoids',
+      'Complex carbs provide sustained, stable energy',
+      'High fiber supports gut health and satiety',
+      'Naturally sweet with no added sugar'
+    ],
+    drawbacks: [
+      'High glycemic index — can spike blood sugar when baked',
+      'High carbohydrate content (not keto-friendly)',
+      'Can cause bloating and gas if eaten in large amounts',
+      'Oxalates may be a concern for kidney stone prone individuals'
+    ],
+    description: 'An orange root vegetable loaded with beta-carotene, fiber, and complex carbs.',
+    serving: '1 medium (130g)'
   }
 ];
 
