@@ -38,19 +38,136 @@ function toast(message, type = 'success', ms = 3200) {
   el._t = setTimeout(() => { el.className = `toast ${type}`; }, ms);
 }
 
-// ── Client-side calorie calculator (mirrors server Mifflin-St Jeor) ──────
-function clientCalc({ weight, height, age, gender, goal }) {
+// ── Client-side calorie calculator (mirrors server advanced engine) ──────
+const ACTIVITY = { sedentary: 1.2, light: 1.375, moderate: 1.55, very: 1.725, extreme: 1.9 };
+function clientCalc({ weight, height, age, gender, activityLevel, targetWeight, timeline }) {
   if (!weight || !height || !age) return null;
-  const bmr = 10 * weight + 6.25 * height - 5 * age + (gender === 'female' ? -161 : 5);
-  const tdee = bmr * 1.55;
-  const factor = goal === 'lose_weight' ? 0.8 : goal === 'gain_muscle' ? 1.2 : 1.0;
-  const target = Math.round(tdee * factor);
+  const g = gender === 'female' ? 'female' : 'male';
+  const bmr = 10 * weight + 6.25 * height - 5 * age + (g === 'female' ? -161 : 5);
+  const mult = ACTIVITY[activityLevel] || 1.55;
+  const tdee = bmr * mult;
+
+  const current = Number(weight);
+  const targetW = (targetWeight != null && targetWeight !== '') ? Number(targetWeight) : current;
+  const weeks = Number(timeline) || 12;
+  const diff = +(targetW - current).toFixed(2);
+  const direction = diff < -0.05 ? 'lose' : diff > 0.05 ? 'gain' : 'maintain';
+  const totalCals = diff * 7700;
+  const requestedDaily = weeks > 0 ? totalCals / (weeks * 7) : 0;
+
+  let dailyAdjust = requestedDaily, warning = null, suggestedWeeks = null;
+  if (requestedDaily < -1000) {
+    dailyAdjust = -1000;
+    suggestedWeeks = Math.ceil(Math.abs(totalCals) / (1000 * 7));
+    warning = `This pace is too aggressive. Losing more than 1kg/week can cause muscle loss and nutrient deficiencies. We recommend ${suggestedWeeks} weeks instead for healthy results.`;
+  } else if (requestedDaily > 500) {
+    dailyAdjust = 500;
+    suggestedWeeks = Math.ceil(totalCals / (500 * 7));
+    warning = `This pace is too aggressive. Gaining more than 0.5kg/week tends to add fat rather than muscle. We recommend ${suggestedWeeks} weeks instead for lean results.`;
+  }
+  let target = Math.round(tdee + dailyAdjust);
+  const minCal = g === 'female' ? 1200 : 1500;
+  let minClamped = false;
+  if (target < minCal) { target = minCal; dailyAdjust = Math.round(target - tdee); minClamped = true; }
+
+  const weeklyChange = +((dailyAdjust * 7) / 7700).toFixed(3);
+  let effWeeks = weeks;
+  if (direction === 'maintain') effWeeks = 0;
+  else if (Math.abs(weeklyChange) > 0.0001) effWeeks = Math.abs(diff / weeklyChange);
+  effWeeks = Math.round(effWeeks * 10) / 10;
+  const completionDate = direction === 'maintain' ? null
+    : new Date(Date.now() + effWeeks * 7 * 86400000).toISOString().slice(0, 10);
+
+  const prediction = [];
+  const totalWeeks = Math.min(Math.max(Math.ceil(effWeeks), 1), 52);
+  for (let w = 0; w <= totalWeeks; w++) {
+    let val = current + weeklyChange * w;
+    if (direction === 'lose') val = Math.max(val, targetW);
+    if (direction === 'gain') val = Math.min(val, targetW);
+    prediction.push({ week: w, weight: +val.toFixed(1) });
+  }
   return {
-    target,
+    bmr: Math.round(bmr), tdee: Math.round(tdee), target,
+    dailyAdjust: Math.round(dailyAdjust), weeklyChange, direction,
+    goalKg: +Math.abs(diff).toFixed(1), currentWeight: current, targetWeight: targetW,
+    weeks, effWeeks, completionDate, minClamped, warning, suggestedWeeks,
     protein: Math.round((target * 0.30) / 4),
     carbs: Math.round((target * 0.40) / 4),
     fats: Math.round((target * 0.30) / 9),
+    prediction,
   };
+}
+
+// Build the prediction SVG sparkline (current → target over the weeks)
+function predictionSVG(pred, direction) {
+  if (!pred || pred.length < 2) return '';
+  const W = 100, H = 36, pad = 3;
+  const weights = pred.map(p => p.weight);
+  const min = Math.min(...weights), max = Math.max(...weights);
+  const range = (max - min) || 1;
+  const pts = pred.map((p, i) => {
+    const x = pad + (i / (pred.length - 1)) * (W - pad * 2);
+    const y = pad + (1 - (p.weight - min) / range) * (H - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last = pts[pts.length - 1].split(',');
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="pred-svg">
+    <defs><linearGradient id="predg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(34,197,94,0.35)"/><stop offset="100%" stop-color="rgba(34,197,94,0)"/>
+    </linearGradient></defs>
+    <polygon points="${pad},${H - pad} ${pts.join(' ')} ${W - pad},${H - pad}" fill="url(#predg)"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="#22c55e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${last[0]}" cy="${last[1]}" r="2.2" fill="#22c55e"/>
+  </svg>`;
+}
+
+// Render the full results stats card into #calorieResult and warning into #goalWarning
+function renderProfileResults(c) {
+  const box = document.getElementById('calorieResult');
+  const warn = document.getElementById('goalWarning');
+  if (!c) { if (box) box.innerHTML = ''; if (warn) warn.className = 'goal-warning'; return; }
+
+  if (warn) {
+    if (c.warning) { warn.innerHTML = `⚠️ ${c.warning}`; warn.className = 'goal-warning show'; }
+    else { warn.innerHTML = ''; warn.className = 'goal-warning'; }
+  }
+
+  const adj = c.dailyAdjust;
+  const goalLine = c.direction === 'maintain'
+    ? 'Maintain your weight'
+    : `${c.direction === 'lose' ? 'Lose' : 'Gain'} ${c.goalKg}kg in ${c.effWeeks} weeks`;
+  const deltaLabel = c.direction === 'lose' ? 'Daily Deficit' : c.direction === 'gain' ? 'Daily Surplus' : 'Daily Balance';
+  const deltaVal = adj === 0 ? '0' : (adj > 0 ? '+' : '−') + Math.abs(adj);
+
+  box.innerHTML = `
+    <div class="stats-card">
+      <div class="stats-grid">
+        <div class="stat"><span>TDEE</span><b>${c.tdee}<i>kcal</i></b></div>
+        <div class="stat hero"><span>Daily Calories</span><b>${c.target}<i>kcal</i></b></div>
+        <div class="stat"><span>${deltaLabel}</span><b class="${c.direction}">${deltaVal}<i>cal</i></b></div>
+        <div class="stat"><span>Goal</span><b class="sm">${goalLine}</b></div>
+        <div class="stat"><span>Weekly Change</span><b class="sm">${c.weeklyChange === 0 ? '—' : (c.weeklyChange > 0 ? '+' : '') + c.weeklyChange + ' kg/wk'}</b></div>
+        <div class="stat"><span>Est. Completion</span><b class="sm">${c.completionDate || '—'}</b></div>
+      </div>
+
+      <div class="macro-split">
+        <div class="ms protein"><b>${c.protein}g</b><span>Protein · 30%</span></div>
+        <div class="ms carbs"><b>${c.carbs}g</b><span>Carbs · 40%</span></div>
+        <div class="ms fats"><b>${c.fats}g</b><span>Fats · 30%</span></div>
+      </div>
+
+      ${c.direction !== 'maintain' ? `
+      <div class="pred-chart">
+        <div class="pred-head">
+          <span>Weight prediction</span>
+          <span>${c.currentWeight}kg → ${c.targetWeight}kg</span>
+        </div>
+        ${predictionSVG(c.prediction, c.direction)}
+        <div class="pred-axis"><span>Now</span><span>Week ${c.prediction.length - 1}</span></div>
+      </div>` : ''}
+      ${c.minClamped ? `<p class="stat-note">Adjusted up to the safe minimum of ${c.target} kcal/day.</p>` : ''}
+    </div>`;
+  box.classList.add('show-results');
 }
 
 // ── Field helpers ─────────────────────────────────────────────────────────
@@ -192,62 +309,54 @@ function initProfile() {
   if (!form) return;
   if (!requireAuth()) return;
 
-  const fields = {
+  const F = {
     name: form.querySelector('[name=name]'),
     age: form.querySelector('[name=age]'),
-    weight: form.querySelector('[name=weight]'),
-    height: form.querySelector('[name=height]'),
     gender: form.querySelector('[name=gender]'),
-    goal: form.querySelector('[name=goal]'),
+    currentWeight: form.querySelector('[name=currentWeight]'),
+    targetWeight: form.querySelector('[name=targetWeight]'),
+    height: form.querySelector('[name=height]'),
+    timeline: form.querySelector('[name=timeline]'),
+    activityLevel: form.querySelector('[name=activityLevel]'),
   };
-  const box = document.getElementById('calorieResult');
 
-  // Prefill from session + server
-  const cached = Auth.user();
-  if (cached) {
-    if (cached.name) fields.name.value = cached.name;
-    if (cached.age) fields.age.value = cached.age;
-    if (cached.weight) fields.weight.value = cached.weight;
-    if (cached.height) fields.height.value = cached.height;
-    if (cached.gender) fields.gender.value = cached.gender;
-    if (cached.goal) fields.goal.value = cached.goal;
+  function fill(u) {
+    if (u.name) F.name.value = u.name;
+    if (u.age) F.age.value = u.age;
+    if (u.gender) F.gender.value = u.gender;
+    if (u.weight) F.currentWeight.value = u.weight;
+    if (u.targetWeight != null) F.targetWeight.value = u.targetWeight;
+    if (u.height) F.height.value = u.height;
+    if (u.timeline) F.timeline.value = u.timeline;
+    if (u.activityLevel) F.activityLevel.value = u.activityLevel;
   }
-  Auth.api('/api/profile').then(({ user }) => {
-    Auth.updateUser(user);
-    if (user.name) fields.name.value = user.name;
-    if (user.age) fields.age.value = user.age;
-    if (user.weight) fields.weight.value = user.weight;
-    if (user.height) fields.height.value = user.height;
-    if (user.gender) fields.gender.value = user.gender;
-    if (user.goal) fields.goal.value = user.goal;
-    updateCalc();
-  }).catch(() => {});
+  const cached = Auth.user();
+  if (cached) fill(cached);
+  Auth.api('/api/profile').then(({ user }) => { Auth.updateUser(user); fill(user); updateCalc(); }).catch(() => {});
 
   function updateCalc() {
     const c = clientCalc({
-      weight: Number(fields.weight.value), height: Number(fields.height.value),
-      age: Number(fields.age.value), gender: fields.gender.value, goal: fields.goal.value,
+      weight: Number(F.currentWeight.value), height: Number(F.height.value), age: Number(F.age.value),
+      gender: F.gender.value, activityLevel: F.activityLevel.value,
+      targetWeight: F.targetWeight.value, timeline: F.timeline.value,
     });
-    if (!c) { box.classList.remove('show'); return; }
-    box.querySelector('#calNum').firstChild.textContent = c.target;
-    box.querySelector('#calP').textContent = c.protein + 'g';
-    box.querySelector('#calC').textContent = c.carbs + 'g';
-    box.querySelector('#calF').textContent = c.fats + 'g';
-    box.classList.add('show');
+    renderProfileResults(c);
   }
-  ['age', 'weight', 'height', 'gender', 'goal'].forEach(k => {
-    fields[k].addEventListener('input', updateCalc);
-    fields[k].addEventListener('change', updateCalc);
+  Object.values(F).forEach(el => {
+    el.addEventListener('input', () => { clearError(el); updateCalc(); });
+    el.addEventListener('change', updateCalc);
   });
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
     let ok = true;
-    const age = Number(fields.age.value), weight = Number(fields.weight.value), height = Number(fields.height.value);
-    if (!fields.name.value.trim()) { setError(fields.name, 'Name is required'); ok = false; } else markValid(fields.name);
-    if (!age || age < 13 || age > 100) { setError(fields.age, 'Age must be between 13 and 100'); ok = false; } else markValid(fields.age);
-    if (!weight || weight < 25 || weight > 400) { setError(fields.weight, 'Enter a valid weight in kg'); ok = false; } else markValid(fields.weight);
-    if (!height || height < 90 || height > 250) { setError(fields.height, 'Enter a valid height in cm'); ok = false; } else markValid(fields.height);
+    const age = Number(F.age.value), weight = Number(F.currentWeight.value),
+      target = Number(F.targetWeight.value), height = Number(F.height.value);
+    if (!F.name.value.trim()) { setError(F.name, 'Name is required'); ok = false; } else markValid(F.name);
+    if (!age || age < 13 || age > 100) { setError(F.age, 'Age must be between 13 and 100'); ok = false; } else markValid(F.age);
+    if (!weight || weight < 25 || weight > 400) { setError(F.currentWeight, 'Enter a valid current weight'); ok = false; } else markValid(F.currentWeight);
+    if (!target || target < 25 || target > 400) { setError(F.targetWeight, 'Enter a valid target weight'); ok = false; } else markValid(F.targetWeight);
+    if (!height || height < 90 || height > 250) { setError(F.height, 'Enter a valid height in cm'); ok = false; } else markValid(F.height);
     if (!ok) return;
 
     const btn = form.querySelector('button[type=submit]');
@@ -257,13 +366,13 @@ function initProfile() {
       const data = await Auth.api('/api/profile', {
         method: 'PUT',
         body: JSON.stringify({
-          name: fields.name.value.trim(), age, weight, height,
-          gender: fields.gender.value, goal: fields.goal.value,
+          name: F.name.value.trim(), age, currentWeight: weight, targetWeight: target, height,
+          gender: F.gender.value, timeline: Number(F.timeline.value), activityLevel: F.activityLevel.value,
         }),
       });
       Auth.updateUser(data.user);
-      toast('Profile saved! Your daily target: ' + data.calories.target + ' kcal', 'success');
-      setTimeout(() => location.href = '/fridge.html', 900);
+      toast('Profile saved! Daily target: ' + data.calories.target + ' kcal', 'success');
+      setTimeout(() => location.href = '/fridge.html', 1000);
     } catch (err) {
       toast(err.message, 'error');
       btn.disabled = false; btn.innerHTML = label;

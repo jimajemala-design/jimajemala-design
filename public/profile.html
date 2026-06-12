@@ -29,7 +29,7 @@
       <div class="auth-card wide">
         <div class="auth-head">
           <h1 class="auth-title">Set up your profile</h1>
-          <p class="auth-sub">We'll calculate your personalized daily calorie target</p>
+          <p class="auth-sub">We'll build a precise, safe calorie plan for your goal</p>
         </div>
 
         <form id="profileForm" novalidate>
@@ -57,35 +57,51 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="pf-weight">Weight (kg)</label>
-              <input class="form-input" id="pf-weight" name="weight" type="number" min="25" max="400" step="0.1" placeholder="75" />
+              <label class="form-label" for="pf-weight">Current Weight (kg)</label>
+              <input class="form-input" id="pf-weight" name="currentWeight" type="number" min="25" max="400" step="0.1" placeholder="80" />
               <p class="form-error"></p>
             </div>
+            <div class="form-group">
+              <label class="form-label" for="pf-target">Target Weight (kg)</label>
+              <input class="form-input" id="pf-target" name="targetWeight" type="number" min="25" max="400" step="0.1" placeholder="72" />
+              <p class="form-error"></p>
+            </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="pf-height">Height (cm)</label>
               <input class="form-input" id="pf-height" name="height" type="number" min="90" max="250" placeholder="175" />
               <p class="form-error"></p>
             </div>
+            <div class="form-group">
+              <label class="form-label" for="pf-timeline">Timeline</label>
+              <select class="form-select" id="pf-timeline" name="timeline">
+                <option value="4">4 weeks</option>
+                <option value="8">8 weeks</option>
+                <option value="12" selected>12 weeks</option>
+                <option value="16">16 weeks</option>
+                <option value="24">24 weeks</option>
+                <option value="36">36 weeks</option>
+                <option value="52">52 weeks (1 year)</option>
+              </select>
+              <p class="form-error"></p>
+            </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="pf-goal">Fitness Goal</label>
-            <select class="form-select" id="pf-goal" name="goal">
-              <option value="lose_weight">Lose Weight</option>
-              <option value="maintain" selected>Maintain Weight</option>
-              <option value="gain_muscle">Gain Muscle</option>
+            <label class="form-label" for="pf-activity">Activity Level</label>
+            <select class="form-select" id="pf-activity" name="activityLevel">
+              <option value="sedentary">Sedentary — desk job, no exercise (×1.2)</option>
+              <option value="light">Lightly Active — 1-3 days/week (×1.375)</option>
+              <option value="moderate" selected>Moderately Active — 3-5 days/week (×1.55)</option>
+              <option value="very">Very Active — 6-7 days/week (×1.725)</option>
+              <option value="extreme">Extremely Active — athlete, 2×/day (×1.9)</option>
             </select>
           </div>
 
-          <div class="calorie-result" id="calorieResult">
-            <div class="calorie-result-label">Your daily target</div>
-            <div class="calorie-result-num" id="calNum">0<span> kcal</span></div>
-            <div class="calorie-macros">
-              <div class="calorie-macro"><b id="calP">0g</b><span>Protein</span></div>
-              <div class="calorie-macro"><b id="calC">0g</b><span>Carbs</span></div>
-              <div class="calorie-macro"><b id="calF">0g</b><span>Fats</span></div>
-            </div>
-          </div>
+          <div class="goal-warning" id="goalWarning"></div>
+          <div id="calorieResult"></div>
 
           <button class="btn-primary btn-block" type="submit">Save &amp; Continue</button>
         </form>

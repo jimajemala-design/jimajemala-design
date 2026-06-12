@@ -28,8 +28,56 @@
 
     <div class="fridge-header">
       <h1>My <em>Fridge</em> &amp; Meal Planner</h1>
-      <p>Stock your fridge, then let NutriBase build a daily plan around your goals.</p>
+      <p>Track today, get smart suggestions, and let NutriAI plan around your goals.</p>
     </div>
+
+    <!-- TODAY TRACKER -->
+    <section class="tracker-section" aria-label="Today's calorie tracker">
+      <div class="tracker-card">
+        <div class="tk-top">
+          <div class="tk-cals">
+            <div class="tk-cals-num" id="tkCalsNum">0 <span id="tkCalsTarget">/ 0 kcal</span></div>
+            <div class="tk-cals-label">Calories consumed today</div>
+            <div class="tk-bar"><div class="tk-bar-fill" id="tkBar"></div></div>
+          </div>
+          <div class="tk-macros">
+            <div class="tk-macro">
+              <div class="tk-macro-head"><span class="l">Protein</span><span class="v" id="tkPv">0g</span></div>
+              <div class="tk-macro-bar"><div class="tk-macro-fill protein" id="tkP"></div></div>
+            </div>
+            <div class="tk-macro">
+              <div class="tk-macro-head"><span class="l">Carbs</span><span class="v" id="tkCv">0g</span></div>
+              <div class="tk-macro-bar"><div class="tk-macro-fill carbs" id="tkC"></div></div>
+            </div>
+            <div class="tk-macro">
+              <div class="tk-macro-head"><span class="l">Fats</span><span class="v" id="tkFv">0g</span></div>
+              <div class="tk-macro-bar"><div class="tk-macro-fill fats" id="tkF"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tk-divider"></div>
+
+        <div class="logged-head">
+          <h3>Meals logged today</h3>
+          <button class="btn-ghost" id="logToggle">+ Log a meal</button>
+        </div>
+        <div class="log-form" id="logForm">
+          <input class="form-input" id="logName" type="text" placeholder="Meal name" />
+          <input class="form-input cal" id="logCals" type="number" placeholder="kcal" />
+          <button class="btn-primary" id="logAdd">Add</button>
+        </div>
+        <div class="logged-meals" id="loggedMeals"></div>
+
+        <div class="weekly-strip" id="weeklyStrip" aria-label="Weekly overview"></div>
+      </div>
+    </section>
+
+    <!-- SMART SUGGESTIONS -->
+    <section class="suggest-section" id="suggestSection" style="display:none">
+      <div class="suggest-title">⚡ Smart Suggestions <span id="suggestSub"></span></div>
+      <div class="suggest-grid" id="suggestGrid"></div>
+    </section>
 
     <div class="fridge-layout">
       <!-- LEFT: Fridge -->
@@ -38,28 +86,20 @@
           <h2>🧊 My Fridge</h2>
           <span class="count" id="fridgeCount">0 items</span>
         </div>
-
         <div class="fridge-search">
           <input class="form-input" id="searchInput" type="text" placeholder="Search ingredients…" autocomplete="off" />
           <button class="btn-ghost" id="searchAddBtn">Add</button>
           <div class="search-results" id="searchResults"></div>
         </div>
-
         <div class="quick-add" id="quickAdd"></div>
-
         <div class="fridge-list" id="fridgeList"></div>
-
         <button class="btn-primary btn-block generate-btn" id="generateBtn">⚡ Generate Meal Plan</button>
       </section>
 
       <!-- RIGHT: Meal plan -->
       <section class="panel" aria-label="Daily meal plan">
-        <div class="panel-title">
-          <h2>📋 My Daily Meal Plan</h2>
-        </div>
-
+        <div class="panel-title"><h2>📋 My Daily Meal Plan</h2></div>
         <div class="plan-targets" id="planTargets"></div>
-
         <div id="mealPlan">
           <div class="plan-empty">
             <div class="big">🍳</div>
@@ -69,6 +109,34 @@
       </section>
     </div>
   </main>
+
+  <!-- AI CHAT -->
+  <button class="chat-fab" id="chatFab" aria-label="Open NutriAI assistant">🧠</button>
+  <div class="chat-panel" id="chatPanel" role="dialog" aria-label="NutriAI Assistant">
+    <div class="chat-head">
+      <div class="ch-icon" aria-hidden="true">🌿</div>
+      <div>
+        <div class="ch-title">NutriAI Assistant</div>
+        <div class="ch-sub">● Online</div>
+      </div>
+      <div class="ch-actions">
+        <button class="chat-icon-btn" id="chatClear" title="Clear chat">🗑</button>
+        <button class="chat-icon-btn" id="chatClose" title="Close">✕</button>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-suggest" id="chatSuggest">
+      <button>Make me a meal plan</button>
+      <button>How much protein do I need?</button>
+      <button>What can I cook?</button>
+    </div>
+    <div class="chat-input-row">
+      <input class="chat-input" id="chatInput" type="text" placeholder="Ask NutriAI anything…" />
+      <button class="chat-send" id="chatSend" aria-label="Send">➤</button>
+    </div>
+  </div>
+
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
 
   <script src="/js/auth.js"></script>
   <script src="/js/fridge.js"></script>

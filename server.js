@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -10,15 +11,26 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
+// Anthropic SDK — only initialized when a real API key is configured
+let anthropic = null;
+try {
+  const Anthropic = require('@anthropic-ai/sdk');
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (key && key !== 'your_key_here' && key.length > 12) {
+    anthropic = new Anthropic({ apiKey: key });
+  }
+} catch (e) { /* SDK not installed or no key — fall back to built-in assistant */ }
+
 // ─── Data storage (server-side JSON files) ──────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET || 'nutribase-georgia-secret-key-2035';
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const FRIDGES_FILE = path.join(DATA_DIR, 'fridges.json');
 const MEALPLANS_FILE = path.join(DATA_DIR, 'mealplans.json');
+const LOGS_FILE = path.join(DATA_DIR, 'logs.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE]) {
+for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE, LOGS_FILE]) {
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf8');
 }
 const readJSON = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8') || '[]'); } catch { return []; } };
@@ -38,20 +50,86 @@ function auth(req, res, next) {
   }
 }
 
-// Mifflin-St Jeor calorie + macro calculator
+// Activity multipliers
+const ACTIVITY = { sedentary: 1.2, light: 1.375, moderate: 1.55, very: 1.725, extreme: 1.9 };
+const CALS_PER_KG = 7700;
+const MAX_DEFICIT = -1000;   // 2 kg/week max loss
+const MAX_SURPLUS = 500;     // 0.5 kg/week max gain
+
+// Advanced Mifflin-St Jeor + target-weight/timeline calorie engine
 function calcCalories(p) {
   if (!p || !p.weight || !p.height || !p.age) return null;
-  const bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (p.gender === 'female' ? -161 : 5);
-  const tdee = bmr * 1.55;
-  const factor = p.goal === 'lose_weight' ? 0.8 : p.goal === 'gain_muscle' ? 1.2 : 1.0;
-  const target = Math.round(tdee * factor);
+  const gender = p.gender === 'female' ? 'female' : 'male';
+  const bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (gender === 'female' ? -161 : 5);
+  const mult = ACTIVITY[p.activityLevel] || 1.55;
+  const tdee = bmr * mult;
+
+  const current = Number(p.weight);
+  const targetW = (p.targetWeight != null && p.targetWeight !== '') ? Number(p.targetWeight) : current;
+  const weeks = Number(p.timeline) || 12;
+  const diff = +(targetW - current).toFixed(2);                 // +gain / -lose (kg)
+  const direction = diff < -0.05 ? 'lose' : diff > 0.05 ? 'gain' : 'maintain';
+
+  const totalCals = diff * CALS_PER_KG;
+  const requestedDaily = weeks > 0 ? totalCals / (weeks * 7) : 0; // +surplus / -deficit
+
+  let dailyAdjust = requestedDaily;
+  let warning = null, suggestedWeeks = null;
+  if (requestedDaily < MAX_DEFICIT) {
+    dailyAdjust = MAX_DEFICIT;
+    suggestedWeeks = Math.ceil(Math.abs(totalCals) / (Math.abs(MAX_DEFICIT) * 7));
+    warning = `This pace is too aggressive. Losing more than 1kg/week can cause muscle loss and nutrient deficiencies. We recommend ${suggestedWeeks} weeks instead for healthy results.`;
+  } else if (requestedDaily > MAX_SURPLUS) {
+    dailyAdjust = MAX_SURPLUS;
+    suggestedWeeks = Math.ceil(totalCals / (MAX_SURPLUS * 7));
+    warning = `This pace is too aggressive. Gaining more than 0.5kg/week tends to add fat rather than muscle. We recommend ${suggestedWeeks} weeks instead for lean results.`;
+  }
+
+  let target = Math.round(tdee + dailyAdjust);
+  const minCal = gender === 'female' ? 1200 : 1500;
+  let minClamped = false;
+  if (target < minCal) { target = minCal; dailyAdjust = Math.round(target - tdee); minClamped = true; }
+
+  const weeklyChange = +((dailyAdjust * 7) / CALS_PER_KG).toFixed(3);  // signed kg/week
+  let effWeeks = weeks;
+  if (direction === 'maintain') effWeeks = 0;
+  else if (Math.abs(weeklyChange) > 0.0001) effWeeks = Math.abs(diff / weeklyChange);
+  effWeeks = Math.round(effWeeks * 10) / 10;
+
+  const completionDate = direction === 'maintain'
+    ? null
+    : new Date(Date.now() + effWeeks * 7 * 86400000).toISOString().slice(0, 10);
+
+  const prediction = [];
+  const totalWeeks = Math.min(Math.max(Math.ceil(effWeeks), 1), 52);
+  for (let w = 0; w <= totalWeeks; w++) {
+    let val = current + weeklyChange * w;
+    if (direction === 'lose') val = Math.max(val, targetW);
+    if (direction === 'gain') val = Math.min(val, targetW);
+    prediction.push({ week: w, weight: +val.toFixed(1) });
+  }
+
   return {
     bmr: Math.round(bmr),
     tdee: Math.round(tdee),
     target,
+    dailyAdjust: Math.round(dailyAdjust),
+    weeklyChange,
+    direction,
+    goalKg: +Math.abs(diff).toFixed(1),
+    currentWeight: current,
+    targetWeight: targetW,
+    weeks,
+    effWeeks,
+    completionDate,
+    minClamped,
+    warning,
+    suggestedWeeks,
+    activityMultiplier: mult,
     protein: Math.round((target * 0.30) / 4),
     carbs: Math.round((target * 0.40) / 4),
     fats: Math.round((target * 0.30) / 9),
+    prediction,
   };
 }
 
@@ -1548,13 +1626,23 @@ app.put('/api/profile', auth, (req, res) => {
   const idx = users.findIndex(u => u.id === req.userId);
   if (idx === -1) return res.status(404).json({ error: 'User not found' });
   const u = users[idx];
-  const { name, age, weight, height, gender, goal } = req.body || {};
+  const { name, age, weight, currentWeight, targetWeight, height, gender, goal, timeline, activityLevel } = req.body || {};
   if (name != null) u.name = String(name).trim();
   if (age != null) u.age = Number(age);
-  if (weight != null) u.weight = Number(weight);
+  const cw = currentWeight != null ? currentWeight : weight;
+  if (cw != null) u.weight = Number(cw);
+  if (targetWeight != null) u.targetWeight = Number(targetWeight);
   if (height != null) u.height = Number(height);
   if (gender != null) u.gender = String(gender);
-  if (goal != null) u.goal = String(goal);
+  if (timeline != null) u.timeline = Number(timeline);
+  if (activityLevel != null) u.activityLevel = String(activityLevel);
+  // Derive goal from target vs current weight (falls back to explicit goal)
+  if (u.targetWeight != null && u.weight != null) {
+    u.goal = u.targetWeight < u.weight - 0.05 ? 'lose_weight'
+      : u.targetWeight > u.weight + 0.05 ? 'gain_muscle' : 'maintain';
+  } else if (goal != null) {
+    u.goal = String(goal);
+  }
   users[idx] = u;
   writeJSON(USERS_FILE, users);
   res.json({ user: publicUser(u), calories: calcCalories(u) });
@@ -1717,6 +1805,144 @@ app.post('/api/mealplan/save', auth, (req, res) => {
   if (!plan) return res.status(400).json({ error: 'No meal plan to save — generate one first' });
   setUserPlan(req.userId, plan, true);
   res.json({ success: true, message: 'Meal plan saved' });
+});
+
+// ─── DAILY MEAL LOG (calorie tracker + weekly overview) ────────────────────
+app.get('/api/logs', auth, (req, res) => {
+  res.json(readJSON(LOGS_FILE).filter(l => l.userId === req.userId));
+});
+
+app.post('/api/logs', auth, (req, res) => {
+  const { name, calories, protein, carbs, fat, date } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Meal name is required' });
+  const logs = readJSON(LOGS_FILE);
+  const entry = {
+    id: uuidv4(),
+    userId: req.userId,
+    name: String(name).trim(),
+    calories: Math.round(Number(calories) || 0),
+    protein: +(Number(protein) || 0).toFixed(1),
+    carbs: +(Number(carbs) || 0).toFixed(1),
+    fat: +(Number(fat) || 0).toFixed(1),
+    date: date || new Date().toISOString().slice(0, 10),
+    createdAt: new Date().toISOString(),
+  };
+  logs.push(entry);
+  writeJSON(LOGS_FILE, logs);
+  res.status(201).json(entry);
+});
+
+app.delete('/api/logs/:id', auth, (req, res) => {
+  let logs = readJSON(LOGS_FILE);
+  const before = logs.length;
+  logs = logs.filter(l => !(l.id === req.params.id && l.userId === req.userId));
+  if (logs.length === before) return res.status(404).json({ error: 'Log not found' });
+  writeJSON(LOGS_FILE, logs);
+  res.json({ success: true });
+});
+
+// ─── AI CHAT (NutriAI) ─────────────────────────────────────────────────────
+function buildSystemPrompt(user, fridge, cal) {
+  const profile = user ? {
+    name: user.name, age: user.age, gender: user.gender,
+    currentWeight: user.weight, targetWeight: user.targetWeight, height: user.height,
+    activityLevel: user.activityLevel, timelineWeeks: user.timeline, goal: user.goal,
+  } : {};
+  const fridgeList = fridge.map(i => ({ name: i.name, quantity: i.quantity, category: i.category }));
+  const foodDb = foods.map(f => `${f.name} (${f.calories}kcal P${f.nutrition.protein} C${f.nutrition.carbs} F${f.nutrition.fat})`).join('; ');
+  const target = cal ? `${cal.target} kcal/day` : 'not set (profile incomplete)';
+  const macros = cal ? `Protein ${cal.protein}g, Carbs ${cal.carbs}g, Fats ${cal.fats}g` : 'not set';
+  return `You are NutriAI, an expert nutrition and fitness assistant for NutriBase Georgia. You have access to the user's profile and fridge contents. Always be encouraging, scientific, and practical.
+
+User Profile: ${JSON.stringify(profile)}
+Fridge Contents: ${JSON.stringify(fridgeList)}
+Daily Calorie Target: ${target}
+Macro Targets: ${macros}
+Available Foods Database (per 100g): ${foodDb}
+
+Rules:
+- Always base advice on the user's specific calorie and macro targets
+- When suggesting meals, only use ingredients from their fridge
+- Always show calories and macros for suggested meals
+- Be encouraging but realistic about goals
+- Keep responses concise and actionable
+- Format meal suggestions clearly with quantities
+- If asked about medical conditions, recommend doctor consultation`;
+}
+
+// Smart rule-based assistant used when no Anthropic API key is configured
+function fallbackReply(message, user, fridge, cal) {
+  const m = String(message).toLowerCase();
+  const name = user && user.name ? user.name.split(' ')[0] : 'there';
+  const t = cal ? cal.target : null;
+  const names = fridge.map(f => f.name);
+  const has = names.length ? names.join(', ') : 'nothing yet';
+  const noKey = anthropic ? '' : '\n\n_(Tip: add a real ANTHROPIC_API_KEY to .env for full conversational AI — these are smart built-in answers.)_';
+
+  if (/protein/.test(m)) {
+    return cal
+      ? `Based on your ${t} kcal/day target, aim for about **${cal.protein}g of protein** daily (~${(cal.protein / (user.weight || 70)).toFixed(1)}g per kg). Spread it out — eggs at breakfast, chicken/fish at lunch & dinner, Greek yogurt as a snack.${noKey}`
+      : `Complete your profile and I'll calculate your exact protein target.${noKey}`;
+  }
+  if (/(how many )?calorie|target|tdee/.test(m)) {
+    return cal
+      ? `Your personalized target is **${t} kcal/day** — a ${cal.direction === 'lose' ? 'deficit' : cal.direction === 'gain' ? 'surplus' : 'maintenance'} of ${Math.abs(cal.dailyAdjust)} cal vs your TDEE of ${cal.tdee}. Macros: ${cal.protein}g P / ${cal.carbs}g C / ${cal.fats}g F.${noKey}`
+      : `Finish your profile (weight, height, age, activity, goal) and I'll compute your exact target.${noKey}`;
+  }
+  if (/meal plan|plan for (today|the day)|day plan|1\d{3}\s*cal/.test(m)) {
+    if (!fridge.length) return `Your fridge is empty, ${name}! Add a few ingredients and I'll build a full day around your ${t || 'daily'} kcal target. Use the **Generate Meal Plan** button once stocked.${noKey}`;
+    return `From your fridge (${has}) for a ${t || ''} kcal day:\n• **Breakfast** — ${names[0] || 'eggs'}\n• **Lunch** — ${names[1] || names[0]}\n• **Dinner** — ${names[2] || names[0]}\n• **Snack** — ${names[3] || names[0]}\nHit **Generate Meal Plan** for exact portions and macros!${noKey}`;
+  }
+  if (/cook|make with|recipe|what can i (eat|make|cook)|20 min|quick/.test(m)) {
+    return fridge.length
+      ? `With ${has}, build a plate of protein + carb + veg. A quick option: ${names.slice(0, 2).join(' + ') || 'your items'} — ready in ~15 min. Tap **Generate Meal Plan** for portioned macros.${noKey}`
+      : `Add a few ingredients first, then I'll suggest recipes you can actually make with what you have.${noKey}`;
+  }
+  if (/give up|quit|too hard|can.?t do|motivat|hate this/.test(m)) {
+    return `Don't give up, ${name}! ${cal && cal.goalKg ? `You're aiming to ${cal.direction} ${cal.goalKg}kg — totally achievable at a healthy pace.` : ''} Progress isn't linear; consistency beats perfection. One good choice at a time. 💪${noKey}`;
+  }
+  if (/realistic|how long|when will|see results|results/.test(m)) {
+    return cal && cal.completionDate
+      ? `At a safe pace you'd hit your goal around **${cal.completionDate}** (~${cal.effWeeks} weeks), changing about ${Math.abs(cal.weeklyChange)}kg/week. Visible results usually show in 3-4 weeks. Stay consistent!${noKey}`
+      : `Set a target weight and timeline in your profile and I'll project your completion date.${noKey}`;
+  }
+  if (/cheat|ate too much|over\s?ate|already ate|slipped/.test(m)) {
+    return `No worries — one meal won't undo your progress. Get back on track at your next meal, hit your ${t || 'daily'} target tomorrow, drink water, and add a walk if you can. You've got this.${noKey}`;
+  }
+  if (/rice|carb|sugar|bread|good for/.test(m)) {
+    return `Carbs aren't the enemy — they fuel training and recovery. For ${cal && cal.direction === 'lose' ? 'fat loss' : 'your goal'}, keep portions aligned to your ${cal ? cal.carbs + 'g' : 'daily'} carb target and favor whole sources (rice, oats, sweet potato) over refined ones.${noKey}`;
+  }
+  return `Hi ${name}! I'm **NutriAI**. I can suggest meals from your fridge (${has}), explain your ${t ? t + ' kcal' : ''} targets, and answer nutrition questions. Try: "make me a meal plan", "how much protein do I need?", or "what can I cook?"${noKey}`;
+}
+
+app.post('/api/ai/chat', auth, async (req, res) => {
+  const { message, history } = req.body || {};
+  if (!message || !String(message).trim()) return res.status(400).json({ error: 'Message is required' });
+
+  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+  const fridge = readJSON(FRIDGES_FILE).filter(i => i.userId === req.userId);
+  const cal = calcCalories(user);
+
+  if (!anthropic) {
+    return res.json({ reply: fallbackReply(message, user, fridge, cal), fallback: true });
+  }
+  try {
+    const prior = Array.isArray(history) ? history.slice(-10) : [];
+    const messages = [
+      ...prior.map(h => ({ role: h.role === 'assistant' ? 'assistant' : 'user', content: String(h.content) })),
+      { role: 'user', content: String(message) },
+    ];
+    const resp = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      system: buildSystemPrompt(user, fridge, cal),
+      messages,
+    });
+    const reply = (resp.content || []).map(c => c.text || '').join('').trim();
+    res.json({ reply: reply || fallbackReply(message, user, fridge, cal) });
+  } catch (err) {
+    res.json({ reply: fallbackReply(message, user, fridge, cal), fallback: true, note: 'AI service temporarily unavailable' });
+  }
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
