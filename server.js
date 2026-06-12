@@ -1928,8 +1928,9 @@ app.post('/api/ai/chat', auth, async (req, res) => {
   }
   try {
     const model = genAI.getGenerativeModel({
-      // gemini-1.5-flash is retired on the v1beta API; 2.0-flash is its free-tier successor
-      model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+      // gemini-1.5-flash is retired (404) on this key; gemini-2.5-flash is the
+      // current free-tier flash model with available quota. Override via GEMINI_MODEL.
+      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
       systemInstruction: buildSystemPrompt(user, fridge, cal),
     });
     // Gemini requires history to start with a 'user' turn; include prior turns as context text
