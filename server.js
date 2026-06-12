@@ -11,13 +11,13 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// Anthropic SDK — only initialized when a real API key is configured
-let anthropic = null;
+// Google Gemini — primary AI provider for the nutrition chat assistant
+let genAI = null;
 try {
-  const Anthropic = require('@anthropic-ai/sdk');
-  const key = process.env.ANTHROPIC_API_KEY;
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+  const key = process.env.GEMINI_API_KEY;
   if (key && key !== 'your_key_here' && key.length > 12) {
-    anthropic = new Anthropic({ apiKey: key });
+    genAI = new GoogleGenerativeAI(key);
   }
 } catch (e) { /* SDK not installed or no key — fall back to built-in assistant */ }
 
@@ -1870,14 +1870,14 @@ Rules:
 - If asked about medical conditions, recommend doctor consultation`;
 }
 
-// Smart rule-based assistant used when no Anthropic API key is configured
+// Smart rule-based assistant used when no Gemini API key is configured (or the API errors)
 function fallbackReply(message, user, fridge, cal) {
   const m = String(message).toLowerCase();
   const name = user && user.name ? user.name.split(' ')[0] : 'there';
   const t = cal ? cal.target : null;
   const names = fridge.map(f => f.name);
   const has = names.length ? names.join(', ') : 'nothing yet';
-  const noKey = anthropic ? '' : '\n\n_(Tip: add a real ANTHROPIC_API_KEY to .env for full conversational AI — these are smart built-in answers.)_';
+  const noKey = genAI ? '' : '\n\n_(Tip: add a real GEMINI_API_KEY to .env for full conversational AI — these are smart built-in answers.)_';
 
   if (/protein/.test(m)) {
     return cal
@@ -1923,22 +1923,23 @@ app.post('/api/ai/chat', auth, async (req, res) => {
   const fridge = readJSON(FRIDGES_FILE).filter(i => i.userId === req.userId);
   const cal = calcCalories(user);
 
-  if (!anthropic) {
+  if (!genAI) {
     return res.json({ reply: fallbackReply(message, user, fridge, cal), fallback: true });
   }
   try {
-    const prior = Array.isArray(history) ? history.slice(-10) : [];
-    const messages = [
-      ...prior.map(h => ({ role: h.role === 'assistant' ? 'assistant' : 'user', content: String(h.content) })),
-      { role: 'user', content: String(message) },
-    ];
-    const resp = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      system: buildSystemPrompt(user, fridge, cal),
-      messages,
+    const model = genAI.getGenerativeModel({
+      // gemini-1.5-flash is retired on the v1beta API; 2.0-flash is its free-tier successor
+      model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+      systemInstruction: buildSystemPrompt(user, fridge, cal),
     });
-    const reply = (resp.content || []).map(c => c.text || '').join('').trim();
+    // Gemini requires history to start with a 'user' turn; include prior turns as context text
+    const prior = Array.isArray(history) ? history.slice(-10) : [];
+    const convo = prior
+      .map(h => `${h.role === 'assistant' ? 'NutriAI' : 'User'}: ${String(h.content)}`)
+      .join('\n');
+    const prompt = (convo ? convo + '\n' : '') + 'User: ' + String(message);
+    const result = await model.generateContent(prompt);
+    const reply = (result.response.text() || '').trim();
     res.json({ reply: reply || fallbackReply(message, user, fridge, cal) });
   } catch (err) {
     res.json({ reply: fallbackReply(message, user, fridge, cal), fallback: true, note: 'AI service temporarily unavailable' });
