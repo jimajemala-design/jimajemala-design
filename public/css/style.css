@@ -512,6 +512,11 @@ body {
   font-size: 12px; font-weight: 600;
   color: var(--green);
 }
+.card-cal-unit {
+  color: var(--text-3);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
 .card-macros {
   display: flex; gap: 12px;
   font-family: var(--font-mono);

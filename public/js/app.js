@@ -163,7 +163,7 @@ const App = (() => {
           </div>
           <span class="card-emoji" aria-hidden="true">${f.emoji}</span>
           <div class="card-name">${f.name}</div>
-          <span class="card-cal">${f.calories} KCAL</span>
+          <span class="card-cal">${f.calories} KCAL <span class="card-cal-unit">/ 100g</span></span>
           <div class="card-macros">
             <span>P <b>${n.protein}g</b></span>
             <span>C <b>${n.carbs}g</b></span>
@@ -343,7 +343,7 @@ const App = (() => {
             ${CATEGORY_LABELS[cat]} · SPECIMEN PROFILE
           </div>
           <h2 class="food-name">${food.name}</h2>
-          <span class="food-serving">PER SERVING — ${food.serving.toUpperCase()}</span>
+          <span class="food-serving">VALUES PER ${food.serving}</span>
         </div>
         <div class="calorie-box">
           <span class="calorie-num" data-target="${food.calories}">${food.calories}</span>

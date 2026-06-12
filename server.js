@@ -12,8 +12,8 @@ const foods = [
     name: 'Apple',
     emoji: '🍎',
     color: '#e74c3c',
-    calories: 95,
-    nutrition: { protein: 0.5, carbs: 25, fat: 0.3, fiber: 4.4, sugar: 19, vitaminC: 14 },
+    calories: 52,
+    nutrition: { protein: 0.3, carbs: 14, fat: 0.2, fiber: 2.4, vitaminC: 7.2, vitaminK: 2.4, vitaminB6: 0.02 },
     benefits: [
       'Rich in antioxidants and quercetin',
       'High dietary fiber supports digestion',
@@ -28,15 +28,15 @@ const foods = [
       'Acidic — can affect tooth enamel'
     ],
     description: 'A crisp, sweet fruit packed with fiber and vitamin C.',
-    serving: '1 medium (182g)'
+    serving: '100g'
   },
   {
     id: 'banana',
     name: 'Banana',
     emoji: '🍌',
     color: '#f1c40f',
-    calories: 105,
-    nutrition: { protein: 1.3, carbs: 27, fat: 0.4, fiber: 3.1, sugar: 14, potassium: 422 },
+    calories: 89,
+    nutrition: { protein: 1.1, carbs: 23, fat: 0.3, fiber: 2.6, vitaminB6: 0.34, vitaminC: 8.1, potassium: 376 },
     benefits: [
       'Excellent source of potassium for heart health',
       'Provides quick, sustained energy',
@@ -51,7 +51,7 @@ const foods = [
       'Unripe bananas can cause bloating'
     ],
     description: 'A tropical fruit rich in potassium and natural energy.',
-    serving: '1 medium (118g)'
+    serving: '100g'
   },
   {
     id: 'chicken',
@@ -59,7 +59,7 @@ const foods = [
     emoji: '🍗',
     color: '#f39c12',
     calories: 165,
-    nutrition: { protein: 31, carbs: 0, fat: 3.6, fiber: 0, sodium: 74, vitaminB12: 0.3 },
+    nutrition: { protein: 31, carbs: 0, fat: 3.6, fiber: 0, vitaminB6: 0.85, vitaminB12: 0.48, niacin: 9.6 },
     benefits: [
       'Highest protein-to-calorie ratio of common meats',
       'Complete amino acid profile for muscle building',
@@ -74,7 +74,7 @@ const foods = [
       'Minimal micronutrient diversity'
     ],
     description: 'Lean protein powerhouse ideal for muscle growth and repair.',
-    serving: '100g cooked'
+    serving: '100g'
   },
   {
     id: 'fish',
@@ -82,7 +82,7 @@ const foods = [
     emoji: '🐟',
     color: '#e67e22',
     calories: 208,
-    nutrition: { protein: 20, carbs: 0, fat: 13, fiber: 0, omega3: 2.3, vitaminD: 447 },
+    nutrition: { protein: 20, carbs: 0, fat: 13, fiber: 0, omega3: 2.3, vitaminD: 600, vitaminB12: 1.22, selenium: 19.8 },
     benefits: [
       'Highest dietary source of omega-3 fatty acids',
       'Reduces inflammation throughout the body',
@@ -97,15 +97,15 @@ const foods = [
       'Allergenic for fish-sensitive individuals'
     ],
     description: 'Omega-3 rich fatty fish with exceptional cardiovascular benefits.',
-    serving: '100g cooked'
+    serving: '100g'
   },
   {
     id: 'almond',
     name: 'Almond',
     emoji: '🥜',
     color: '#8B6914',
-    calories: 164,
-    nutrition: { protein: 6, carbs: 6, fat: 14, fiber: 3.5, vitaminE: 7.3, magnesium: 76 },
+    calories: 579,
+    nutrition: { protein: 21, carbs: 22, fat: 49, fiber: 12.5, vitaminE: 20.6, magnesium: 281, calcium: 260 },
     benefits: [
       'Outstanding source of vitamin E antioxidant',
       'Rich in monounsaturated heart-healthy fats',
@@ -120,15 +120,15 @@ const foods = [
       'Phytic acid can reduce mineral absorption'
     ],
     description: 'Nutrient-dense tree nut rich in healthy fats and vitamin E.',
-    serving: '28g (about 23 almonds)'
+    serving: '100g'
   },
   {
     id: 'egg',
     name: 'Eggs',
     emoji: '🥚',
     color: '#F5E6C8',
-    calories: 70,
-    nutrition: { protein: 6, carbs: 0.6, fat: 5, fiber: 0, vitaminB12: 0.6, selenium: 15.4, choline: 147, sodium: 62 },
+    calories: 155,
+    nutrition: { protein: 13, carbs: 1.1, fat: 11, fiber: 0, vitaminB12: 1.1, selenium: 24.2, choline: 330 },
     benefits: [
       'Complete protein with all 9 essential amino acids',
       'Rich in choline for brain health and memory',
@@ -143,15 +143,15 @@ const foods = [
       'Factory-farmed eggs lower in omega-3 than pasture-raised'
     ],
     description: "Nature's most complete food — affordable, versatile, and nutritionally dense.",
-    serving: '1 large (50g)'
+    serving: '100g'
   },
   {
     id: 'sweetpotato',
     name: 'Sweet Potato',
     emoji: '🍠',
     color: '#E8611A',
-    calories: 103,
-    nutrition: { protein: 2, carbs: 24, fat: 0.1, fiber: 3.9, vitaminA: 961, vitaminC: 19.6, potassium: 438, vitaminB6: 0.3, sodium: 41 },
+    calories: 86,
+    nutrition: { protein: 1.6, carbs: 20, fat: 0.1, fiber: 3, vitaminA: 2556, vitaminC: 3.6, vitaminB6: 0.24 },
     benefits: [
       'Extraordinary beta-carotene source — over 960% daily vitamin A',
       'Powerful anti-inflammatory carotenoids',
@@ -166,11 +166,11 @@ const foods = [
       'Oxalates may be a concern for kidney stone prone individuals'
     ],
     description: 'An orange root vegetable loaded with beta-carotene, fiber, and complex carbs.',
-    serving: '1 medium (130g)'
+    serving: '100g'
   },
   {
-    id: 'broccoli', name: 'Broccoli', emoji: '🥦', color: '#22863a', calories: 55,
-    nutrition: { protein: 3.7, carbs: 11, fiber: 5.1, fat: 0.6, vitaminC: 81, vitaminK: 92, folate: 57, vitaminA: 60 },
+    id: 'broccoli', name: 'Broccoli', emoji: '🥦', color: '#22863a', calories: 34,
+    nutrition: { protein: 2.8, carbs: 7, fiber: 2.6, fat: 0.4, vitaminC: 80.1, vitaminK: 92.4, folate: 56 },
     benefits: [
       'Cancer-fighting sulforaphane compound',
       'Exceptional vitamin K supports bone density',
@@ -184,11 +184,11 @@ const foods = [
       'Bitter taste when overcooked'
     ],
     description: 'A cruciferous vegetable powerhouse loaded with cancer-fighting sulforaphane.',
-    serving: '1 cup (91g)'
+    serving: '100g'
   },
   {
     id: 'avocado', name: 'Avocado', emoji: '🥑', color: '#355e3b', calories: 160,
-    nutrition: { protein: 2, carbs: 9, fiber: 7, fat: 15, vitaminK: 21, folate: 80, vitaminB6: 0.2, vitaminE: 1.5, potassium: 487 },
+    nutrition: { protein: 2, carbs: 9, fiber: 7, fat: 15, vitaminK: 31.2, folate: 80, vitaminB6: 0.22 },
     benefits: [
       'Rich in heart-healthy monounsaturated fats',
       'High folate supports brain and cell health',
@@ -202,11 +202,11 @@ const foods = [
       'High fat content (though mostly healthy)'
     ],
     description: 'A creamy, nutrient-rich fruit packed with heart-healthy fats and folate.',
-    serving: '1/2 medium (68g)'
+    serving: '100g'
   },
   {
-    id: 'blueberry', name: 'Blueberries', emoji: '🫐', color: '#4b3b8c', calories: 84,
-    nutrition: { protein: 1.1, carbs: 21, fiber: 3.6, fat: 0.5, vitaminC: 14, vitaminK: 29, manganese: 0.58 },
+    id: 'blueberry', name: 'Blueberries', emoji: '🫐', color: '#4b3b8c', calories: 57,
+    nutrition: { protein: 0.7, carbs: 14, fiber: 2.4, fat: 0.3, vitaminC: 14.4, vitaminK: 28.8, manganese: 0.39 },
     benefits: [
       'Highest antioxidant content of all common fruits',
       'Anthocyanins improve brain function and memory',
@@ -220,11 +220,11 @@ const foods = [
       'Expensive when out of season'
     ],
     description: 'A small but mighty berry with the highest antioxidant capacity of any common fruit.',
-    serving: '1 cup (148g)'
+    serving: '100g'
   },
   {
-    id: 'spinach', name: 'Spinach', emoji: '🥬', color: '#2d6a2f', calories: 7,
-    nutrition: { protein: 0.9, carbs: 1.1, fiber: 0.7, fat: 0.1, vitaminK: 145, vitaminA: 281, folate: 58, vitaminC: 8 },
+    id: 'spinach', name: 'Spinach', emoji: '🥬', color: '#2d6a2f', calories: 23,
+    nutrition: { protein: 2.9, carbs: 3.6, fiber: 2.2, fat: 0.4, vitaminK: 552, vitaminA: 1692, folate: 196, vitaminC: 42.3 },
     benefits: [
       'Extraordinary vitamin K content for bone health',
       'Lutein and zeaxanthin protect eye health',
@@ -238,11 +238,11 @@ const foods = [
       'Can contribute to kidney stones in excess'
     ],
     description: 'One of the most nutrient-dense foods on earth — extremely high vitamin K with near-zero calories.',
-    serving: '1 cup raw (30g)'
+    serving: '100g'
   },
   {
-    id: 'greekyogurt', name: 'Greek Yogurt', emoji: '🍦', color: '#f0ede6', calories: 100,
-    nutrition: { protein: 17, carbs: 6, fiber: 0, fat: 0.7, vitaminB12: 0.5, calcium: 180, phosphorus: 105, riboflavin: 0.16 },
+    id: 'greekyogurt', name: 'Greek Yogurt', emoji: '🍦', color: '#f0ede6', calories: 59,
+    nutrition: { protein: 10, carbs: 3.6, fiber: 0, fat: 0.4, vitaminB12: 0.31, calcium: 110, phosphorus: 90 },
     benefits: [
       'Extremely high protein — twice that of regular yogurt',
       'Probiotics support gut health and immune function',
@@ -256,11 +256,11 @@ const foods = [
       'More expensive than regular yogurt'
     ],
     description: 'A strained yogurt with double the protein of regular yogurt and powerful probiotic benefits.',
-    serving: '170g container'
+    serving: '100g'
   },
   {
-    id: 'carrot', name: 'Carrot', emoji: '🥕', color: '#f97316', calories: 25,
-    nutrition: { protein: 0.6, carbs: 6, fiber: 1.7, fat: 0.1, vitaminA: 509, vitaminK: 8, vitaminB6: 0.09, biotin: 0.6 },
+    id: 'carrot', name: 'Carrot', emoji: '🥕', color: '#f97316', calories: 41,
+    nutrition: { protein: 0.9, carbs: 10, fiber: 2.8, fat: 0.2, vitaminA: 3006, vitaminK: 15.6, vitaminB6: 0.14 },
     benefits: [
       'Extraordinary beta-carotene source for vision and immune health',
       'Antioxidants reduce risk of certain cancers',
@@ -274,11 +274,11 @@ const foods = [
       'Low in complete protein'
     ],
     description: 'An orange root packed with beta-carotene — one of the best plant sources of vitamin A.',
-    serving: '1 medium (61g)'
+    serving: '100g'
   },
   {
-    id: 'oats', name: 'Oats', emoji: '🥣', color: '#d4a853', calories: 166,
-    nutrition: { protein: 5.9, carbs: 32, fiber: 4, fat: 3.6, manganese: 1.4, phosphorus: 126, magnesium: 56, zinc: 1.2 },
+    id: 'oats', name: 'Oats', emoji: '🥣', color: '#d4a853', calories: 389,
+    nutrition: { protein: 17, carbs: 66, fiber: 10.6, fat: 7, manganese: 5.66, phosphorus: 520, magnesium: 185 },
     benefits: [
       'Beta-glucan fiber clinically proven to lower LDL cholesterol',
       'Sustained slow-release energy from complex carbohydrates',
@@ -292,11 +292,11 @@ const foods = [
       'Phytic acid can reduce mineral absorption if not soaked'
     ],
     description: 'The gold standard breakfast grain — beta-glucan fiber actively lowers cholesterol.',
-    serving: '1 cup cooked (234g)'
+    serving: '100g'
   },
   {
-    id: 'lemon', name: 'Lemon', emoji: '🍋', color: '#fde047', calories: 17,
-    nutrition: { protein: 0.6, carbs: 5.4, fiber: 1.6, fat: 0.2, vitaminC: 31, vitaminB6: 0.04, folate: 6 },
+    id: 'lemon', name: 'Lemon', emoji: '🍋', color: '#fde047', calories: 29,
+    nutrition: { protein: 1.1, carbs: 9, fiber: 2.8, fat: 0.3, vitaminC: 79.2, vitaminB6: 0.1, folate: 12 },
     benefits: [
       'High vitamin C strengthens immune system',
       'Aids digestion and promotes bile production',
@@ -310,11 +310,11 @@ const foods = [
       'Needs to be combined — too sour to eat alone'
     ],
     description: 'A tangy citrus powerhouse with high vitamin C and powerful digestive benefits.',
-    serving: '1 fruit (58g)'
+    serving: '100g'
   },
   {
-    id: 'walnut', name: 'Walnuts', emoji: '🫘', color: '#8b5e3c', calories: 185,
-    nutrition: { protein: 4.3, carbs: 3.9, fiber: 1.9, fat: 18, omega3: 2.5, manganese: 0.96, copper: 0.37, magnesium: 44 },
+    id: 'walnut', name: 'Walnuts', emoji: '🫘', color: '#8b5e3c', calories: 654,
+    nutrition: { protein: 15, carbs: 14, fiber: 6.7, fat: 65, omega3: 9, manganese: 3.75, copper: 0.7 },
     benefits: [
       'Highest omega-3 content of all tree nuts',
       'Compounds that directly support brain health',
@@ -328,11 +328,11 @@ const foods = [
       'Oxalates can contribute to kidney stones'
     ],
     description: 'Brain-shaped and brain-boosting — the richest nut source of plant-based omega-3.',
-    serving: '28g (14 halves)'
+    serving: '100g'
   },
   {
-    id: 'tomato', name: 'Tomato', emoji: '🍅', color: '#dc2626', calories: 22,
-    nutrition: { protein: 1.1, carbs: 4.8, fiber: 1.5, fat: 0.2, vitaminC: 17, vitaminK: 10, lycopene: 3.2, vitaminA: 42, potassium: 292 },
+    id: 'tomato', name: 'Tomato', emoji: '🍅', color: '#dc2626', calories: 18,
+    nutrition: { protein: 0.9, carbs: 3.9, fiber: 1.2, fat: 0.2, vitaminC: 20.7, vitaminK: 9.6, lycopene: 2.6, vitaminA: 72 },
     benefits: [
       'Lycopene is a powerful antioxidant linked to cancer prevention',
       'Supports heart health and reduces cardiovascular risk',
@@ -346,11 +346,11 @@ const foods = [
       'Lycopene bioavailability is highest only when cooked'
     ],
     description: 'A lycopene-rich red fruit with powerful cancer-preventive antioxidant properties.',
-    serving: '1 medium (123g)'
+    serving: '100g'
   },
   {
-    id: 'garlic', name: 'Garlic', emoji: '🧄', color: '#f5f0e0', calories: 13,
-    nutrition: { protein: 0.6, carbs: 3, fiber: 0.2, fat: 0.05, manganese: 0.15, vitaminB6: 0.11, vitaminC: 2.8, allicin: 5 },
+    id: 'garlic', name: 'Garlic', emoji: '🧄', color: '#f5f0e0', calories: 149,
+    nutrition: { protein: 6.4, carbs: 33, fiber: 2.1, fat: 0.5, vitaminB6: 1.62, vitaminC: 34.2, manganese: 1.68 },
     benefits: [
       'Allicin compound has potent antibacterial and antiviral effects',
       'Clinically proven to lower blood pressure',
@@ -365,11 +365,11 @@ const foods = [
       'Very pungent flavor requires careful culinary use'
     ],
     description: 'The original medicine — allicin makes garlic one of the most powerful natural antibiotics.',
-    serving: '3 cloves (9g)'
+    serving: '100g'
   },
   {
-    id: 'darkchocolate', name: 'Dark Chocolate', emoji: '🍫', color: '#3d1a0a', calories: 170,
-    nutrition: { protein: 2.2, carbs: 13, fiber: 3.1, fat: 12, magnesium: 64, copper: 0.5, manganese: 0.56, flavonoids: 138 },
+    id: 'darkchocolate', name: 'Dark Chocolate', emoji: '🍫', color: '#3d1a0a', calories: 598,
+    nutrition: { protein: 7.8, carbs: 46, fiber: 10.9, fat: 43, iron: 12.06, magnesium: 244, copper: 0.8, manganese: 2.25 },
     benefits: [
       'Richest food source of antioxidant flavonoids',
       'Theobromine and serotonin precursors improve mood',
@@ -384,11 +384,11 @@ const foods = [
       'Sugar content varies significantly by brand'
     ],
     description: 'Luxury nutrition — high-cacao dark chocolate is one of the best antioxidant foods on earth.',
-    serving: '28g (1 oz square)'
+    serving: '100g'
   },
   {
-    id: 'kiwi', name: 'Kiwi', emoji: '🥝', color: '#4d7c0f', calories: 42,
-    nutrition: { protein: 0.8, carbs: 10, fiber: 2.1, fat: 0.4, vitaminC: 64, vitaminK: 28, vitaminE: 1.0, folate: 17 },
+    id: 'kiwi', name: 'Kiwi', emoji: '🥝', color: '#4d7c0f', calories: 61,
+    nutrition: { protein: 1.1, carbs: 15, fiber: 3, fat: 0.5, vitaminC: 138.6, vitaminK: 48, vitaminE: 1.5 },
     benefits: [
       'Higher vitamin C per gram than oranges',
       'Improves sleep quality via serotonin pathway',
@@ -402,11 +402,11 @@ const foods = [
       'Can be expensive depending on region'
     ],
     description: 'A furry brown fruit hiding extraordinary vitamin C and sleep-improving compounds.',
-    serving: '1 medium (69g)'
+    serving: '100g'
   },
   {
-    id: 'quinoa', name: 'Quinoa', emoji: '🌾', color: '#d4c5a0', calories: 222,
-    nutrition: { protein: 8, carbs: 39, fiber: 5.2, fat: 3.5, manganese: 1.17, magnesium: 118, phosphorus: 281, folate: 78 },
+    id: 'quinoa', name: 'Quinoa', emoji: '🌾', color: '#d4c5a0', calories: 368,
+    nutrition: { protein: 14, carbs: 64, fiber: 7, fat: 6, manganese: 2.14, phosphorus: 590, magnesium: 206 },
     benefits: [
       'One of the few plant foods containing all 9 essential amino acids',
       'Naturally gluten-free — safe for celiac disease',
@@ -421,11 +421,11 @@ const foods = [
       'High oxalate content'
     ],
     description: 'The complete plant protein — one of only a few plant foods with all essential amino acids.',
-    serving: '1 cup cooked (185g)'
+    serving: '100g'
   },
   {
-    id: 'ginger', name: 'Ginger', emoji: '🫚', color: '#c8a96e', calories: 5,
-    nutrition: { protein: 0.1, carbs: 1.1, fiber: 0.1, fat: 0.05, magnesium: 3, vitaminB6: 0.02, potassium: 46, gingerol: 25 },
+    id: 'ginger', name: 'Ginger', emoji: '🫚', color: '#c8a96e', calories: 80,
+    nutrition: { protein: 1.8, carbs: 18, fiber: 2, fat: 0.8, vitaminB6: 0.19, magnesium: 42, potassium: 329 },
     benefits: [
       'Gingerol is a uniquely potent anti-inflammatory compound',
       'Clinically proven to relieve nausea and morning sickness',
@@ -440,11 +440,11 @@ const foods = [
       'Not safe in large medicinal doses during pregnancy'
     ],
     description: 'A knobby root with extraordinary anti-inflammatory power from its active compound gingerol.',
-    serving: '1 tbsp grated (6g)'
+    serving: '100g'
   },
   {
-    id: 'whiterice', name: 'White Rice', emoji: '🍚', color: '#f5f5f0', calories: 206,
-    nutrition: { protein: 4.3, carbs: 45, fat: 0.4, fiber: 0.6, manganese: 0.55, thiamine: 0.19, niacin: 1.9 },
+    id: 'whiterice', name: 'White Rice', emoji: '🍚', color: '#f5f5f0', calories: 130,
+    nutrition: { protein: 2.7, carbs: 28, fat: 0.3, fiber: 0.4, manganese: 0.32, thiamine: 0.12, niacin: 1.28 },
     benefits: [
       'Fast, easily accessible energy source',
       'Very easy to digest — gentle on the stomach',
@@ -459,11 +459,11 @@ const foods = [
       'Minimal protein and micronutrient density'
     ],
     description: 'A fluffy, easily digestible staple grain — quick energy that pairs with everything.',
-    serving: '1 cup cooked (158g)'
+    serving: '100g'
   },
   {
-    id: 'brownrice', name: 'Brown Rice', emoji: '🍚', color: '#b08d57', calories: 216,
-    nutrition: { protein: 5, carbs: 45, fat: 1.8, fiber: 3.5, manganese: 2.0, magnesium: 84, phosphorus: 112, vitaminB6: 0.26 },
+    id: 'brownrice', name: 'Brown Rice', emoji: '🍚', color: '#b08d57', calories: 111,
+    nutrition: { protein: 2.6, carbs: 23, fat: 0.9, fiber: 1.8, manganese: 1.04, magnesium: 46, phosphorus: 80 },
     benefits: [
       'Much higher fiber than white rice',
       'Sustained, slow-release energy',
@@ -478,11 +478,11 @@ const foods = [
       'Shorter shelf life due to natural oils'
     ],
     description: 'The whole-grain rice — bran and germ intact for far more fiber and minerals.',
-    serving: '1 cup cooked (195g)'
+    serving: '100g'
   },
   {
-    id: 'wholewheatbread', name: 'Whole Wheat Bread', emoji: '🍞', color: '#b5793a', calories: 69,
-    nutrition: { protein: 3.6, carbs: 12, fat: 1, fiber: 1.9, manganese: 1.06, selenium: 9.9, thiamine: 0.13, niacin: 1.6 },
+    id: 'wholewheatbread', name: 'Whole Wheat Bread', emoji: '🍞', color: '#b5793a', calories: 247,
+    nutrition: { protein: 13, carbs: 41, fat: 3.4, fiber: 7, manganese: 3.75, selenium: 34.1, thiamine: 0.46 },
     benefits: [
       'Higher fiber than refined white bread',
       'Sustained energy from complex carbohydrates',
@@ -497,11 +497,11 @@ const foods = [
       'Calorie-dense if eaten in large amounts'
     ],
     description: 'Whole-grain bread with intact bran — far more fiber and B vitamins than white.',
-    serving: '1 slice (32g)'
+    serving: '100g'
   },
   {
-    id: 'pasta', name: 'Pasta', emoji: '🍝', color: '#e8cd6d', calories: 220,
-    nutrition: { protein: 8.1, carbs: 43, fat: 1.3, fiber: 2.5, selenium: 20.4, manganese: 0.53, folate: 40, thiamine: 0.11 },
+    id: 'pasta', name: 'Pasta', emoji: '🍝', color: '#e8cd6d', calories: 158,
+    nutrition: { protein: 5.8, carbs: 31, fat: 0.9, fiber: 1.8, selenium: 14.3, manganese: 0.37, folate: 28 },
     benefits: [
       'Reliable energy source for active days',
       'High in selenium for antioxidant defense',
@@ -517,11 +517,11 @@ const foods = [
       'Low nutrient density unless whole-grain'
     ],
     description: 'A beloved energy staple — high in selenium and endlessly versatile.',
-    serving: '1 cup cooked (140g)'
+    serving: '100g'
   },
   {
-    id: 'corn', name: 'Corn', emoji: '🌽', color: '#f5c542', calories: 132,
-    nutrition: { protein: 4.9, carbs: 29, fat: 1.8, fiber: 3.6, thiamine: 0.29, vitaminB6: 0.22, folate: 44, magnesium: 44 },
+    id: 'corn', name: 'Corn', emoji: '🌽', color: '#f5c542', calories: 86,
+    nutrition: { protein: 3.2, carbs: 19, fat: 1.2, fiber: 2.4, thiamine: 0.18, vitaminB6: 0.14, folate: 28 },
     benefits: [
       'Rich in eye-protecting antioxidants lutein and zeaxanthin',
       'Good source of dietary fiber',
@@ -537,11 +537,11 @@ const foods = [
       'Can cause bloating in some people'
     ],
     description: 'A sweet, antioxidant-rich grain vegetable loaded with eye-protecting carotenoids.',
-    serving: '1 cup kernels (154g)'
+    serving: '100g'
   },
   {
-    id: 'lentils', name: 'Lentils', emoji: '🫘', color: '#6b8e23', calories: 230,
-    nutrition: { protein: 17.9, carbs: 40, fat: 0.8, fiber: 15.6, folate: 358, manganese: 1.1, iron: 6.6, phosphorus: 196, thiamine: 0.26 },
+    id: 'lentils', name: 'Lentils', emoji: '🫘', color: '#6b8e23', calories: 116,
+    nutrition: { protein: 9, carbs: 20, fat: 0.4, fiber: 7.9, folate: 180, manganese: 0.58, iron: 3.42 },
     benefits: [
       'Extraordinarily high in dietary fiber',
       'Excellent plant-based protein source',
@@ -556,11 +556,11 @@ const foods = [
       'Lower in some essential amino acids'
     ],
     description: 'A fiber-and-protein powerhouse legume — one of the best plant iron sources.',
-    serving: '1 cup cooked (198g)'
+    serving: '100g'
   },
   {
-    id: 'blackbeans', name: 'Black Beans', emoji: '🫘', color: '#2a2a2e', calories: 227,
-    nutrition: { protein: 15.2, carbs: 41, fat: 0.9, fiber: 15, folate: 256, manganese: 0.87, thiamine: 0.34, iron: 3.6, magnesium: 76 },
+    id: 'blackbeans', name: 'Black Beans', emoji: '🫘', color: '#2a2a2e', calories: 132,
+    nutrition: { protein: 8.9, carbs: 24, fat: 0.5, fiber: 8.7, folate: 148, manganese: 0.51, thiamine: 0.19 },
     benefits: [
       'Powerful fiber-plus-protein combination',
       'Supports heart health',
@@ -575,11 +575,11 @@ const foods = [
       'Incomplete protein on its own'
     ],
     description: 'A glossy antioxidant-rich legume delivering an exceptional fiber-and-protein combo.',
-    serving: '1 cup cooked (172g)'
+    serving: '100g'
   },
   {
-    id: 'chickpeas', name: 'Chickpeas', emoji: '🫛', color: '#e3c79a', calories: 269,
-    nutrition: { protein: 14.5, carbs: 45, fat: 4.2, fiber: 12.5, folate: 282, manganese: 1.9, copper: 0.26, phosphorus: 154, iron: 4.7 },
+    id: 'chickpeas', name: 'Chickpeas', emoji: '🫛', color: '#e3c79a', calories: 164,
+    nutrition: { protein: 8.9, carbs: 27, fat: 2.6, fiber: 7.6, folate: 172, manganese: 1.2, copper: 0.16 },
     benefits: [
       'High in both fiber and plant protein',
       'Helps control blood sugar',
@@ -594,11 +594,11 @@ const foods = [
       'Not a complete protein on its own'
     ],
     description: 'A versatile, mineral-dense legume — the protein-packed foundation of hummus.',
-    serving: '1 cup cooked (164g)'
+    serving: '100g'
   },
   {
-    id: 'corntortilla', name: 'Corn Tortilla', emoji: '🫓', color: '#ecd9a0', calories: 52,
-    nutrition: { protein: 1.4, carbs: 10.7, fat: 0.7, fiber: 1.4, calcium: 40, iron: 0.5, magnesium: 12 },
+    id: 'corntortilla', name: 'Corn Tortilla', emoji: '🫓', color: '#ecd9a0', calories: 218,
+    nutrition: { protein: 5.7, carbs: 46, fat: 2.5, fiber: 6.7, calcium: 90, iron: 1.98, magnesium: 34 },
     benefits: [
       'Naturally gluten-free',
       'Low in calories',
@@ -613,11 +613,11 @@ const foods = [
       'Often made from refined corn masa'
     ],
     description: 'A traditional gluten-free flatbread — light, foldable, and endlessly versatile.',
-    serving: '1 tortilla (24g)'
+    serving: '100g'
   },
   {
-    id: 'buckwheat', name: 'Buckwheat', emoji: '🌾', color: '#a8825a', calories: 155,
-    nutrition: { protein: 5.7, carbs: 33, fat: 1, fiber: 4.5, manganese: 0.78, copper: 0.11, magnesium: 44, phosphorus: 77 },
+    id: 'buckwheat', name: 'Buckwheat', emoji: '🌾', color: '#a8825a', calories: 92,
+    nutrition: { protein: 3.4, carbs: 20, fat: 0.6, fiber: 2.7, manganese: 0.46, copper: 0.06, magnesium: 29 },
     benefits: [
       'A complete protein with all essential amino acids',
       'Naturally gluten-free despite the name',
@@ -632,11 +632,11 @@ const foods = [
       'Strong flavor dominates mild dishes'
     ],
     description: 'A gluten-free pseudo-grain that is a rare complete plant protein, rich in rutin.',
-    serving: '1 cup cooked (168g)'
+    serving: '100g'
   },
   {
-    id: 'millet', name: 'Millet', emoji: '🌾', color: '#e6cf6a', calories: 207,
-    nutrition: { protein: 6.1, carbs: 41, fat: 1.7, fiber: 2.3, manganese: 0.55, phosphorus: 119, magnesium: 60, copper: 0.13 },
+    id: 'millet', name: 'Millet', emoji: '🌾', color: '#e6cf6a', calories: 119,
+    nutrition: { protein: 3.5, carbs: 23, fat: 1, fiber: 1.3, manganese: 0.32, phosphorus: 100, magnesium: 38 },
     benefits: [
       'Gluten-free ancient grain',
       'Mildly alkaline-forming',
@@ -651,11 +651,11 @@ const foods = [
       'Bland flavor on its own'
     ],
     description: 'A tiny gluten-free ancient grain — alkaline-forming and gentle to digest.',
-    serving: '1 cup cooked (174g)'
+    serving: '100g'
   },
   {
-    id: 'barley', name: 'Barley', emoji: '🌾', color: '#d8c89a', calories: 193,
-    nutrition: { protein: 3.5, carbs: 44, fat: 0.7, fiber: 6, selenium: 9.9, manganese: 0.41, phosphorus: 70, betaGlucan: 2.5 },
+    id: 'barley', name: 'Barley', emoji: '🌾', color: '#d8c89a', calories: 123,
+    nutrition: { protein: 2.3, carbs: 28, fat: 0.4, fiber: 3.8, selenium: 6.05, manganese: 0.25, phosphorus: 60 },
     benefits: [
       'Beta-glucan fiber lowers cholesterol like oats',
       'Very high in dietary fiber',
@@ -670,7 +670,7 @@ const foods = [
       'Requires long cooking time'
     ],
     description: 'A chewy whole grain whose beta-glucan fiber actively lowers cholesterol.',
-    serving: '1 cup cooked (157g)'
+    serving: '100g'
   }
 ];
 
