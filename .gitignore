@@ -6,3 +6,6 @@ Thumbs.db
 
 # User data (auto-created on server start; contains hashed credentials)
 data/
+
+# scratch
+.commitmsg.tmp
