@@ -490,6 +490,7 @@ body {
 .card-badge.vegetable { color: #4ade80; border-color: rgba(74,222,128,0.35);  background: rgba(74,222,128,0.07);  }
 .card-badge.nut       { color: #fbbf24; border-color: rgba(251,191,36,0.35);  background: rgba(251,191,36,0.07);  }
 .card-badge.grain     { color: #d4c5a0; border-color: rgba(212,197,160,0.35); background: rgba(212,197,160,0.07); }
+.card-badge.legume    { color: #34d399; border-color: rgba(52,211,153,0.35);  background: rgba(52,211,153,0.07);  }
 .card-badge.treat     { color: #a78bfa; border-color: rgba(167,139,250,0.35); background: rgba(167,139,250,0.07); }
 
 .card-emoji {

@@ -441,6 +441,236 @@ const foods = [
     ],
     description: 'A knobby root with extraordinary anti-inflammatory power from its active compound gingerol.',
     serving: '1 tbsp grated (6g)'
+  },
+  {
+    id: 'whiterice', name: 'White Rice', emoji: '🍚', color: '#f5f5f0', calories: 206,
+    nutrition: { protein: 4.3, carbs: 45, fat: 0.4, fiber: 0.6, manganese: 0.55, thiamine: 0.19, niacin: 1.9 },
+    benefits: [
+      'Fast, easily accessible energy source',
+      'Very easy to digest — gentle on the stomach',
+      'Naturally gluten-free',
+      'Versatile staple that pairs with almost anything',
+      'Naturally low in fat'
+    ],
+    drawbacks: [
+      'Low in fiber compared to whole grains',
+      'High glycemic index — spikes blood sugar quickly',
+      'Nutrient-poor relative to brown rice',
+      'Minimal protein and micronutrient density'
+    ],
+    description: 'A fluffy, easily digestible staple grain — quick energy that pairs with everything.',
+    serving: '1 cup cooked (158g)'
+  },
+  {
+    id: 'brownrice', name: 'Brown Rice', emoji: '🍚', color: '#b08d57', calories: 216,
+    nutrition: { protein: 5, carbs: 45, fat: 1.8, fiber: 3.5, manganese: 2.0, magnesium: 84, phosphorus: 112, vitaminB6: 0.26 },
+    benefits: [
+      'Much higher fiber than white rice',
+      'Sustained, slow-release energy',
+      'Supports heart health via whole-grain compounds',
+      'Better blood sugar control than white rice',
+      'Exceptionally rich in manganese and magnesium'
+    ],
+    drawbacks: [
+      'Longer cooking time than white rice',
+      'Harder to digest for some people',
+      'Can contain trace arsenic from the bran layer',
+      'Shorter shelf life due to natural oils'
+    ],
+    description: 'The whole-grain rice — bran and germ intact for far more fiber and minerals.',
+    serving: '1 cup cooked (195g)'
+  },
+  {
+    id: 'wholewheatbread', name: 'Whole Wheat Bread', emoji: '🍞', color: '#b5793a', calories: 69,
+    nutrition: { protein: 3.6, carbs: 12, fat: 1, fiber: 1.9, manganese: 1.06, selenium: 9.9, thiamine: 0.13, niacin: 1.6 },
+    benefits: [
+      'Higher fiber than refined white bread',
+      'Sustained energy from complex carbohydrates',
+      'Whole grains support heart health',
+      'Prebiotic fiber supports gut health',
+      'Good source of B vitamins'
+    ],
+    drawbacks: [
+      'Contains gluten — unsuitable for celiac disease',
+      'Phytic acid can reduce mineral absorption',
+      'Some commercial brands add sugar',
+      'Calorie-dense if eaten in large amounts'
+    ],
+    description: 'Whole-grain bread with intact bran — far more fiber and B vitamins than white.',
+    serving: '1 slice (32g)'
+  },
+  {
+    id: 'pasta', name: 'Pasta', emoji: '🍝', color: '#e8cd6d', calories: 220,
+    nutrition: { protein: 8.1, carbs: 43, fat: 1.3, fiber: 2.5, selenium: 20.4, manganese: 0.53, folate: 40, thiamine: 0.11 },
+    benefits: [
+      'Reliable energy source for active days',
+      'High in selenium for antioxidant defense',
+      'Endlessly versatile culinary base',
+      'Filling and satisfying',
+      'Lower glycemic index than white bread'
+    ],
+    drawbacks: [
+      'High in carbohydrates',
+      'Usually made from refined flour',
+      'Contains gluten',
+      'Very easy to overeat large portions',
+      'Low nutrient density unless whole-grain'
+    ],
+    description: 'A beloved energy staple — high in selenium and endlessly versatile.',
+    serving: '1 cup cooked (140g)'
+  },
+  {
+    id: 'corn', name: 'Corn', emoji: '🌽', color: '#f5c542', calories: 132,
+    nutrition: { protein: 4.9, carbs: 29, fat: 1.8, fiber: 3.6, thiamine: 0.29, vitaminB6: 0.22, folate: 44, magnesium: 44 },
+    benefits: [
+      'Rich in eye-protecting antioxidants lutein and zeaxanthin',
+      'Good source of dietary fiber',
+      'Satisfying natural energy source',
+      'Naturally gluten-free',
+      'Versatile across countless dishes'
+    ],
+    drawbacks: [
+      'Higher in natural sugar than most vegetables',
+      'Often genetically modified',
+      'High glycemic index',
+      'Lower-quality protein profile',
+      'Can cause bloating in some people'
+    ],
+    description: 'A sweet, antioxidant-rich grain vegetable loaded with eye-protecting carotenoids.',
+    serving: '1 cup kernels (154g)'
+  },
+  {
+    id: 'lentils', name: 'Lentils', emoji: '🫘', color: '#6b8e23', calories: 230,
+    nutrition: { protein: 17.9, carbs: 40, fat: 0.8, fiber: 15.6, folate: 358, manganese: 1.1, iron: 6.6, phosphorus: 196, thiamine: 0.26 },
+    benefits: [
+      'Extraordinarily high in dietary fiber',
+      'Excellent plant-based protein source',
+      'Helps control blood sugar levels',
+      'Supports heart health',
+      'Strong source of plant iron and folate'
+    ],
+    drawbacks: [
+      'Can cause gas and bloating',
+      'Contains antinutrients that reduce mineral absorption',
+      'Requires longer cooking time',
+      'Lower in some essential amino acids'
+    ],
+    description: 'A fiber-and-protein powerhouse legume — one of the best plant iron sources.',
+    serving: '1 cup cooked (198g)'
+  },
+  {
+    id: 'blackbeans', name: 'Black Beans', emoji: '🫘', color: '#2a2a2e', calories: 227,
+    nutrition: { protein: 15.2, carbs: 41, fat: 0.9, fiber: 15, folate: 256, manganese: 0.87, thiamine: 0.34, iron: 3.6, magnesium: 76 },
+    benefits: [
+      'Powerful fiber-plus-protein combination',
+      'Supports heart health',
+      'Helps stabilize blood sugar',
+      'Antioxidant anthocyanins from the dark skin',
+      'An inexpensive nutritional superfood'
+    ],
+    drawbacks: [
+      'Can cause gas and bloating',
+      'Antinutrients — soak before cooking',
+      'High in carbohydrates',
+      'Incomplete protein on its own'
+    ],
+    description: 'A glossy antioxidant-rich legume delivering an exceptional fiber-and-protein combo.',
+    serving: '1 cup cooked (172g)'
+  },
+  {
+    id: 'chickpeas', name: 'Chickpeas', emoji: '🫛', color: '#e3c79a', calories: 269,
+    nutrition: { protein: 14.5, carbs: 45, fat: 4.2, fiber: 12.5, folate: 282, manganese: 1.9, copper: 0.26, phosphorus: 154, iron: 4.7 },
+    benefits: [
+      'High in both fiber and plant protein',
+      'Helps control blood sugar',
+      'Promotes satiety and weight management',
+      'Supports heart health',
+      'Incredibly versatile — the base of hummus'
+    ],
+    drawbacks: [
+      'High in carbohydrates',
+      'Can cause gas and bloating',
+      'Contains antinutrients',
+      'Not a complete protein on its own'
+    ],
+    description: 'A versatile, mineral-dense legume — the protein-packed foundation of hummus.',
+    serving: '1 cup cooked (164g)'
+  },
+  {
+    id: 'corntortilla', name: 'Corn Tortilla', emoji: '🫓', color: '#ecd9a0', calories: 52,
+    nutrition: { protein: 1.4, carbs: 10.7, fat: 0.7, fiber: 1.4, calcium: 40, iron: 0.5, magnesium: 12 },
+    benefits: [
+      'Naturally gluten-free',
+      'Low in calories',
+      'Easy to digest',
+      'Versatile traditional staple',
+      'Nixtamalized corn provides bioavailable calcium'
+    ],
+    drawbacks: [
+      'Low overall nutrient density',
+      'High glycemic index',
+      'Low in protein',
+      'Often made from refined corn masa'
+    ],
+    description: 'A traditional gluten-free flatbread — light, foldable, and endlessly versatile.',
+    serving: '1 tortilla (24g)'
+  },
+  {
+    id: 'buckwheat', name: 'Buckwheat', emoji: '🌾', color: '#a8825a', calories: 155,
+    nutrition: { protein: 5.7, carbs: 33, fat: 1, fiber: 4.5, manganese: 0.78, copper: 0.11, magnesium: 44, phosphorus: 77 },
+    benefits: [
+      'A complete protein with all essential amino acids',
+      'Naturally gluten-free despite the name',
+      'Supports heart health',
+      'Helps regulate blood sugar',
+      'Rich in the antioxidant rutin'
+    ],
+    drawbacks: [
+      'Distinctive earthy taste some dislike',
+      'Less widely available',
+      'Can trigger allergies in sensitive people',
+      'Strong flavor dominates mild dishes'
+    ],
+    description: 'A gluten-free pseudo-grain that is a rare complete plant protein, rich in rutin.',
+    serving: '1 cup cooked (168g)'
+  },
+  {
+    id: 'millet', name: 'Millet', emoji: '🌾', color: '#e6cf6a', calories: 207,
+    nutrition: { protein: 6.1, carbs: 41, fat: 1.7, fiber: 2.3, manganese: 0.55, phosphorus: 119, magnesium: 60, copper: 0.13 },
+    benefits: [
+      'Gluten-free ancient grain',
+      'Mildly alkaline-forming',
+      'Supports heart health',
+      'Gentle on blood sugar',
+      'Easy to digest'
+    ],
+    drawbacks: [
+      'Contains goitrogens that may affect the thyroid',
+      'Low in the amino acid lysine',
+      'Not widely known or used',
+      'Bland flavor on its own'
+    ],
+    description: 'A tiny gluten-free ancient grain — alkaline-forming and gentle to digest.',
+    serving: '1 cup cooked (174g)'
+  },
+  {
+    id: 'barley', name: 'Barley', emoji: '🌾', color: '#d8c89a', calories: 193,
+    nutrition: { protein: 3.5, carbs: 44, fat: 0.7, fiber: 6, selenium: 9.9, manganese: 0.41, phosphorus: 70, betaGlucan: 2.5 },
+    benefits: [
+      'Beta-glucan fiber lowers cholesterol like oats',
+      'Very high in dietary fiber',
+      'Helps control blood sugar',
+      'Supports gut and digestive health',
+      'Promotes heart health'
+    ],
+    drawbacks: [
+      'Contains gluten',
+      'Phytic acid reduces mineral absorption',
+      'High in carbohydrates',
+      'Requires long cooking time'
+    ],
+    description: 'A chewy whole grain whose beta-glucan fiber actively lowers cholesterol.',
+    serving: '1 cup cooked (157g)'
   }
 ];
 

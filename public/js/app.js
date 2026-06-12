@@ -16,13 +16,17 @@ const App = (() => {
     chicken: 'protein', fish: 'protein', egg: 'protein', greekyogurt: 'protein',
     broccoli: 'vegetable', spinach: 'vegetable', carrot: 'vegetable',
     sweetpotato: 'vegetable', garlic: 'vegetable', ginger: 'vegetable',
+    corn: 'vegetable',
     almond: 'nut', walnut: 'nut',
-    oats: 'grain', quinoa: 'grain',
+    oats: 'grain', quinoa: 'grain', whiterice: 'grain', brownrice: 'grain',
+    wholewheatbread: 'grain', pasta: 'grain', corntortilla: 'grain',
+    buckwheat: 'grain', millet: 'grain', barley: 'grain',
+    lentils: 'legume', blackbeans: 'legume', chickpeas: 'legume',
     darkchocolate: 'treat',
   };
   const CATEGORY_LABELS = {
     fruit: 'FRUIT', protein: 'PROTEIN', vegetable: 'VEGETABLE',
-    nut: 'NUT', grain: 'GRAIN', treat: 'TREAT',
+    nut: 'NUT', grain: 'GRAIN', treat: 'TREAT', legume: 'LEGUME',
   };
 
   // ── Custom cursor ─────────────────────────────────────────────────────
@@ -272,7 +276,8 @@ const App = (() => {
       copper: 'Copper', zinc: 'Zinc', biotin: 'Biotin',
       riboflavin: 'Riboflavin', calcium: 'Calcium', phosphorus: 'Phosphorus',
       lycopene: 'Lycopene', allicin: 'Allicin', flavonoids: 'Flavonoids',
-      gingerol: 'Gingerol', betaGlucan: 'Beta-Glucan'
+      gingerol: 'Gingerol', betaGlucan: 'Beta-Glucan',
+      thiamine: 'Thiamine', niacin: 'Niacin', iron: 'Iron'
     };
     const units = {
       protein: 'g', carbs: 'g', fat: 'g', fiber: 'g', sugar: 'g',
@@ -283,7 +288,8 @@ const App = (() => {
       copper: 'mg', zinc: 'mg', biotin: 'µg',
       riboflavin: 'mg', calcium: 'mg', phosphorus: 'mg',
       lycopene: 'mg', allicin: 'mg', flavonoids: 'mg',
-      gingerol: 'mg', betaGlucan: 'g'
+      gingerol: 'mg', betaGlucan: 'g',
+      thiamine: 'mg', niacin: 'mg', iron: 'mg'
     };
     const maxVals = {
       protein: 40, carbs: 60, fat: 20, fiber: 25, sugar: 30,
@@ -294,7 +300,8 @@ const App = (() => {
       copper: 0.9, zinc: 11, biotin: 30,
       riboflavin: 1.3, calcium: 1000, phosphorus: 700,
       lycopene: 15, allicin: 10, flavonoids: 200,
-      gingerol: 50, betaGlucan: 6
+      gingerol: 50, betaGlucan: 6,
+      thiamine: 1.2, niacin: 16, iron: 18
     };
 
     const macroKeys = new Set(['protein', 'carbs', 'fat']);

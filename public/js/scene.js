@@ -1922,6 +1922,356 @@ const FoodScene = (() => {
     return g;
   }
 
+  // ─── Carb-source textures ──────────────────────────────────────────────
+
+  function makeBreadTex() {
+    const c = document.createElement('canvas'); c.width = c.height = 512;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 0, 512);
+    g.addColorStop(0, '#d9b478'); g.addColorStop(0.5, '#c89a55'); g.addColorStop(1, '#a8763a');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 450; i++) {
+      const x = Math.random()*512, y = Math.random()*512, r = 1+Math.random()*5;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+      ctx.fillStyle = Math.random()>0.5 ? `rgba(90,60,25,${0.1+Math.random()*0.25})` : `rgba(232,208,150,${0.1+Math.random()*0.30})`;
+      ctx.fill();
+    }
+    for (let i = 0; i < 70; i++) {
+      const x = Math.random()*512, y = Math.random()*512;
+      ctx.beginPath(); ctx.ellipse(x, y, 2+Math.random()*3, 1+Math.random()*1.5, Math.random()*Math.PI, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(${Math.random()>0.5?'80,50,20':'55,38,15'},0.5)`; ctx.fill();
+    }
+    return new THREE.CanvasTexture(c);
+  }
+
+  function makePastaTex() {
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ecd98a'; ctx.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 40; i++) {
+      ctx.beginPath(); ctx.moveTo(0, i*7); ctx.lineTo(256, i*7 + (Math.random()*4-2));
+      ctx.strokeStyle = `rgba(200,170,90,${0.08+Math.random()*0.14})`; ctx.lineWidth = 1; ctx.stroke();
+    }
+    for (let i = 0; i < 700; i++) {
+      const x = Math.random()*256, y = Math.random()*256;
+      ctx.beginPath(); ctx.arc(x, y, 0.5+Math.random()*1.5, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(${Math.random()>0.5?'180,150,80':'250,235,170'},${0.06+Math.random()*0.12})`; ctx.fill();
+    }
+    return new THREE.CanvasTexture(c);
+  }
+
+  function makeTortillaTex() {
+    const c = document.createElement('canvas'); c.width = c.height = 512;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(256, 256, 40, 256, 256, 260);
+    g.addColorStop(0, '#f0e2b0'); g.addColorStop(0.7, '#e6d29a'); g.addColorStop(1, '#d4ba80');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 1600; i++) {
+      const x = Math.random()*512, y = Math.random()*512;
+      ctx.beginPath(); ctx.arc(x, y, 0.5+Math.random()*1.8, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(150,110,60,${0.05+Math.random()*0.12})`; ctx.fill();
+    }
+    for (let i = 0; i < 24; i++) {
+      const x = Math.random()*512, y = Math.random()*512, r = 4+Math.random()*16;
+      const ch = ctx.createRadialGradient(x, y, 1, x, y, r);
+      ch.addColorStop(0, `rgba(65,42,18,${0.35+Math.random()*0.3})`); ch.addColorStop(1, 'rgba(65,42,18,0)');
+      ctx.fillStyle = ch; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+    }
+    return new THREE.CanvasTexture(c);
+  }
+
+  // ─── Shared helpers: glass bowl + instanced grain heap ──────────────────
+
+  function _glassBowl(g) {
+    const pts = [
+      new THREE.Vector2(0.24,-0.20), new THREE.Vector2(0.58,-0.16), new THREE.Vector2(0.86,-0.03),
+      new THREE.Vector2(1.00, 0.18), new THREE.Vector2(1.06, 0.48), new THREE.Vector2(1.04, 0.80),
+      new THREE.Vector2(0.96, 0.94), new THREE.Vector2(0.88, 0.98),
+    ];
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: 0xf2efe8, roughness: 0.10, metalness: 0.02,
+      transparent: true, opacity: 0.50, clearcoat: 0.85, clearcoatRoughness: 0.06,
+    });
+    const bowl = new THREE.Mesh(new THREE.LatheGeometry(pts, 52), mat);
+    bowl.castShadow = bowl.receiveShadow = true;
+    g.add(bowl);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.05, 28),
+      new THREE.MeshPhysicalMaterial({ color: 0xf2efe8, roughness: 0.10, transparent: true, opacity: 0.50, clearcoat: 0.8 }));
+    base.position.y = -0.20;
+    g.add(base);
+  }
+
+  // Builds a domed mound + InstancedMesh grain scatter over it.
+  function _heap(g, opts) {
+    if (opts.moundColor != null) {
+      const mound = new THREE.Mesh(
+        new THREE.SphereGeometry(opts.domeR, 24, 14, 0, Math.PI*2, 0, Math.PI*0.5),
+        new THREE.MeshStandardMaterial({ color: opts.moundColor, roughness: 0.92, metalness: 0 })
+      );
+      mound.position.y = opts.yBase;
+      mound.scale.set(1, opts.domeH / opts.domeR, 1);
+      mound.receiveShadow = true;
+      g.add(mound);
+    }
+    const mesh = new THREE.InstancedMesh(opts.geo, opts.mat, opts.count);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    const d = new THREE.Object3D(), col = new THREE.Color();
+    for (let i = 0; i < opts.count; i++) {
+      const rr = Math.sqrt(Math.random());
+      const r = rr * opts.domeR * 0.97;
+      const th = Math.random() * Math.PI * 2;
+      const yDome = opts.yBase + opts.domeH * Math.sqrt(Math.max(0, 1 - rr*rr)) + (Math.random()-0.5) * (opts.jit || 0.04);
+      d.position.set(Math.cos(th)*r, yDome, Math.sin(th)*r);
+      d.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+      const s = opts.scale || [1,1,1];
+      const sj = opts.sJit ? (1 - opts.sJit/2 + Math.random()*opts.sJit) : 1;
+      d.scale.set(s[0]*sj, s[1]*sj, s[2]*sj);
+      d.updateMatrix();
+      mesh.setMatrixAt(i, d.matrix);
+      if (opts.colors) { col.set(opts.colors[(Math.random()*opts.colors.length)|0]); mesh.setColorAt(i, col); }
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    g.add(mesh);
+    return mesh;
+  }
+
+  // ─── Carb-source builders ───────────────────────────────────────────────
+
+  function buildWhiteRice() {
+    const g = new THREE.Group();
+    _glassBowl(g);
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.045, 6, 5),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.50, metalness: 0 }),
+      colors: [0xfbfaf6, 0xf2efe6, 0xeae6da, 0xfdfdfb],
+      count: 320, domeR: 0.82, domeH: 0.20, yBase: 0.50,
+      scale: [0.58, 0.58, 1.7], sJit: 0.25, jit: 0.03, moundColor: 0xf0ede4,
+    });
+    g.scale.set(0.92, 0.92, 0.92);
+    return g;
+  }
+
+  function buildBrownRice() {
+    const g = new THREE.Group();
+    _glassBowl(g);
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.050, 6, 5),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.58, metalness: 0 }),
+      colors: [0xc4a06a, 0xb08d57, 0xa07c48, 0xceb079],
+      count: 300, domeR: 0.82, domeH: 0.20, yBase: 0.50,
+      scale: [0.62, 0.60, 1.65], sJit: 0.28, jit: 0.03, moundColor: 0xa9885a,
+    });
+    g.scale.set(0.92, 0.92, 0.92);
+    return g;
+  }
+
+  function buildLentils() {
+    const g = new THREE.Group();
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.085, 8, 6),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.78, metalness: 0 }),
+      colors: [0x6b7f33, 0x556b2f, 0x8a6d3b, 0x4a5d28, 0x7c6a2e],
+      count: 300, domeR: 0.96, domeH: 0.52, yBase: -0.22,
+      scale: [1, 0.40, 1], sJit: 0.3, jit: 0.03, moundColor: 0x5a6b30,
+    });
+    return g;
+  }
+
+  function buildBlackBeans() {
+    const g = new THREE.Group();
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.085, 10, 8),
+      mat: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.28, metalness: 0, clearcoat: 0.65, clearcoatRoughness: 0.20 }),
+      colors: [0x26262b, 0x2b2433, 0x1f1f24, 0x322a3a, 0x242028],
+      count: 260, domeR: 0.94, domeH: 0.52, yBase: -0.20,
+      scale: [1, 0.72, 1.35], sJit: 0.22, jit: 0.03, moundColor: 0x222026,
+    });
+    return g;
+  }
+
+  function buildChickpeas() {
+    const g = new THREE.Group();
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.105, 12, 10),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.80, metalness: 0 }),
+      colors: [0xe3c79a, 0xd9b988, 0xecd2a8, 0xcfac76],
+      count: 180, domeR: 0.92, domeH: 0.50, yBase: -0.18,
+      scale: [1, 0.92, 1], sJit: 0.18, jit: 0.035, moundColor: 0xd6b486,
+    });
+    return g;
+  }
+
+  function buildBuckwheat() {
+    const g = new THREE.Group();
+    _heap(g, {
+      geo: new THREE.TetrahedronGeometry(0.10),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.80, metalness: 0 }),
+      colors: [0xa8825a, 0x8f6c44, 0xbb9968, 0x7c5e3a],
+      count: 200, domeR: 0.88, domeH: 0.48, yBase: -0.20,
+      scale: [1, 1, 1], sJit: 0.30, jit: 0.03, moundColor: 0x8c6a44,
+    });
+    return g;
+  }
+
+  function buildMillet() {
+    const g = new THREE.Group();
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.036, 6, 5),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0 }),
+      colors: [0xe6cf6a, 0xefdc86, 0xd9bf54, 0xf2e49a],
+      count: 360, domeR: 0.86, domeH: 0.46, yBase: -0.18,
+      scale: [1, 1, 1], sJit: 0.35, jit: 0.02, moundColor: 0xd8c266,
+    });
+    return g;
+  }
+
+  function buildBarley() {
+    const g = new THREE.Group();
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.055, 8, 6),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.42, metalness: 0.05 }),
+      colors: [0xd8c89a, 0xe6d9af, 0xcab885, 0xf0e6c4],
+      count: 240, domeR: 0.90, domeH: 0.50, yBase: -0.20,
+      scale: [0.70, 0.70, 1.7], sJit: 0.25, jit: 0.03, moundColor: 0xcabd92,
+    });
+    return g;
+  }
+
+  function buildWholeWheatBread() {
+    const g = new THREE.Group();
+    const tex = makeBreadTex();
+    const crustMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xc8924a, roughness: 0.82, metalness: 0 });
+
+    const sliceShape = new THREE.Shape();
+    sliceShape.moveTo(-0.62, -0.70);
+    sliceShape.lineTo(0.62, -0.70);
+    sliceShape.lineTo(0.62, 0.15);
+    sliceShape.quadraticCurveTo(0.62, 0.80, 0, 0.80);
+    sliceShape.quadraticCurveTo(-0.62, 0.80, -0.62, 0.15);
+    sliceShape.lineTo(-0.62, -0.70);
+    const geo = new THREE.ExtrudeGeometry(sliceShape, {
+      depth: 0.20, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 3, curveSegments: 18,
+    });
+    geo.center();
+
+    const s1 = new THREE.Mesh(geo, crustMat);
+    s1.castShadow = s1.receiveShadow = true;
+    s1.position.set(-0.34, 0, 0.12); s1.rotation.set(0, 0.18, 0.04);
+    g.add(s1);
+
+    const s2 = new THREE.Mesh(geo.clone(), crustMat);
+    s2.castShadow = s2.receiveShadow = true;
+    s2.position.set(0.36, 0.02, -0.16); s2.rotation.set(0, -0.16, -0.05);
+    g.add(s2);
+
+    g.scale.set(1.05, 1.05, 1.05);
+    return g;
+  }
+
+  function buildPasta() {
+    const g = new THREE.Group();
+    const tex = makePastaTex();
+    const mat = new THREE.MeshStandardMaterial({ map: tex, color: 0xe8cd6d, roughness: 0.55, metalness: 0 });
+
+    const fusilli = () => {
+      const pts = [];
+      const turns = 3.2, h = 0.95, rad = 0.16;
+      for (let i = 0; i <= 90; i++) {
+        const t = i / 90, a = t * Math.PI * 2 * turns;
+        pts.push(new THREE.Vector3(Math.cos(a)*rad, (t-0.5)*h, Math.sin(a)*rad));
+      }
+      const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 100, 0.075, 8, false), mat);
+      m.castShadow = m.receiveShadow = true;
+      return m;
+    };
+
+    const p1 = fusilli(); p1.rotation.set(0.30, 0, 0.40);  p1.position.set(-0.36, 0.08, 0.10); g.add(p1);
+    const p2 = fusilli(); p2.rotation.set(-0.40, 0.50, -0.30); p2.position.set(0.40, -0.10, -0.20); g.add(p2);
+    const p3 = fusilli(); p3.rotation.set(0.20, 0, 1.40);  p3.position.set(0.10, 0.34, 0.34); g.add(p3);
+
+    g.scale.set(1.1, 1.1, 1.1);
+    return g;
+  }
+
+  function buildCorn() {
+    const g = new THREE.Group();
+    const coreMat = new THREE.MeshStandardMaterial({ color: 0xe8d27a, roughness: 0.72, metalness: 0 });
+
+    const cob = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.27, 1.5, 20, 1), coreMat);
+    cob.castShadow = cob.receiveShadow = true;
+    g.add(cob);
+    const tipTop = new THREE.Mesh(new THREE.SphereGeometry(0.30, 16, 12), coreMat);
+    tipTop.position.y = 0.74; tipTop.scale.set(1, 0.6, 1); g.add(tipTop);
+    const tipBot = new THREE.Mesh(new THREE.SphereGeometry(0.27, 16, 12), coreMat);
+    tipBot.position.y = -0.74; tipBot.scale.set(1, 0.7, 1); g.add(tipBot);
+
+    // Kernels (instanced) in staggered rows
+    const rows = 15, cols = 12, count = rows * cols;
+    const kMesh = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(0.078, 8, 7),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.42, metalness: 0 }),
+      count
+    );
+    kMesh.castShadow = true;
+    const d = new THREE.Object3D(), col = new THREE.Color();
+    const kCols = [0xf5c542, 0xf7d65a, 0xeab92f, 0xf9dd6b];
+    let idx = 0;
+    for (let r = 0; r < rows; r++) {
+      const y = -0.66 + (r / (rows - 1)) * 1.32;
+      const off = (r % 2) * (Math.PI / cols);
+      for (let c2 = 0; c2 < cols; c2++) {
+        const a = (c2 / cols) * Math.PI * 2 + off;
+        d.position.set(Math.cos(a) * 0.325, y, Math.sin(a) * 0.325);
+        d.rotation.set(0, -a, 0);
+        const sj = 0.88 + Math.random() * 0.24;
+        d.scale.set(sj, sj * 0.95, sj);
+        d.updateMatrix();
+        kMesh.setMatrixAt(idx, d.matrix);
+        col.set(kCols[(Math.random() * kCols.length) | 0]); kMesh.setColorAt(idx, col);
+        idx++;
+      }
+    }
+    kMesh.instanceMatrix.needsUpdate = true;
+    if (kMesh.instanceColor) kMesh.instanceColor.needsUpdate = true;
+    g.add(kMesh);
+
+    // Husk leaves pulled back at the base
+    const huskMat = new THREE.MeshStandardMaterial({ color: 0x6fae3a, roughness: 0.72, metalness: 0, side: THREE.DoubleSide });
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      const sh = new THREE.Shape();
+      sh.moveTo(0, 0);
+      sh.bezierCurveTo(0.20, 0.34, 0.17, 0.95, 0, 1.30);
+      sh.bezierCurveTo(-0.17, 0.95, -0.20, 0.34, 0, 0);
+      const leaf = new THREE.Mesh(new THREE.ShapeGeometry(sh, 10), huskMat);
+      leaf.position.set(Math.cos(a) * 0.30, -0.74, Math.sin(a) * 0.30);
+      leaf.rotation.set(Math.PI * 0.86, a, 0);
+      leaf.castShadow = true;
+      g.add(leaf);
+    }
+
+    g.rotation.z = 0.12;
+    return g;
+  }
+
+  function buildCornTortilla() {
+    const g = new THREE.Group();
+    const tex = makeTortillaTex();
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.06, 64),
+      new THREE.MeshStandardMaterial({ map: tex, color: 0xecd9a0, roughness: 0.86, metalness: 0 }));
+    disc.castShadow = disc.receiveShadow = true;
+    disc.rotation.z = 0.05;
+    g.add(disc);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(1.12, 0.05, 8, 64),
+      new THREE.MeshStandardMaterial({ color: 0xd9c187, roughness: 0.9, metalness: 0 }));
+    rim.rotation.x = Math.PI / 2;
+    g.add(rim);
+    g.rotation.x = -0.40;
+    g.rotation.z = 0.10;
+    return g;
+  }
+
   // ─── Scene Setup ─────────────────────────────────────────────────────────
 
   function makeSceneBackground() {
@@ -2118,6 +2468,10 @@ const FoodScene = (() => {
     oats: buildOats, lemon: buildLemon, walnut: buildWalnut,
     tomato: buildTomato, garlic: buildGarlic, darkchocolate: buildDarkChocolate,
     kiwi: buildKiwi, quinoa: buildQuinoa, ginger: buildGinger,
+    whiterice: buildWhiteRice, brownrice: buildBrownRice, wholewheatbread: buildWholeWheatBread,
+    pasta: buildPasta, corn: buildCorn, lentils: buildLentils,
+    blackbeans: buildBlackBeans, chickpeas: buildChickpeas, corntortilla: buildCornTortilla,
+    buckwheat: buildBuckwheat, millet: buildMillet, barley: buildBarley,
   };
   const PARTICLE_COLORS = {
     apple: 0xff4422, banana: 0xf5c600,
@@ -2128,6 +2482,10 @@ const FoodScene = (() => {
     oats: 0xd4a853, lemon: 0xfde047, walnut: 0xa07040,
     tomato: 0xef4444, garlic: 0xf5f0dc, darkchocolate: 0x7c3f1a,
     kiwi: 0x86efac, quinoa: 0xd4c5a0, ginger: 0xc8a96e,
+    whiterice: 0xf5f5f0, brownrice: 0xc4a574, wholewheatbread: 0xc8924a,
+    pasta: 0xe8cd6d, corn: 0xf5c542, lentils: 0x8b9b4a,
+    blackbeans: 0x6a6a78, chickpeas: 0xe3c79a, corntortilla: 0xecd9a0,
+    buckwheat: 0xa8825a, millet: 0xe6cf6a, barley: 0xd8c89a,
   };
 
   // ─── Public API ────────────────────────────────────────────────────────────
