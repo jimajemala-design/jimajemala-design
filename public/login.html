@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log In — NutriBase Georgia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
+</head>
+<body>
+  <header class="navbar" id="navbar">
+    <div class="navbar-inner">
+      <a class="logo" href="/" aria-label="NutriBase Georgia home">
+        <div class="logo-mark" aria-hidden="true">
+          <svg width="16" height="18" viewBox="0 0 16 18" fill="none"><path d="M8 1C8 1 1.5 4.5 1.5 10.5C1.5 13.8 4.5 16.5 8 16.5C11.5 16.5 14.5 13.8 14.5 10.5C14.5 4.5 8 1 8 1Z" fill="white" fill-opacity="0.9"/></svg>
+        </div>
+        <div class="logo-wordmark"><span class="logo-name">NUTRIBASE</span><span class="logo-geo">GEORGIA</span></div>
+      </a>
+      <nav class="navbar-nav" id="navAuth" aria-label="Account"></nav>
+    </div>
+  </header>
+
+  <main class="app-page">
+    <div class="mesh-gradient" aria-hidden="true"></div>
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="auth-head">
+          <div class="auth-logo" aria-hidden="true">
+            <svg width="20" height="22" viewBox="0 0 16 18" fill="none"><path d="M8 1C8 1 1.5 4.5 1.5 10.5C1.5 13.8 4.5 16.5 8 16.5C11.5 16.5 14.5 13.8 14.5 10.5C14.5 4.5 8 1 8 1Z" fill="#051008"/></svg>
+          </div>
+          <h1 class="auth-title">Welcome back</h1>
+          <p class="auth-sub">Log in to your fridge & meal plans</p>
+        </div>
+
+        <form id="loginForm" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="log-email">Email</label>
+            <input class="form-input" id="log-email" name="email" type="email" placeholder="you@email.com" autocomplete="email" />
+            <p class="form-error"></p>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="log-password">Password</label>
+            <input class="form-input" id="log-password" name="password" type="password" placeholder="Your password" autocomplete="current-password" />
+            <p class="form-error"></p>
+          </div>
+          <div class="form-meta">
+            <label class="checkbox">
+              <input type="checkbox" name="remember" checked />
+              <span class="box"></span>
+              Remember me
+            </label>
+            <a class="link-muted" href="#" onclick="return false">Forgot password?</a>
+          </div>
+          <button class="btn-primary btn-block" type="submit">Log In</button>
+        </form>
+
+        <p class="auth-foot">Don't have an account? <a href="/register.html">Register</a></p>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+</body>
+</html>

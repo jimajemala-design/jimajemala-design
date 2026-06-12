@@ -1,10 +1,59 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
+
+// ─── Data storage (server-side JSON files) ──────────────────────────────
+const JWT_SECRET = process.env.JWT_SECRET || 'nutribase-georgia-secret-key-2035';
+const DATA_DIR = path.join(__dirname, 'data');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const FRIDGES_FILE = path.join(DATA_DIR, 'fridges.json');
+const MEALPLANS_FILE = path.join(DATA_DIR, 'mealplans.json');
+
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE]) {
+  if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf8');
+}
+const readJSON = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8') || '[]'); } catch { return []; } };
+const writeJSON = (f, data) => fs.writeFileSync(f, JSON.stringify(data, null, 2), 'utf8');
+const publicUser = (u) => { const { password, ...rest } = u; return rest; };
+
+// JWT auth middleware
+function auth(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'No token provided' });
+  try {
+    req.userId = jwt.verify(token, JWT_SECRET).id;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
+
+// Mifflin-St Jeor calorie + macro calculator
+function calcCalories(p) {
+  if (!p || !p.weight || !p.height || !p.age) return null;
+  const bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (p.gender === 'female' ? -161 : 5);
+  const tdee = bmr * 1.55;
+  const factor = p.goal === 'lose_weight' ? 0.8 : p.goal === 'gain_muscle' ? 1.2 : 1.0;
+  const target = Math.round(tdee * factor);
+  return {
+    bmr: Math.round(bmr),
+    tdee: Math.round(tdee),
+    target,
+    protein: Math.round((target * 0.30) / 4),
+    carbs: Math.round((target * 0.40) / 4),
+    fats: Math.round((target * 0.30) / 9),
+  };
+}
 
 const foods = [
   {
@@ -1437,6 +1486,237 @@ app.get('/api/foods', (req, res) => res.json(foods));
 app.get('/api/foods/:id', (req, res) => {
   const food = foods.find(f => f.id === req.params.id);
   food ? res.json(food) : res.status(404).json({ error: 'Food not found' });
+});
+
+// Match a free-text ingredient name to a food in the database
+function matchFoodId(name) {
+  const n = String(name).toLowerCase().trim();
+  let f = foods.find(food => food.name.toLowerCase() === n);
+  if (!f) f = foods.find(food => food.name.toLowerCase().includes(n) || n.includes(food.name.toLowerCase()));
+  return f ? f.id : null;
+}
+
+// ─── AUTH ────────────────────────────────────────────────────────────────
+app.post('/api/register', async (req, res) => {
+  const { email, password, name, age, weight, goal } = req.body || {};
+  if (!email || !password || !name) return res.status(400).json({ error: 'Name, email and password are required' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
+  if (String(password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  const users = readJSON(USERS_FILE);
+  if (users.find(u => u.email.toLowerCase() === String(email).toLowerCase())) {
+    return res.status(409).json({ error: 'An account with this email already exists' });
+  }
+  const user = {
+    id: uuidv4(),
+    email: String(email).trim().toLowerCase(),
+    password: await bcrypt.hash(String(password), 10),
+    name: String(name).trim(),
+    age: age ? Number(age) : null,
+    weight: weight ? Number(weight) : null,
+    height: null,
+    gender: null,
+    goal: goal || 'maintain',
+    createdAt: new Date().toISOString(),
+  };
+  users.push(user);
+  writeJSON(USERS_FILE, users);
+  const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+  res.status(201).json({ token, user: publicUser(user) });
+});
+
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+  const users = readJSON(USERS_FILE);
+  const user = users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
+  if (!user || !(await bcrypt.compare(String(password), user.password))) {
+    return res.status(401).json({ error: 'Invalid email or password' });
+  }
+  const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+  res.json({ token, user: publicUser(user) });
+});
+
+app.get('/api/profile', auth, (req, res) => {
+  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json({ user: publicUser(user), calories: calcCalories(user) });
+});
+
+app.put('/api/profile', auth, (req, res) => {
+  const users = readJSON(USERS_FILE);
+  const idx = users.findIndex(u => u.id === req.userId);
+  if (idx === -1) return res.status(404).json({ error: 'User not found' });
+  const u = users[idx];
+  const { name, age, weight, height, gender, goal } = req.body || {};
+  if (name != null) u.name = String(name).trim();
+  if (age != null) u.age = Number(age);
+  if (weight != null) u.weight = Number(weight);
+  if (height != null) u.height = Number(height);
+  if (gender != null) u.gender = String(gender);
+  if (goal != null) u.goal = String(goal);
+  users[idx] = u;
+  writeJSON(USERS_FILE, users);
+  res.json({ user: publicUser(u), calories: calcCalories(u) });
+});
+
+// ─── FRIDGE ──────────────────────────────────────────────────────────────
+app.get('/api/fridge', auth, (req, res) => {
+  res.json(readJSON(FRIDGES_FILE).filter(i => i.userId === req.userId));
+});
+
+app.post('/api/fridge', auth, (req, res) => {
+  const { name, quantity, category, foodId } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Ingredient name is required' });
+  const fridges = readJSON(FRIDGES_FILE);
+  const item = {
+    id: uuidv4(),
+    userId: req.userId,
+    name: String(name).trim(),
+    quantity: quantity ? String(quantity).trim() : '100g',
+    category: category || 'protein',
+    foodId: foodId || matchFoodId(name),
+    addedAt: new Date().toISOString(),
+  };
+  fridges.push(item);
+  writeJSON(FRIDGES_FILE, fridges);
+  res.status(201).json(item);
+});
+
+app.put('/api/fridge/:id', auth, (req, res) => {
+  const fridges = readJSON(FRIDGES_FILE);
+  const item = fridges.find(i => i.id === req.params.id && i.userId === req.userId);
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+  const { quantity, category } = req.body || {};
+  if (quantity != null) item.quantity = String(quantity).trim();
+  if (category != null) item.category = String(category);
+  writeJSON(FRIDGES_FILE, fridges);
+  res.json(item);
+});
+
+app.delete('/api/fridge/:id', auth, (req, res) => {
+  let fridges = readJSON(FRIDGES_FILE);
+  const before = fridges.length;
+  fridges = fridges.filter(i => !(i.id === req.params.id && i.userId === req.userId));
+  if (fridges.length === before) return res.status(404).json({ error: 'Item not found' });
+  writeJSON(FRIDGES_FILE, fridges);
+  res.json({ success: true });
+});
+
+// ─── MEAL PLAN ─────────────────────────────────────────────────────────────
+function buildMeal(name, time, targetCal, picks) {
+  const verbs = {
+    Breakfast: 'Prepare', Lunch: 'Cook and combine', Dinner: 'Lightly cook and plate', Snacks: 'Enjoy',
+  };
+  const per = picks.length ? targetCal / picks.length : 0;
+  const items = picks.map(food => {
+    const grams = Math.min(400, Math.max(20, Math.round((per / (food.calories || 1)) * 100)));
+    const factor = grams / 100;
+    return {
+      foodId: food.id, name: food.name, emoji: food.emoji,
+      quantity: grams + 'g',
+      calories: Math.round(food.calories * factor),
+      protein: +(food.nutrition.protein * factor).toFixed(1),
+      carbs: +(food.nutrition.carbs * factor).toFixed(1),
+      fat: +(food.nutrition.fat * factor).toFixed(1),
+    };
+  });
+  const tot = items.reduce((a, it) => ({
+    calories: a.calories + it.calories, protein: a.protein + it.protein,
+    carbs: a.carbs + it.carbs, fat: a.fat + it.fat,
+  }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const names = items.map(i => i.name);
+  const instructions = items.length
+    ? `${verbs[name]} ${names.join(', ').replace(/, ([^,]*)$/, ' and $1')} (${items.map(i => i.quantity).join(', ')}).`
+    : 'Add more ingredients to your fridge for a richer plan.';
+  return {
+    name, time, instructions, items,
+    calories: tot.calories,
+    protein: +tot.protein.toFixed(1),
+    carbs: +tot.carbs.toFixed(1),
+    fat: +tot.fat.toFixed(1),
+  };
+}
+
+function buildPlan(allFoods, cal, offset) {
+  const pick = (start, count) => {
+    const out = [];
+    for (let k = 0; k < count && allFoods.length; k++) out.push(allFoods[(start + k) % allFoods.length]);
+    return out;
+  };
+  const o = offset || 0;
+  const meals = [
+    buildMeal('Breakfast', '08:00', Math.round(cal.target * 0.25), pick(o + 0, Math.min(2, allFoods.length))),
+    buildMeal('Lunch', '13:00', Math.round(cal.target * 0.35), pick(o + 2, Math.min(3, allFoods.length))),
+    buildMeal('Dinner', '19:00', Math.round(cal.target * 0.30), pick(o + 5, Math.min(3, allFoods.length))),
+    buildMeal('Snacks', '16:00', Math.round(cal.target * 0.10), pick(o + 8, Math.min(1, allFoods.length))),
+  ];
+  const totals = meals.reduce((a, m) => ({
+    calories: a.calories + m.calories, protein: a.protein + m.protein,
+    carbs: a.carbs + m.carbs, fat: a.fat + m.fat,
+  }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  return {
+    meals,
+    target: cal,
+    totals: {
+      calories: totals.calories,
+      protein: +totals.protein.toFixed(1),
+      carbs: +totals.carbs.toFixed(1),
+      fat: +totals.fat.toFixed(1),
+    },
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+function setUserPlan(userId, plan, saved) {
+  const all = readJSON(MEALPLANS_FILE);
+  const idx = all.findIndex(p => p.userId === userId);
+  const rec = { userId, plan, saved: !!saved, updatedAt: new Date().toISOString() };
+  if (idx === -1) all.push(rec); else all[idx] = rec;
+  writeJSON(MEALPLANS_FILE, all);
+}
+
+app.post('/api/mealplan/generate', auth, (req, res) => {
+  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const cal = calcCalories(user);
+  if (!cal) return res.status(400).json({ error: 'Complete your profile (age, weight, height, gender) first' });
+
+  const fridge = readJSON(FRIDGES_FILE).filter(i => i.userId === req.userId);
+  if (!fridge.length) return res.status(400).json({ error: 'Your fridge is empty — add some ingredients first' });
+
+  const resolved = fridge
+    .map(i => foods.find(f => f.id === i.foodId) || foods.find(f => f.name.toLowerCase() === i.name.toLowerCase()))
+    .filter(Boolean);
+  if (!resolved.length) {
+    return res.status(400).json({ error: 'None of your fridge items match the food database. Try common names like "Chicken Breast" or "Banana".' });
+  }
+  // rotate the starting offset each generation for variety
+  const prev = readJSON(MEALPLANS_FILE).find(p => p.userId === req.userId);
+  const offset = ((prev && prev.offset) || 0) + 1;
+  const plan = buildPlan(resolved, cal, offset);
+
+  const all = readJSON(MEALPLANS_FILE);
+  const idx = all.findIndex(p => p.userId === req.userId);
+  const rec = { userId: req.userId, plan, saved: false, offset, updatedAt: new Date().toISOString() };
+  if (idx === -1) all.push(rec); else all[idx] = rec;
+  writeJSON(MEALPLANS_FILE, all);
+
+  res.json(plan);
+});
+
+app.get('/api/mealplan', auth, (req, res) => {
+  const rec = readJSON(MEALPLANS_FILE).find(p => p.userId === req.userId);
+  res.json(rec ? rec.plan : null);
+});
+
+app.post('/api/mealplan/save', auth, (req, res) => {
+  const bodyPlan = req.body && req.body.plan;
+  const existing = readJSON(MEALPLANS_FILE).find(p => p.userId === req.userId);
+  const plan = bodyPlan || (existing && existing.plan);
+  if (!plan) return res.status(400).json({ error: 'No meal plan to save — generate one first' });
+  setUserPlan(req.userId, plan, true);
+  res.json({ success: true, message: 'Meal plan saved' });
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));

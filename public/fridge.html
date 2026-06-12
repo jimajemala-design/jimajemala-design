@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Fridge & Meal Planner — NutriBase Georgia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
+</head>
+<body>
+  <header class="navbar" id="navbar">
+    <div class="navbar-inner">
+      <a class="logo" href="/" aria-label="NutriBase Georgia home">
+        <div class="logo-mark" aria-hidden="true">
+          <svg width="16" height="18" viewBox="0 0 16 18" fill="none"><path d="M8 1C8 1 1.5 4.5 1.5 10.5C1.5 13.8 4.5 16.5 8 16.5C11.5 16.5 14.5 13.8 14.5 10.5C14.5 4.5 8 1 8 1Z" fill="white" fill-opacity="0.9"/></svg>
+        </div>
+        <div class="logo-wordmark"><span class="logo-name">NUTRIBASE</span><span class="logo-geo">GEORGIA</span></div>
+      </a>
+      <nav class="navbar-nav" id="navAuth" aria-label="Account"></nav>
+    </div>
+  </header>
+
+  <main class="app-page">
+    <div class="mesh-gradient" aria-hidden="true"></div>
+
+    <div class="fridge-header">
+      <h1>My <em>Fridge</em> &amp; Meal Planner</h1>
+      <p>Stock your fridge, then let NutriBase build a daily plan around your goals.</p>
+    </div>
+
+    <div class="fridge-layout">
+      <!-- LEFT: Fridge -->
+      <section class="panel" aria-label="My fridge">
+        <div class="panel-title">
+          <h2>🧊 My Fridge</h2>
+          <span class="count" id="fridgeCount">0 items</span>
+        </div>
+
+        <div class="fridge-search">
+          <input class="form-input" id="searchInput" type="text" placeholder="Search ingredients…" autocomplete="off" />
+          <button class="btn-ghost" id="searchAddBtn">Add</button>
+          <div class="search-results" id="searchResults"></div>
+        </div>
+
+        <div class="quick-add" id="quickAdd"></div>
+
+        <div class="fridge-list" id="fridgeList"></div>
+
+        <button class="btn-primary btn-block generate-btn" id="generateBtn">⚡ Generate Meal Plan</button>
+      </section>
+
+      <!-- RIGHT: Meal plan -->
+      <section class="panel" aria-label="Daily meal plan">
+        <div class="panel-title">
+          <h2>📋 My Daily Meal Plan</h2>
+        </div>
+
+        <div class="plan-targets" id="planTargets"></div>
+
+        <div id="mealPlan">
+          <div class="plan-empty">
+            <div class="big">🍳</div>
+            No meal plan yet.<br>Stock your fridge and hit <b>Generate Meal Plan</b>.
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/fridge.js"></script>
+</body>
+</html>

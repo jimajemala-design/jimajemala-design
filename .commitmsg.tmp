@@ -1,0 +1,39 @@
+Added user registration, fridge, and meal planner
+
+Full-stack auth + personal fridge + AI meal planner, all stored in
+server-side JSON files (no database).
+
+Backend (server.js):
+- Deps: bcryptjs, jsonwebtoken, uuid
+- Data store: data/users.json, data/fridges.json, data/mealplans.json
+  (auto-created on start; gitignored to keep credentials out of the repo)
+- Auth: POST /api/register, POST /api/login (bcrypt hashing, JWT 7-day
+  tokens), GET/PUT /api/profile (JWT-guarded)
+- Fridge: GET/POST/PUT/DELETE /api/fridge with per-user isolation and
+  automatic ingredient-to-food matching
+- Meal plan: POST /api/mealplan/generate, GET /api/mealplan,
+  POST /api/mealplan/save
+- Mifflin-St Jeor BMR x 1.55 activity, goal factors (lose 0.8 / maintain
+  1.0 / gain 1.2), macro split 30/40/30
+- Generator splits day into breakfast 25% / lunch 35% / dinner 30% /
+  snacks 10%, sizes portions from each food's per-100g calories, rotates
+  picks for variety, and returns per-meal + daily macro totals with
+  prep instructions
+
+Frontend (4 new pages + shared CSS/JS):
+- register.html, login.html, profile.html, fridge.html — dark
+  glassmorphism matching the existing design system (Space Grotesk +
+  Inter + JetBrains Mono, green-glow focus states, inline validation,
+  spinners, toasts)
+- auth.js: session in localStorage, auth-aware navbar (Login CTA vs user
+  dropdown with Profile/Fridge/Logout), live client-side calorie preview,
+  register/login/profile form logic + validation
+- fridge.js: ingredient search + quick-add, live quantity edit, delete,
+  generate/regenerate/save plan, meal cards, color-coded macro progress
+  bars (protein=blue, carbs=green, fats=gold)
+- index.html: auth-aware nav + auth.css/auth.js wired in
+
+Tested: register -> profile (calorie calc) -> fridge add (food matching)
+-> generate -> save -> retrieve all pass; unauthenticated requests 401.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

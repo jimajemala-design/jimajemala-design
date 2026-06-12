@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile Setup — NutriBase Georgia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
+</head>
+<body>
+  <header class="navbar" id="navbar">
+    <div class="navbar-inner">
+      <a class="logo" href="/" aria-label="NutriBase Georgia home">
+        <div class="logo-mark" aria-hidden="true">
+          <svg width="16" height="18" viewBox="0 0 16 18" fill="none"><path d="M8 1C8 1 1.5 4.5 1.5 10.5C1.5 13.8 4.5 16.5 8 16.5C11.5 16.5 14.5 13.8 14.5 10.5C14.5 4.5 8 1 8 1Z" fill="white" fill-opacity="0.9"/></svg>
+        </div>
+        <div class="logo-wordmark"><span class="logo-name">NUTRIBASE</span><span class="logo-geo">GEORGIA</span></div>
+      </a>
+      <nav class="navbar-nav" id="navAuth" aria-label="Account"></nav>
+    </div>
+  </header>
+
+  <main class="app-page">
+    <div class="mesh-gradient" aria-hidden="true"></div>
+    <div class="auth-wrap">
+      <div class="auth-card wide">
+        <div class="auth-head">
+          <h1 class="auth-title">Set up your profile</h1>
+          <p class="auth-sub">We'll calculate your personalized daily calorie target</p>
+        </div>
+
+        <form id="profileForm" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="pf-name">Full Name</label>
+            <input class="form-input" id="pf-name" name="name" type="text" placeholder="Jane Doe" />
+            <p class="form-error"></p>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="pf-age">Age</label>
+              <input class="form-input" id="pf-age" name="age" type="number" min="13" max="100" placeholder="25" />
+              <p class="form-error"></p>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="pf-gender">Gender</label>
+              <select class="form-select" id="pf-gender" name="gender">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+              <p class="form-error"></p>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="pf-weight">Weight (kg)</label>
+              <input class="form-input" id="pf-weight" name="weight" type="number" min="25" max="400" step="0.1" placeholder="75" />
+              <p class="form-error"></p>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="pf-height">Height (cm)</label>
+              <input class="form-input" id="pf-height" name="height" type="number" min="90" max="250" placeholder="175" />
+              <p class="form-error"></p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="pf-goal">Fitness Goal</label>
+            <select class="form-select" id="pf-goal" name="goal">
+              <option value="lose_weight">Lose Weight</option>
+              <option value="maintain" selected>Maintain Weight</option>
+              <option value="gain_muscle">Gain Muscle</option>
+            </select>
+          </div>
+
+          <div class="calorie-result" id="calorieResult">
+            <div class="calorie-result-label">Your daily target</div>
+            <div class="calorie-result-num" id="calNum">0<span> kcal</span></div>
+            <div class="calorie-macros">
+              <div class="calorie-macro"><b id="calP">0g</b><span>Protein</span></div>
+              <div class="calorie-macro"><b id="calC">0g</b><span>Carbs</span></div>
+              <div class="calorie-macro"><b id="calF">0g</b><span>Fats</span></div>
+            </div>
+          </div>
+
+          <button class="btn-primary btn-block" type="submit">Save &amp; Continue</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+</body>
+</html>
