@@ -14,6 +14,11 @@ const App = (() => {
     apple: 'fruit', banana: 'fruit', blueberry: 'fruit', lemon: 'fruit',
     tomato: 'fruit', kiwi: 'fruit', avocado: 'fruit',
     chicken: 'protein', fish: 'protein', egg: 'protein', greekyogurt: 'protein',
+    tuna: 'protein', turkey: 'protein', cottagecheese: 'protein', beef: 'protein',
+    pork: 'protein', shrimp: 'protein', whey: 'protein', edamame: 'protein',
+    sardines: 'protein', tempeh: 'protein', lamb: 'protein', cannedsalmon: 'protein',
+    tofu: 'protein', octopus: 'protein', duck: 'protein', hempseeds: 'protein',
+    pumpkinseeds: 'protein', beefliver: 'protein', mussels: 'protein', spirulina: 'protein',
     broccoli: 'vegetable', spinach: 'vegetable', carrot: 'vegetable',
     sweetpotato: 'vegetable', garlic: 'vegetable', ginger: 'vegetable',
     corn: 'vegetable',
@@ -277,7 +282,8 @@ const App = (() => {
       riboflavin: 'Riboflavin', calcium: 'Calcium', phosphorus: 'Phosphorus',
       lycopene: 'Lycopene', allicin: 'Allicin', flavonoids: 'Flavonoids',
       gingerol: 'Gingerol', betaGlucan: 'Beta-Glucan',
-      thiamine: 'Thiamine', niacin: 'Niacin', iron: 'Iron'
+      thiamine: 'Thiamine', niacin: 'Niacin', iron: 'Iron',
+      iodine: 'Iodine', leucine: 'Leucine', gla: 'GLA'
     };
     const units = {
       protein: 'g', carbs: 'g', fat: 'g', fiber: 'g', sugar: 'g',
@@ -289,7 +295,8 @@ const App = (() => {
       riboflavin: 'mg', calcium: 'mg', phosphorus: 'mg',
       lycopene: 'mg', allicin: 'mg', flavonoids: 'mg',
       gingerol: 'mg', betaGlucan: 'g',
-      thiamine: 'mg', niacin: 'mg', iron: 'mg'
+      thiamine: 'mg', niacin: 'mg', iron: 'mg',
+      iodine: 'µg', leucine: 'g', gla: 'g'
     };
     const maxVals = {
       protein: 40, carbs: 60, fat: 20, fiber: 25, sugar: 30,
@@ -301,7 +308,8 @@ const App = (() => {
       riboflavin: 1.3, calcium: 1000, phosphorus: 700,
       lycopene: 15, allicin: 10, flavonoids: 200,
       gingerol: 50, betaGlucan: 6,
-      thiamine: 1.2, niacin: 16, iron: 18
+      thiamine: 1.2, niacin: 16, iron: 18,
+      iodine: 150, leucine: 10, gla: 2
     };
 
     const macroKeys = new Set(['protein', 'carbs', 'fat']);

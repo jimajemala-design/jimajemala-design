@@ -2272,6 +2272,410 @@ const FoodScene = (() => {
     return g;
   }
 
+  // ─── Protein-source textures ────────────────────────────────────────────
+
+  // Near-white fiber + marbling map; tint with material.color per meat type.
+  function makeFiberTex() {
+    const c = document.createElement('canvas'); c.width = c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#efe6e1'; ctx.fillRect(0, 0, 512, 512);
+    for (let k = 0; k < 3; k++) {
+      ctx.save(); ctx.translate(256, 256); ctx.rotate(k * 0.5 - 0.3); ctx.translate(-256, -256);
+      for (let y = -20; y < 560; y += 6) {
+        ctx.beginPath();
+        ctx.moveTo(-20, y + Math.sin(y * 0.1) * 4);
+        ctx.lineTo(540, y + Math.sin(y * 0.1 + 1) * 4);
+        ctx.strokeStyle = `rgba(150,95,80,${0.05 + Math.random() * 0.07})`; ctx.lineWidth = 1; ctx.stroke();
+      }
+      ctx.restore();
+    }
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i < 26; i++) {
+      const x = Math.random() * 512, y = Math.random() * 512;
+      ctx.beginPath(); ctx.moveTo(x, y);
+      ctx.bezierCurveTo(x + (Math.random()-0.5)*120, y + (Math.random()-0.5)*70,
+        x + (Math.random()-0.5)*100, y + (Math.random()-0.5)*60,
+        x + (Math.random()-0.5)*150, y + (Math.random()-0.5)*90);
+      ctx.strokeStyle = `rgba(255,250,245,${0.12 + Math.random()*0.2})`; ctx.stroke();
+    }
+    for (let i = 0; i < 500; i++) {
+      const x = Math.random()*512, y = Math.random()*512;
+      ctx.beginPath(); ctx.arc(x, y, 0.6 + Math.random()*2, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(120,70,60,${0.04 + Math.random()*0.1})`; ctx.fill();
+    }
+    return new THREE.CanvasTexture(c);
+  }
+
+  function makeTempehTex() {
+    const c = document.createElement('canvas'); c.width = c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#c2a878'; ctx.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 2500; i++) {
+      const x = Math.random()*512, y = Math.random()*512;
+      ctx.beginPath(); ctx.arc(x, y, 0.5 + Math.random()*2, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(245,240,225,${0.1 + Math.random()*0.3})`; ctx.fill();
+    }
+    for (let i = 0; i < 40; i++) {
+      const x = Math.random()*512, y = Math.random()*512;
+      ctx.beginPath(); ctx.ellipse(x, y, 6 + Math.random()*6, 4 + Math.random()*4, Math.random()*Math.PI, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(150,110,60,${0.2 + Math.random()*0.25})`; ctx.fill();
+    }
+    return new THREE.CanvasTexture(c);
+  }
+
+  // ─── Protein-source builders ────────────────────────────────────────────
+
+  function buildTuna() {
+    const g = new THREE.Group();
+    const steak = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32),
+      new THREE.MeshStandardMaterial({ map: makeFiberTex(), color: 0xb83a2e, roughness: 0.70, metalness: 0 }));
+    steak.scale.set(1.25, 0.42, 1.0); steak.castShadow = steak.receiveShadow = true; g.add(steak);
+    const markMat = new THREE.MeshStandardMaterial({ color: 0x3a1c12, roughness: 0.8 });
+    for (let i = -2; i <= 2; i++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.02, 1.5), markMat);
+      m.position.set(i * 0.30, 0.42, 0); g.add(m);
+    }
+    g.rotation.y = 0.3;
+    return g;
+  }
+
+  function buildTurkey() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ map: makeFiberTex(), color: 0xe6c0a4, roughness: 0.85, metalness: 0 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 40), mat);
+    body.scale.set(1.15, 0.6, 0.85); body.castShadow = body.receiveShadow = true; g.add(body);
+    const end = new THREE.Mesh(new THREE.SphereGeometry(0.6, 32, 24), mat);
+    end.scale.set(0.9, 0.5, 0.8); end.position.set(-1.0, -0.02, 0); end.castShadow = true; g.add(end);
+    g.rotation.y = 0.3;
+    return g;
+  }
+
+  function buildCottageCheese() {
+    const g = new THREE.Group();
+    _glassBowl(g);
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.075, 7, 6),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.60, metalness: 0 }),
+      colors: [0xfdfdfb, 0xf5f2ec, 0xf8f6f0, 0xfffefc],
+      count: 280, domeR: 0.80, domeH: 0.20, yBase: 0.50,
+      scale: [1, 0.8, 1], sJit: 0.5, jit: 0.04, moundColor: 0xf6f3ed,
+    });
+    g.scale.set(0.92, 0.92, 0.92);
+    return g;
+  }
+
+  function buildBeef() {
+    const g = new THREE.Group();
+    const steak = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32),
+      new THREE.MeshStandardMaterial({ map: makeFiberTex(), color: 0x9c3326, roughness: 0.72, metalness: 0 }));
+    steak.scale.set(1.3, 0.4, 1.0); steak.castShadow = steak.receiveShadow = true; g.add(steak);
+    // seared top cap
+    const sear = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24, 0, Math.PI*2, 0, Math.PI*0.5),
+      new THREE.MeshStandardMaterial({ color: 0x4a2418, roughness: 0.86, metalness: 0 }));
+    sear.scale.set(1.3, 0.4, 1.0); sear.position.y = 0.005; g.add(sear);
+    // fat cap rim
+    const fat = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.06, 8, 40),
+      new THREE.MeshStandardMaterial({ color: 0xf0e6d0, roughness: 0.6 }));
+    fat.rotation.x = Math.PI/2; fat.scale.set(1.3, 1.0, 1.0); g.add(fat);
+    g.rotation.y = 0.3;
+    return g;
+  }
+
+  function buildPork() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ map: makeFiberTex(), color: 0xe0a392, roughness: 0.80, metalness: 0 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.4, 2.0, 32), mat);
+    body.rotation.z = Math.PI/2; body.castShadow = body.receiveShadow = true; g.add(body);
+    const cap1 = new THREE.Mesh(new THREE.SphereGeometry(0.45, 24, 18), mat); cap1.position.x = 1.0; cap1.scale.set(0.8, 1, 1); g.add(cap1);
+    const cap2 = new THREE.Mesh(new THREE.SphereGeometry(0.40, 24, 18), mat); cap2.position.x = -1.0; cap2.scale.set(0.8, 1, 1); g.add(cap2);
+    const searMat = new THREE.MeshStandardMaterial({ color: 0x8a5038, roughness: 0.85 });
+    const e1 = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), searMat); e1.position.x = 1.085; e1.rotation.y = Math.PI/2; g.add(e1);
+    const e2 = new THREE.Mesh(new THREE.CircleGeometry(0.36, 24), searMat); e2.position.x = -1.085; e2.rotation.y = -Math.PI/2; g.add(e2);
+    g.rotation.z = 0.1;
+    return g;
+  }
+
+  function buildShrimp() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0xf08070, roughness: 0.45, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.3 });
+    const pts = [];
+    for (let i = 0; i <= 40; i++) {
+      const t = i / 40, a = Math.PI * 1.35 * t - 0.3;
+      pts.push(new THREE.Vector3(Math.cos(a) * 0.9, Math.sin(a) * 0.9 - 0.15, 0));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const body = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.22, 12, false), mat);
+    body.castShadow = true; g.add(body);
+    const ringMat = new THREE.MeshStandardMaterial({ color: 0xd05c4a, roughness: 0.5 });
+    for (let i = 1; i < 8; i++) {
+      const p = curve.getPointAt(i / 9), tan = curve.getTangentAt(i / 9);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.225, 0.025, 6, 16), ringMat);
+      ring.position.copy(p); ring.lookAt(p.clone().add(tan)); g.add(ring);
+    }
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.42, 4), mat);
+    const endP = curve.getPointAt(1), endT = curve.getTangentAt(1);
+    tail.position.copy(endP); tail.lookAt(endP.clone().add(endT)); tail.rotateX(Math.PI/2); g.add(tail);
+    g.scale.set(1.1, 1.1, 1.1);
+    g.rotation.z = 0.2;
+    return g;
+  }
+
+  function buildWhey() {
+    const g = new THREE.Group();
+    const mound = new THREE.Mesh(new THREE.SphereGeometry(1.0, 32, 18, 0, Math.PI*2, 0, Math.PI*0.5),
+      new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.95, metalness: 0 }));
+    mound.scale.set(1.1, 0.5, 1.1); mound.position.y = -0.30; mound.receiveShadow = true; g.add(mound);
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.04, 5, 4),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }),
+      colors: [0xfbfaf7, 0xf2efe8, 0xfffefb],
+      count: 220, domeR: 1.0, domeH: 0.45, yBase: -0.30, scale: [1, 0.7, 1], sJit: 0.4, jit: 0.02, moundColor: null,
+    });
+    const scoopMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.25, side: THREE.DoubleSide });
+    const scoop = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.36, 0.5, 20, 1, true, 0, Math.PI), scoopMat);
+    scoop.rotation.z = Math.PI/2; scoop.rotation.x = 0.25; scoop.position.set(0.55, 0.12, 0.35); g.add(scoop);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 8), scoopMat);
+    handle.position.set(1.1, 0.38, 0.35); handle.rotation.z = 0.7; g.add(handle);
+    return g;
+  }
+
+  function buildEdamame() {
+    const g = new THREE.Group();
+    const podMat = new THREE.MeshStandardMaterial({ color: 0x7cb342, roughness: 0.72, metalness: 0 });
+    const pod = (px, pz, ry) => {
+      const p = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.0, 16), podMat);
+      body.rotation.z = Math.PI/2; body.scale.set(1, 1, 0.7); p.add(body);
+      [-0.5, 0.5].forEach(x => {
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), podMat);
+        cap.position.x = x; cap.scale.set(1, 1, 0.7); p.add(cap);
+      });
+      [-0.28, 0, 0.28].forEach(x => {
+        const b = new THREE.Mesh(new THREE.SphereGeometry(0.23, 16, 12), podMat);
+        b.position.set(x, 0, 0.05); b.scale.set(1, 1.15, 0.9); p.add(b);
+      });
+      p.position.set(px, 0, pz); p.rotation.y = ry; p.rotation.z = (Math.random()-0.5) * 0.3;
+      p.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      return p;
+    };
+    g.add(pod(0, 0, 0.1));
+    g.add(pod(-0.2, 0.5, 0.8));
+    g.add(pod(0.3, -0.45, -0.6));
+    return g;
+  }
+
+  function buildSardines() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0xc0c6cf, roughness: 0.3, metalness: 0.5, clearcoat: 0.5, clearcoatRoughness: 0.2 });
+    const fish = (x, z, ry) => {
+      const f = new THREE.Group();
+      const pts = [
+        new THREE.Vector2(0, -0.7), new THREE.Vector2(0.12, -0.5), new THREE.Vector2(0.18, -0.1),
+        new THREE.Vector2(0.16, 0.3), new THREE.Vector2(0.1, 0.6), new THREE.Vector2(0, 0.72),
+      ];
+      const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 20), mat);
+      body.rotation.z = Math.PI/2; body.scale.set(1, 1, 0.55); f.add(body);
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.3, 4), mat);
+      tail.position.x = -0.78; tail.rotation.z = Math.PI/2; tail.scale.set(1, 1, 0.4); f.add(tail);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 }));
+      eye.position.set(0.6, 0.08, 0.12); f.add(eye);
+      f.position.set(x, 0, z); f.rotation.y = ry;
+      f.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      return f;
+    };
+    g.add(fish(0, 0, 0));
+    g.add(fish(0.1, 0.42, 0.06));
+    g.add(fish(-0.1, -0.42, -0.05));
+    g.scale.set(1.15, 1.15, 1.15);
+    return g;
+  }
+
+  function buildTempeh() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ map: makeTempehTex(), color: 0xb08850, roughness: 0.8, metalness: 0 });
+    const block = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 1.2), mat);
+    block.castShadow = block.receiveShadow = true; g.add(block);
+    const beanMat = new THREE.MeshStandardMaterial({ color: 0xc8a060, roughness: 0.75 });
+    for (let i = 0; i < 24; i++) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), beanMat);
+      b.position.set((Math.random()-0.5)*1.6, 0.25, (Math.random()-0.5)*1.0);
+      b.scale.set(1.3, 0.4, 0.9); b.rotation.y = Math.random()*Math.PI; g.add(b);
+    }
+    g.rotation.y = 0.25;
+    return g;
+  }
+
+  function buildLamb() {
+    const g = new THREE.Group();
+    const meat = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 28),
+      new THREE.MeshStandardMaterial({ map: makeFiberTex(), color: 0x8b2f26, roughness: 0.74, metalness: 0 }));
+    meat.scale.set(1.0, 0.5, 0.85); meat.castShadow = meat.receiveShadow = true; g.add(meat);
+    const fat = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.08, 8, 36),
+      new THREE.MeshStandardMaterial({ color: 0xede2cc, roughness: 0.55 }));
+    fat.rotation.x = Math.PI/2; fat.scale.set(1.0, 0.85, 1.0); fat.position.y = 0.05; g.add(fat);
+    const boneMat = new THREE.MeshPhysicalMaterial({ color: 0xf0ead8, roughness: 0.5, clearcoat: 0.3 });
+    const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.9, 12), boneMat);
+    bone.rotation.z = Math.PI/2; bone.position.set(1.15, 0, 0); g.add(bone);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), boneMat); knob.position.set(1.6, 0, 0); g.add(knob);
+    g.rotation.y = 0.3;
+    return g;
+  }
+
+  function buildCannedSalmon() {
+    const g = new THREE.Group();
+    const canMat = new THREE.MeshStandardMaterial({ color: 0xc8ccd2, roughness: 0.3, metalness: 0.7, side: THREE.DoubleSide });
+    const can = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.55, 40, 1, true), canMat);
+    can.castShadow = true; g.add(can);
+    const bottom = new THREE.Mesh(new THREE.CircleGeometry(1.0, 40), canMat); bottom.rotation.x = -Math.PI/2; bottom.position.y = -0.275; g.add(bottom);
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.12, 7, 6),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }),
+      colors: [0xf08a5d, 0xe87848, 0xf5a06a, 0xd96a40],
+      count: 90, domeR: 0.9, domeH: 0.18, yBase: 0.05, scale: [1.4, 0.5, 1], sJit: 0.4, jit: 0.04, moundColor: 0xe2754a,
+    });
+    const lid = new THREE.Mesh(new THREE.CircleGeometry(1.0, 40),
+      new THREE.MeshStandardMaterial({ color: 0xd8dce0, roughness: 0.25, metalness: 0.7, side: THREE.DoubleSide }));
+    lid.position.set(0.2, 0.55, -0.9); lid.rotation.set(-1.1, 0, 0.2); g.add(lid);
+    g.scale.set(0.95, 0.95, 0.95);
+    return g;
+  }
+
+  function buildTofu() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0xf6f3ea, roughness: 0.5, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.4 });
+    const block = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 1.4), mat);
+    block.castShadow = block.receiveShadow = true; g.add(block);
+    g.rotation.y = 0.3;
+    return g;
+  }
+
+  function buildOctopus() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0xc97a8e, roughness: 0.6, metalness: 0 });
+    const pts = [];
+    for (let i = 0; i <= 60; i++) {
+      const t = i / 60, a = t * Math.PI * 3, r = 0.9 * (1 - t * 0.5);
+      pts.push(new THREE.Vector3(Math.cos(a) * r, t * 1.4 - 0.7, Math.sin(a) * r));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const tubeSegs = 60, radSegs = 10, verts = [], idx = [];
+    const frames = curve.computeFrenetFrames(tubeSegs, false);
+    for (let i = 0; i <= tubeSegs; i++) {
+      const t = i / tubeSegs, p = curve.getPointAt(t);
+      const N = frames.normals[Math.min(i, frames.normals.length - 1)];
+      const B = frames.binormals[Math.min(i, frames.binormals.length - 1)];
+      const rad = 0.32 * (1 - t * 0.85) + 0.02;
+      for (let j = 0; j <= radSegs; j++) {
+        const ang = (j / radSegs) * Math.PI * 2, cx = Math.cos(ang) * rad, cy = Math.sin(ang) * rad;
+        verts.push(p.x + cx*N.x + cy*B.x, p.y + cx*N.y + cy*B.y, p.z + cx*N.z + cy*B.z);
+      }
+    }
+    for (let i = 0; i < tubeSegs; i++) for (let j = 0; j < radSegs; j++) {
+      const a = (radSegs+1)*i+j, b = (radSegs+1)*(i+1)+j, c2 = (radSegs+1)*(i+1)+j+1, d = (radSegs+1)*i+j+1;
+      idx.push(a, b, d, b, c2, d);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    const tentacle = new THREE.Mesh(geo, mat); tentacle.castShadow = true; g.add(tentacle);
+    const cupMat = new THREE.MeshStandardMaterial({ color: 0xe0a0ad, roughness: 0.5 });
+    for (let i = 4; i < 56; i += 3) {
+      const t = i / 60, p = curve.getPointAt(t);
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.06*(1-t*0.7)+0.012, 0.05, 0.04, 10), cupMat);
+      cup.position.set(p.x, p.y - 0.12, p.z); g.add(cup);
+    }
+    return g;
+  }
+
+  function buildDuck() {
+    const g = new THREE.Group();
+    const meat = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 28),
+      new THREE.MeshStandardMaterial({ map: makeFiberTex(), color: 0xb05545, roughness: 0.78, metalness: 0 }));
+    meat.scale.set(1.2, 0.45, 0.8); meat.castShadow = meat.receiveShadow = true; g.add(meat);
+    const fat = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 16, 0, Math.PI*2, 0, Math.PI*0.5),
+      new THREE.MeshStandardMaterial({ color: 0xe8d0a8, roughness: 0.6 }));
+    fat.scale.set(1.21, 0.46, 0.81); fat.position.y = 0.04; g.add(fat);
+    const skin = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 14, 0, Math.PI*2, 0, Math.PI*0.42),
+      new THREE.MeshStandardMaterial({ color: 0x5a3420, roughness: 0.7 }));
+    skin.scale.set(1.18, 0.45, 0.79); skin.position.y = 0.10; g.add(skin);
+    g.rotation.y = 0.3;
+    return g;
+  }
+
+  function buildHempSeeds() {
+    const g = new THREE.Group();
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.05, 6, 5),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }),
+      colors: [0xc8c4a0, 0xb0b488, 0xd8d4b0, 0x9ca878],
+      count: 340, domeR: 0.88, domeH: 0.46, yBase: -0.18, scale: [0.8, 0.7, 1.1], sJit: 0.3, jit: 0.02, moundColor: 0xb8b890,
+    });
+    return g;
+  }
+
+  function buildPumpkinSeeds() {
+    const g = new THREE.Group();
+    _heap(g, {
+      geo: new THREE.SphereGeometry(0.085, 8, 6),
+      mat: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 }),
+      colors: [0xd8dca8, 0xc5d18a, 0xe0e0b8, 0xb8c878],
+      count: 240, domeR: 0.92, domeH: 0.50, yBase: -0.20, scale: [1, 0.28, 1.5], sJit: 0.25, jit: 0.03, moundColor: 0xcdd596,
+    });
+    return g;
+  }
+
+  function buildBeefLiver() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0x6b2f22, roughness: 0.4, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.3 });
+    const pts = [
+      new THREE.Vector2(0, -0.6), new THREE.Vector2(0.5, -0.5), new THREE.Vector2(0.9, -0.2),
+      new THREE.Vector2(1.05, 0.15), new THREE.Vector2(0.85, 0.45), new THREE.Vector2(0.4, 0.6), new THREE.Vector2(0, 0.62),
+    ];
+    const liver = new THREE.Mesh(new THREE.LatheGeometry(pts, 48), mat);
+    liver.scale.set(1.3, 0.32, 1.0); liver.castShadow = liver.receiveShadow = true; g.add(liver);
+    g.rotation.y = 0.4;
+    return g;
+  }
+
+  function buildMussels() {
+    const g = new THREE.Group();
+    const shellMat = new THREE.MeshPhysicalMaterial({ color: 0x2a3450, roughness: 0.35, metalness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.2 });
+    const fleshMat = new THREE.MeshStandardMaterial({ color: 0xe89048, roughness: 0.6 });
+    const mussel = (x, z, ry) => {
+      const m = new THREE.Group();
+      [-1, 1].forEach(side => {
+        const half = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16, 0, Math.PI*2, 0, Math.PI*0.5), shellMat);
+        half.scale.set(0.7, 0.5, 1.1);
+        half.rotation.x = side > 0 ? 0.5 : Math.PI - 0.5;
+        m.add(half);
+      });
+      const flesh = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12), fleshMat);
+      flesh.scale.set(0.6, 0.4, 0.9); flesh.position.y = 0.05; m.add(flesh);
+      m.position.set(x, 0, z); m.rotation.y = ry;
+      m.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      return m;
+    };
+    g.add(mussel(0, 0, 0));
+    g.add(mussel(-0.7, 0.4, 0.8));
+    g.add(mussel(0.7, -0.3, -0.6));
+    g.scale.set(1.05, 1.05, 1.05);
+    return g;
+  }
+
+  function buildSpirulina() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0x1a6b5a, roughness: 0.5, metalness: 0.1, emissive: 0x0a3a2a, emissiveIntensity: 0.3 });
+    const pts = [];
+    for (let i = 0; i <= 120; i++) {
+      const t = i / 120, a = t * Math.PI * 2 * 5, r = 0.5;
+      pts.push(new THREE.Vector3(Math.cos(a) * r, (t - 0.5) * 1.6, Math.sin(a) * r));
+    }
+    const coil = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 200, 0.12, 10, false), mat);
+    coil.castShadow = coil.receiveShadow = true; g.add(coil);
+    g.rotation.z = 0.2;
+    return g;
+  }
+
   // ─── Scene Setup ─────────────────────────────────────────────────────────
 
   function makeSceneBackground() {
@@ -2472,6 +2876,13 @@ const FoodScene = (() => {
     pasta: buildPasta, corn: buildCorn, lentils: buildLentils,
     blackbeans: buildBlackBeans, chickpeas: buildChickpeas, corntortilla: buildCornTortilla,
     buckwheat: buildBuckwheat, millet: buildMillet, barley: buildBarley,
+    tuna: buildTuna, turkey: buildTurkey, cottagecheese: buildCottageCheese,
+    beef: buildBeef, pork: buildPork, shrimp: buildShrimp, whey: buildWhey,
+    edamame: buildEdamame, sardines: buildSardines, tempeh: buildTempeh,
+    lamb: buildLamb, cannedsalmon: buildCannedSalmon, tofu: buildTofu,
+    octopus: buildOctopus, duck: buildDuck, hempseeds: buildHempSeeds,
+    pumpkinseeds: buildPumpkinSeeds, beefliver: buildBeefLiver,
+    mussels: buildMussels, spirulina: buildSpirulina,
   };
   const PARTICLE_COLORS = {
     apple: 0xff4422, banana: 0xf5c600,
@@ -2486,6 +2897,13 @@ const FoodScene = (() => {
     pasta: 0xe8cd6d, corn: 0xf5c542, lentils: 0x8b9b4a,
     blackbeans: 0x6a6a78, chickpeas: 0xe3c79a, corntortilla: 0xecd9a0,
     buckwheat: 0xa8825a, millet: 0xe6cf6a, barley: 0xd8c89a,
+    tuna: 0xc8554d, turkey: 0xe8c4a0, cottagecheese: 0xf5f3ee,
+    beef: 0x9c3326, pork: 0xe0a99a, shrimp: 0xf08070, whey: 0xf0ede6,
+    edamame: 0x7cb342, sardines: 0xc0c4cc, tempeh: 0xb08850,
+    lamb: 0x9b3b30, cannedsalmon: 0xf08a5d, tofu: 0xf5f2e8,
+    octopus: 0xc97a8e, duck: 0x8a4a3a, hempseeds: 0xb5b08a,
+    pumpkinseeds: 0xc5d18a, beefliver: 0x6b3528,
+    mussels: 0xe89048, spirulina: 0x1a8b6a,
   };
 
   // ─── Public API ────────────────────────────────────────────────────────────

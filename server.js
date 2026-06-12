@@ -671,6 +671,384 @@ const foods = [
     ],
     description: 'A chewy whole grain whose beta-glucan fiber actively lowers cholesterol.',
     serving: '100g'
+  },
+  {
+    id: 'tuna', name: 'Tuna', emoji: '🐟', color: '#c8554d', calories: 116,
+    nutrition: { protein: 26, carbs: 0, fat: 1, fiber: 0, vitaminB12: 1.97, selenium: 41.8, niacin: 8.64, vitaminD: 112 },
+    benefits: [
+      'Extremely high protein with minimal fat',
+      'Naturally low in fat',
+      'Contains heart-healthy omega-3 fatty acids',
+      'Supports brain health and cognition',
+      'Affordable and shelf-stable'
+    ],
+    drawbacks: [
+      'Mercury content limits frequency',
+      'Canned versions often high in sodium',
+      'Overfishing and sustainability concerns',
+      'Not recommended in large amounts for pregnant women'
+    ],
+    description: 'A lean, protein-dense fish loaded with B12 and selenium.',
+    serving: '100g'
+  },
+  {
+    id: 'turkey', name: 'Turkey Breast', emoji: '🦃', color: '#e8c4a0', calories: 135,
+    nutrition: { protein: 30, carbs: 0, fat: 1, fiber: 0, vitaminB6: 0.99, vitaminB12: 0.58, selenium: 25.3, niacin: 8 },
+    benefits: [
+      'One of the leanest high-protein meats',
+      'Tryptophan supports sleep and mood',
+      'Very low in fat',
+      'Rich in B vitamins for energy metabolism',
+      'Excellent for weight management'
+    ],
+    drawbacks: [
+      'Dries out easily if overcooked',
+      'Milder flavor than chicken',
+      'Often most available seasonally'
+    ],
+    description: 'The leanest of the poultry proteins — high protein with almost no fat.',
+    serving: '100g'
+  },
+  {
+    id: 'cottagecheese', name: 'Cottage Cheese', emoji: '🧀', color: '#f5f3ee', calories: 98,
+    nutrition: { protein: 11, carbs: 3.4, fat: 4.3, fiber: 0, vitaminB12: 0.38, selenium: 7.7, calcium: 80, phosphorus: 160 },
+    benefits: [
+      'High in slow-release casein protein',
+      'Ideal for overnight muscle recovery',
+      'Low in calories for the protein it delivers',
+      'Supports gut health',
+      'Extremely versatile in the kitchen'
+    ],
+    drawbacks: [
+      'Often high in sodium',
+      'Problematic for the lactose intolerant',
+      'Bland on its own',
+      'Short refrigerated shelf life'
+    ],
+    description: 'A curd cheese rich in slow-digesting casein — perfect for overnight recovery.',
+    serving: '100g'
+  },
+  {
+    id: 'beef', name: 'Beef', emoji: '🥩', color: '#8b3a2f', calories: 250,
+    nutrition: { protein: 26, carbs: 0, fat: 17, fiber: 0, vitaminB12: 2.35, zinc: 6.27, iron: 2.7, selenium: 16.5, niacin: 4.8 },
+    benefits: [
+      'Complete protein with all essential amino acids',
+      'One of the richest food sources of B12',
+      'High in bioavailable zinc and iron',
+      'Excellent for muscle building',
+      'Natural source of creatine'
+    ],
+    drawbacks: [
+      'High in saturated fat',
+      'Significant environmental footprint',
+      'Excess linked to colorectal cancer risk',
+      'More expensive than poultry'
+    ],
+    description: 'A complete protein and the richest everyday source of B12, zinc, and iron.',
+    serving: '100g'
+  },
+  {
+    id: 'pork', name: 'Pork Tenderloin', emoji: '🥓', color: '#e0a99a', calories: 143,
+    nutrition: { protein: 26, carbs: 0, fat: 3.5, fiber: 0, thiamine: 0.65, vitaminB6: 0.63, vitaminB12: 0.43, selenium: 22, niacin: 6.24 },
+    benefits: [
+      'Lean cut with high-quality protein',
+      'Highest thiamine of any meat',
+      'Supports muscle building',
+      'Rich in energy-releasing B vitamins',
+      'One of the leanest pork cuts'
+    ],
+    drawbacks: [
+      'Must be fully cooked (trichinosis risk)',
+      'Less popular than other cuts',
+      'Costs more than chicken'
+    ],
+    description: 'A lean pork cut with the highest thiamine content of any meat.',
+    serving: '100g'
+  },
+  {
+    id: 'shrimp', name: 'Shrimp', emoji: '🦐', color: '#f08070', calories: 99,
+    nutrition: { protein: 24, carbs: 0.2, fat: 0.3, fiber: 0, selenium: 26.4, vitaminB12: 0.38, iodine: 52.5, phosphorus: 200 },
+    benefits: [
+      'Very high protein for very few calories',
+      'Extremely low in fat',
+      'Iodine supports thyroid function',
+      'Contains the antioxidant astaxanthin',
+      'Naturally low calorie'
+    ],
+    drawbacks: [
+      'High in dietary cholesterol',
+      'Common shellfish allergen',
+      'Farming can carry environmental concerns',
+      'Highly perishable'
+    ],
+    description: 'A lean shellfish delivering big protein and thyroid-supporting iodine for few calories.',
+    serving: '100g'
+  },
+  {
+    id: 'whey', name: 'Whey Protein', emoji: '🥛', color: '#f0ede6', calories: 400,
+    nutrition: { protein: 80, carbs: 8, fat: 5, fiber: 0, calcium: 200, riboflavin: 0.33, vitaminB12: 0.72, leucine: 8 },
+    benefits: [
+      'Fastest-absorbing protein source',
+      'Powerful trigger for muscle protein synthesis',
+      'Complete amino acid profile',
+      'Ideal for post-workout recovery',
+      'Convenient and concentrated'
+    ],
+    drawbacks: [
+      'A processed supplement, not whole food',
+      'Can cause issues for the lactose intolerant',
+      'Relatively expensive per serving',
+      'May cause digestive discomfort in some'
+    ],
+    description: 'The gold-standard fast protein — concentrated, complete, and leucine-rich.',
+    serving: '100g'
+  },
+  {
+    id: 'edamame', name: 'Edamame', emoji: '🫛', color: '#7cb342', calories: 121,
+    nutrition: { protein: 11, carbs: 8.9, fat: 5.2, fiber: 5.2, folate: 312, vitaminK: 31.2, manganese: 1.1, iron: 2.34 },
+    benefits: [
+      'A complete plant protein',
+      'Very high folate supports pregnancy',
+      'Isoflavones may support hormone balance',
+      'Rich in dietary fiber',
+      'Packed with antioxidants'
+    ],
+    drawbacks: [
+      'Common soy allergen',
+      'Phytoestrogen content concerns some',
+      'Much soy is genetically modified',
+      'Contains antinutrients'
+    ],
+    description: 'Young soybeans — a complete plant protein exceptionally high in folate.',
+    serving: '100g'
+  },
+  {
+    id: 'sardines', name: 'Sardines', emoji: '🐠', color: '#c0c4cc', calories: 208,
+    nutrition: { protein: 25, carbs: 0, fat: 11, fiber: 0, vitaminB12: 3.58, selenium: 28.6, calcium: 380, vitaminD: 96, omega3: 1.5 },
+    benefits: [
+      'One of the richest B12 sources',
+      'Edible bones make them rich in calcium and D',
+      'High in anti-inflammatory omega-3',
+      'A sustainable, low-mercury fish',
+      'Inexpensive and shelf-stable'
+    ],
+    drawbacks: [
+      'Strong smell and flavor',
+      'Canned versions can be high in sodium',
+      'Soft edible bones unappealing to some',
+      'An acquired taste'
+    ],
+    description: 'A tiny powerhouse fish — extraordinary B12 plus calcium and D from edible bones.',
+    serving: '100g'
+  },
+  {
+    id: 'tempeh', name: 'Tempeh', emoji: '🧆', color: '#b08850', calories: 193,
+    nutrition: { protein: 19, carbs: 9.4, fat: 11, fiber: 0, manganese: 1.24, phosphorus: 210, magnesium: 58.8, riboflavin: 0.18 },
+    benefits: [
+      'A complete fermented plant protein',
+      'Probiotics from fermentation support gut health',
+      'Firm, satisfying meat alternative',
+      'Good source of calcium',
+      'More digestible than unfermented soy'
+    ],
+    drawbacks: [
+      'Common soy allergen',
+      'An acquired, nutty flavor',
+      'Less widely available',
+      'Contains phytoestrogens'
+    ],
+    description: 'A firm fermented-soy cake — a complete plant protein with gut-friendly probiotics.',
+    serving: '100g'
+  },
+  {
+    id: 'lamb', name: 'Lamb', emoji: '🐑', color: '#9b3b30', calories: 294,
+    nutrition: { protein: 25, carbs: 0, fat: 21, fiber: 0, vitaminB12: 1.87, zinc: 5.06, iron: 2.16, selenium: 14.3, niacin: 4 },
+    benefits: [
+      'Rich in B12 and bioavailable zinc',
+      'Complete protein for muscle building',
+      'Contains beneficial CLA fatty acid',
+      'Good source of heme iron',
+      'Highly satiating'
+    ],
+    drawbacks: [
+      'High in saturated fat',
+      'Strong, gamey flavor',
+      'Expensive cut of meat',
+      'High in calories'
+    ],
+    description: 'A rich red meat packed with B12, zinc, and the beneficial fatty acid CLA.',
+    serving: '100g'
+  },
+  {
+    id: 'cannedsalmon', name: 'Canned Salmon', emoji: '🥫', color: '#f08a5d', calories: 139,
+    nutrition: { protein: 21, carbs: 0, fat: 6.1, fiber: 0, vitaminB12: 3.19, vitaminD: 728, selenium: 19.8, omega3: 1.2, calcium: 180 },
+    benefits: [
+      'Exceptionally high in vitamin D and B12',
+      'Rich in anti-inflammatory omega-3',
+      'Soft edible bones add calcium',
+      'Far cheaper than fresh salmon',
+      'Convenient and shelf-stable'
+    ],
+    drawbacks: [
+      'Often high in sodium',
+      'Cans may contain BPA',
+      'Less appealing than fresh',
+      'Softer, flakier texture'
+    ],
+    description: 'An affordable pantry protein with sky-high vitamin D and B12.',
+    serving: '100g'
+  },
+  {
+    id: 'tofu', name: 'Tofu', emoji: '🧈', color: '#f5f2e8', calories: 144,
+    nutrition: { protein: 17, carbs: 3, fat: 8.7, fiber: 0.3, calcium: 350, manganese: 0.71, selenium: 7.7, iron: 2.7 },
+    benefits: [
+      'A complete plant protein',
+      'One of the highest plant calcium sources',
+      'Extremely versatile in cooking',
+      'Supports heart health',
+      'Contains beneficial isoflavones'
+    ],
+    drawbacks: [
+      'Common soy allergen',
+      'Contains phytoestrogens',
+      'Bland without seasoning',
+      'Contains some antinutrients'
+    ],
+    description: 'A versatile soy curd — a complete plant protein and a top plant calcium source.',
+    serving: '100g'
+  },
+  {
+    id: 'octopus', name: 'Octopus', emoji: '🐙', color: '#c97a8e', calories: 164,
+    nutrition: { protein: 30, carbs: 4.4, fat: 2.1, fiber: 0, vitaminB12: 12.24, iron: 9.18, selenium: 38.5, copper: 0.9 },
+    benefits: [
+      'Extraordinary B12 content',
+      'Very lean, high-quality protein',
+      'Copper supports brain and nerve function',
+      'Rich in iron',
+      'Naturally low in fat'
+    ],
+    drawbacks: [
+      'Chewy texture if poorly cooked',
+      'Expensive',
+      'Tricky to prepare well',
+      'Raises ethical concerns for some'
+    ],
+    description: 'A lean cephalopod protein with off-the-charts B12 and brain-supporting copper.',
+    serving: '100g'
+  },
+  {
+    id: 'duck', name: 'Duck Breast', emoji: '🦆', color: '#8a4a3a', calories: 201,
+    nutrition: { protein: 19, carbs: 0, fat: 13, fiber: 0, vitaminB12: 0.5, iron: 3.06, zinc: 1.65, selenium: 11, vitaminB6: 0.31 },
+    benefits: [
+      'Rich, flavorful protein',
+      'Good source of heme iron',
+      'Zinc supports immune function',
+      'Provides a range of B vitamins',
+      'Deeply satisfying and satiating'
+    ],
+    drawbacks: [
+      'High in fat, mostly in the skin',
+      'Expensive',
+      'Less commonly cooked at home',
+      'Higher calorie than chicken'
+    ],
+    description: 'A rich, flavorful poultry protein with good iron and immune-supporting zinc.',
+    serving: '100g'
+  },
+  {
+    id: 'hempseeds', name: 'Hemp Seeds', emoji: '🌱', color: '#b5b08a', calories: 553,
+    nutrition: { protein: 31, carbs: 8.7, fat: 49, fiber: 4, manganese: 8.33, phosphorus: 830, magnesium: 294, omega3: 8.7 },
+    benefits: [
+      'A complete plant protein',
+      'Near-perfect omega 3-to-6 ratio',
+      'Supports heart health',
+      'Easy to digest',
+      'Contains all essential amino acids'
+    ],
+    drawbacks: [
+      'Very high in calories',
+      'Relatively expensive',
+      'Distinct earthy flavor',
+      'Very high fat content'
+    ],
+    description: 'Tiny complete-protein seeds with an ideal omega-3 to omega-6 balance.',
+    serving: '100g'
+  },
+  {
+    id: 'pumpkinseeds', name: 'Pumpkin Seeds', emoji: '🎃', color: '#c5d18a', calories: 559,
+    nutrition: { protein: 30, carbs: 10.7, fat: 49, fiber: 6, manganese: 5.22, phosphorus: 920, magnesium: 386, zinc: 7.59, iron: 8.1 },
+    benefits: [
+      'Among the richest food sources of magnesium',
+      'Tryptophan supports sleep',
+      'Zinc supports prostate and immune health',
+      'High in plant iron',
+      'Support heart health'
+    ],
+    drawbacks: [
+      'Very high in calories',
+      'High fat content',
+      'Easy to overeat',
+      'Can be expensive'
+    ],
+    description: 'Crunchy green seeds that are one of nature\'s richest sources of magnesium.',
+    serving: '100g'
+  },
+  {
+    id: 'beefliver', name: 'Beef Liver', emoji: '🫀', color: '#6b3528', calories: 175,
+    nutrition: { protein: 27, carbs: 5, fat: 5, fiber: 0, vitaminB12: 83.04, copper: 12.47, vitaminA: 7740, folate: 260, iron: 7.02 },
+    benefits: [
+      'Among the most nutrient-dense foods on earth',
+      'Astronomical B12 content',
+      'Extraordinarily rich in copper and vitamin A',
+      'A complete, high-quality protein',
+      'Loaded with bioavailable iron'
+    ],
+    drawbacks: [
+      'Very strong, distinctive flavor',
+      'Vitamin A toxicity risk if eaten daily',
+      'High in cholesterol',
+      'Filters toxins as the body\'s detox organ'
+    ],
+    description: 'Arguably the most nutrient-dense food on earth — staggering B12, copper, and vitamin A.',
+    serving: '100g'
+  },
+  {
+    id: 'mussels', name: 'Mussels', emoji: '🦪', color: '#3a4a6b', calories: 172,
+    nutrition: { protein: 24, carbs: 7.4, fat: 4.5, fiber: 0, vitaminB12: 8.16, selenium: 52.8, manganese: 5.7, iron: 6.66, omega3: 0.7 },
+    benefits: [
+      'Extraordinary B12 and selenium content',
+      'One of the most sustainable seafoods',
+      'Contains anti-inflammatory omega-3',
+      'Rich in iron',
+      'High protein for low calories'
+    ],
+    drawbacks: [
+      'Common shellfish allergen',
+      'Filter feeders can accumulate toxins',
+      'Strong oceanic taste',
+      'Very perishable'
+    ],
+    description: 'A sustainable shellfish delivering massive B12, selenium, and manganese.',
+    serving: '100g'
+  },
+  {
+    id: 'spirulina', name: 'Spirulina', emoji: '🌀', color: '#1a6b5a', calories: 290,
+    nutrition: { protein: 57, carbs: 24, fat: 7.7, fiber: 3.6, riboflavin: 2.77, iron: 28.4, copper: 0.77, thiamine: 2.48, gla: 1.3 },
+    benefits: [
+      'The highest protein density of any food',
+      'A complete protein with all amino acids',
+      'Supports the body\'s detox pathways',
+      'Powerfully anti-inflammatory',
+      'A nutrient-dense superfood'
+    ],
+    drawbacks: [
+      'Strong taste and smell',
+      'Contamination risk if poorly sourced',
+      'Expensive',
+      'Not widely available'
+    ],
+    description: 'A blue-green algae with the highest protein density of any known food.',
+    serving: '100g'
   }
 ];
 
