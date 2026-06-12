@@ -3,6 +3,7 @@ const FoodScene = (() => {
   'use strict';
 
   let renderer, scene, camera, animId;
+  let composer = null, bloomPass = null;
   let foodGroup = null, platformDisc = null, shadowPlane = null, particleSystem = null;
   let rimLight = null;
   let autoRotate = true, autoRotateTimer = null;
@@ -2064,8 +2065,21 @@ const FoodScene = (() => {
     window.addEventListener('resize', () => {
       const s = canvas.parentElement ? canvas.parentElement.clientWidth : 400;
       renderer.setSize(s, s);
+      if (composer) composer.setSize(s, s);
       camera.updateProjectionMatrix();
     });
+  }
+
+  // ─── Post-Processing (UnrealBloom — graceful fallback if scripts missing) ──
+
+  function setupComposer(size) {
+    if (!THREE.EffectComposer || !THREE.RenderPass || !THREE.UnrealBloomPass) return;
+    composer = new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    // (resolution, strength, radius, threshold)
+    bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(size, size), 0.40, 0.50, 0.80);
+    composer.addPass(bloomPass);
+    composer.setSize(size, size);
   }
 
   // ─── Scene Management ─────────────────────────────────────────────────────
@@ -2129,18 +2143,19 @@ const FoodScene = (() => {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.55;
+    renderer.toneMappingExposure = 1.40; // slightly reduced — bloom pass adds perceived brightness
     renderer.outputEncoding = THREE.sRGBEncoding;
 
     scene = new THREE.Scene();
     scene.background = makeSceneBackground();
 
     const sz = canvas.parentElement ? canvas.parentElement.clientWidth : 400;
-    camera = new THREE.PerspectiveCamera(45, 1, 0.05, 120);
-    camera.position.set(0, 0.4, 4.8);
+    camera = new THREE.PerspectiveCamera(42, 1, 0.05, 120);
+    camera.position.set(0, 0.4, 4.9);
     renderer.setSize(sz, sz);
 
     setupLights();
+    setupComposer(sz);
     setupEvents(canvas);
     animate();
   }
@@ -2191,7 +2206,8 @@ const FoodScene = (() => {
       rimLight.intensity = 1.42 + Math.sin(floatT * 0.60) * 0.24;
     }
 
-    renderer.render(scene, camera);
+    if (composer) composer.render();
+    else renderer.render(scene, camera);
   }
 
   function destroy() {

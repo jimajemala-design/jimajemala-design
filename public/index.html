@@ -3,21 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="NutriBase Georgia — Interactive 3D nutrition explorer. Discover superfoods with real-time 3D models and complete nutritional profiles." />
+  <meta name="description" content="NutriBase Georgia — Interactive 3D nutrition explorer. 22 superfoods rendered in real-time 3D with complete nutritional intelligence." />
   <title>NutriBase Georgia — Premium Nutrition Explorer</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
 
-  <!-- ── FLOATING PILL NAVBAR ─────────────────────────────────────────── -->
-  <header class="navbar" role="banner">
+  <!-- Custom cursor -->
+  <div class="cursor-dot" id="cursorDot" aria-hidden="true"></div>
+
+  <!-- ── NAVBAR ───────────────────────────────────────────────────────── -->
+  <header class="navbar" id="navbar" role="banner">
     <div class="navbar-inner">
-      <a class="logo" href="/" aria-label="NutriBase Georgia home">
+      <a class="logo" href="/" aria-label="NutriBase Georgia home" data-hover>
         <div class="logo-mark" aria-hidden="true">
           <svg width="16" height="18" viewBox="0 0 16 18" fill="none">
             <path d="M8 1C8 1 1.5 4.5 1.5 10.5C1.5 13.8 4.5 16.5 8 16.5C11.5 16.5 14.5 13.8 14.5 10.5C14.5 4.5 8 1 8 1Z" fill="white" fill-opacity="0.9"/>
@@ -26,24 +29,20 @@
           </svg>
         </div>
         <div class="logo-wordmark">
-          <span class="logo-name">NutriBase</span>
-          <span class="logo-geo">Georgia</span>
+          <span class="logo-name">NUTRIBASE</span>
+          <span class="logo-geo">GEORGIA</span>
         </div>
       </a>
 
       <nav class="navbar-nav" aria-label="Primary navigation">
-        <a class="nav-link" href="#gallery">Gallery</a>
-        <a class="nav-link" href="#about">About</a>
+        <a class="nav-link" href="#gallery" data-hover>Database</a>
+        <a class="nav-link" href="#about" data-hover>About</a>
       </nav>
 
       <div class="navbar-badges">
         <span class="nav-badge">
-          <span class="nav-badge-dot green"></span>
-          22 Foods
-        </span>
-        <span class="nav-badge">
-          <span class="nav-badge-dot cyan"></span>
-          3D Live
+          <span class="nav-badge-dot"></span>
+          SYSTEM ONLINE
         </span>
       </div>
     </div>
@@ -51,62 +50,60 @@
 
   <main id="main-content">
 
-    <!-- ── GRID VIEW ──────────────────────────────────────────────────── -->
+    <!-- ── GRID VIEW ────────────────────────────────────────────────── -->
     <section class="view-grid" id="gridView">
 
       <!-- Hero -->
       <div class="hero" id="hero">
         <div class="hero-bg" aria-hidden="true">
-          <div class="aurora-blob blob-1"></div>
-          <div class="aurora-blob blob-2"></div>
-          <div class="aurora-blob blob-3"></div>
+          <div class="mesh-gradient"></div>
+          <div class="hero-particles" id="heroParticles"></div>
           <div class="hero-grid-lines"></div>
         </div>
 
         <div class="hero-content">
           <div class="hero-eyebrow">
             <span class="eyebrow-pulse"></span>
-            Interactive Nutrition Explorer · 2035
+            NUTRITION INTELLIGENCE · EST. 2035
           </div>
 
-          <h1 class="hero-title">
-            <span class="hero-line-1">Know What</span>
-            <span class="hero-line-2">You <em>Eat</em></span>
+          <h1 class="hero-title" aria-label="NutriBase">
+            <span class="title-outline">NUTRI</span><span class="title-filled">BASE</span>
           </h1>
 
           <p class="hero-sub">
-            Explore superfoods in real-time 3D with complete nutritional
-            profiles, health benefits, and honest drawbacks.
+            Twenty-two superfoods rendered in real-time 3D.
+            Complete nutritional profiles. Honest drawbacks. Zero marketing.
           </p>
 
           <div class="hero-stats" role="list">
             <div class="hero-stat" role="listitem">
               <span class="hero-stat-num" data-count="22">22</span>
-              <span class="hero-stat-label">Superfoods</span>
+              <span class="hero-stat-label">Foods</span>
             </div>
             <div class="hero-stat-sep" aria-hidden="true"></div>
             <div class="hero-stat" role="listitem">
               <span class="hero-stat-num" data-count="31">31</span>
-              <span class="hero-stat-label">Nutrients tracked</span>
+              <span class="hero-stat-label">Nutrients</span>
             </div>
             <div class="hero-stat-sep" aria-hidden="true"></div>
             <div class="hero-stat" role="listitem">
               <span class="hero-stat-num" data-count="360">360</span>
-              <span class="hero-stat-label">° 3D rotation</span>
+              <span class="hero-stat-label">° Rotation</span>
             </div>
           </div>
 
-          <a class="hero-cta" href="#gallery">
-            Explore Foods
+          <a class="hero-cta" href="#gallery" data-hover>
+            ENTER DATABASE
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M3 8h10M8.5 3.5L13 8l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </a>
         </div>
 
-        <div class="hero-scroll" aria-hidden="true">
-          <div class="scroll-track"><div class="scroll-thumb"></div></div>
-          <span class="scroll-label">Scroll</span>
+        <!-- Infinite food ticker -->
+        <div class="ticker" aria-hidden="true">
+          <div class="ticker-track" id="tickerTrack"></div>
         </div>
       </div>
 
@@ -115,40 +112,38 @@
         <div class="gallery-header">
           <div class="gallery-label">
             <span class="label-line"></span>
-            <span class="label-text">Select a food to explore in 3D</span>
+            <span class="label-text">SELECT SPECIMEN</span>
             <span class="label-line"></span>
           </div>
           <h2 class="gallery-title" id="gallery-heading">
-            Superfood <em>Database</em>
+            The <em>Database</em>
           </h2>
         </div>
 
         <div class="bento-grid" id="foodGrid" role="list" aria-label="Food items">
           <div class="bento-loading" aria-live="polite">
-            <div class="loading-ring" aria-hidden="true">
-              <div class="loading-ring-inner"></div>
-            </div>
-            <span>Loading superfoods…</span>
+            <div class="loading-ring" aria-hidden="true"></div>
+            <span>INITIALIZING DATABASE…</span>
           </div>
         </div>
       </section>
 
     </section>
 
-    <!-- ── DETAIL VIEW ─────────────────────────────────────────────────── -->
+    <!-- ── DETAIL VIEW ──────────────────────────────────────────────── -->
     <section class="view-detail" id="detailSection" style="display:none" aria-label="Food detail">
 
       <div class="detail-bar">
-        <button class="back-btn" id="backBtn" aria-label="Return to food gallery">
+        <button class="back-btn" id="backBtn" aria-label="Return to food gallery" data-hover>
           <span class="back-icon" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M10 3.5L5 8l5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </span>
-          <span class="back-label">All Foods</span>
+          <span class="back-label">ALL SPECIMENS</span>
         </button>
         <nav class="breadcrumb" aria-label="Breadcrumb">
-          <span class="bc-item">Gallery</span>
+          <span class="bc-item">DATABASE</span>
           <span class="bc-sep" aria-hidden="true">/</span>
           <span class="bc-item bc-current" id="bcCurrent" aria-current="page"></span>
         </nav>
@@ -160,18 +155,19 @@
         <div class="viewer-col">
           <div class="canvas-card">
             <div class="canvas-frame">
+              <div class="holo-grid" aria-hidden="true"></div>
               <canvas id="threeCanvas" aria-label="3D food model — drag to rotate, scroll to zoom"></canvas>
-              <div class="canvas-ui" aria-hidden="true">
-                <div class="canvas-badge">LIVE 3D</div>
-                <div class="canvas-hint">
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1"/>
-                    <path d="M3.5 5h3M5 3.5v3" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-                  </svg>
-                  Drag · Scroll
-                </div>
+              <div class="scan-line" aria-hidden="true"></div>
+              <div class="viewfinder" aria-hidden="true">
+                <span class="vf vf-tl"></span>
+                <span class="vf vf-tr"></span>
+                <span class="vf vf-bl"></span>
+                <span class="vf vf-br"></span>
               </div>
-              <div class="canvas-glow" aria-hidden="true"></div>
+              <div class="canvas-ui" aria-hidden="true">
+                <div class="canvas-badge">● LIVE RENDER</div>
+                <div class="canvas-hint">DRAG · SCROLL</div>
+              </div>
             </div>
           </div>
 
@@ -188,24 +184,24 @@
 
   </main>
 
-  <!-- ── FOOTER ──────────────────────────────────────────────────────── -->
+  <!-- ── FOOTER ───────────────────────────────────────────────────────── -->
   <footer class="footer" id="about" role="contentinfo">
     <div class="footer-inner">
       <div class="footer-brand">
-        <span class="footer-name">NutriBase</span>
-        <span class="footer-geo">Georgia</span>
+        <span class="footer-name">NUTRIBASE</span>
+        <span class="footer-geo">GEORGIA</span>
       </div>
       <p class="footer-note">
         Nutritional values per standard serving · Data for informational purposes only
       </p>
       <div class="footer-meta">
-        <span class="footer-tag">Three.js</span>
+        <span class="footer-tag">THREE.JS</span>
         <span class="footer-sep">·</span>
-        <span class="footer-tag">WebGL</span>
+        <span class="footer-tag">WEBGL 2.0</span>
         <span class="footer-sep">·</span>
-        <span class="footer-tag">Express</span>
+        <span class="footer-tag">EXPRESS</span>
       </div>
-      <p class="footer-copy">© 2035 NutriBase Georgia. All rights reserved.</p>
+      <p class="footer-copy">© 2035 NutriBase Georgia</p>
     </div>
   </footer>
 
@@ -213,6 +209,13 @@
   <div class="page-overlay" id="pageOverlay" aria-hidden="true"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Post-processing (UnrealBloom) — loaded after core, attaches to THREE namespace -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
   <script src="/js/scene.js"></script>
   <script src="/js/app.js"></script>
 </body>

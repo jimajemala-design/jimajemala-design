@@ -1,4 +1,4 @@
-/* app.js — NutriBase Georgia UI Controller */
+/* app.js — NutriBase Georgia UI Controller · AAA edition */
 'use strict';
 
 const App = (() => {
@@ -7,23 +7,87 @@ const App = (() => {
 
   const $ = id => document.getElementById(id);
   const delay = ms => new Promise(r => setTimeout(r, ms));
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // ── Helpers ──────────────────────────────────────────────────────────
+  // ── Food categories (drives card badges) ─────────────────────────────
+  const CATEGORIES = {
+    apple: 'fruit', banana: 'fruit', blueberry: 'fruit', lemon: 'fruit',
+    tomato: 'fruit', kiwi: 'fruit', avocado: 'fruit',
+    chicken: 'protein', fish: 'protein', egg: 'protein', greekyogurt: 'protein',
+    broccoli: 'vegetable', spinach: 'vegetable', carrot: 'vegetable',
+    sweetpotato: 'vegetable', garlic: 'vegetable', ginger: 'vegetable',
+    almond: 'nut', walnut: 'nut',
+    oats: 'grain', quinoa: 'grain',
+    darkchocolate: 'treat',
+  };
+  const CATEGORY_LABELS = {
+    fruit: 'FRUIT', protein: 'PROTEIN', vegetable: 'VEGETABLE',
+    nut: 'NUT', grain: 'GRAIN', treat: 'TREAT',
+  };
 
+  // ── Custom cursor ─────────────────────────────────────────────────────
+  function initCursor() {
+    const dot = $('cursorDot');
+    if (!dot || window.matchMedia('(hover: none)').matches) return;
+
+    let tx = 0, ty = 0, cx = 0, cy = 0, visible = false;
+    window.addEventListener('mousemove', e => {
+      tx = e.clientX; ty = e.clientY;
+      if (!visible) { dot.style.opacity = '1'; visible = true; }
+    }, { passive: true });
+
+    (function loop() {
+      cx += (tx - cx) * 0.25;
+      cy += (ty - cy) * 0.25;
+      dot.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`;
+      requestAnimationFrame(loop);
+    })();
+
+    // Grow over interactive elements (event delegation)
+    document.addEventListener('mouseover', e => {
+      if (e.target.closest('[data-hover], .bento-item, button, a')) dot.classList.add('grow');
+    });
+    document.addEventListener('mouseout', e => {
+      if (e.target.closest('[data-hover], .bento-item, button, a')) dot.classList.remove('grow');
+    });
+  }
+
+  // ── Hero particles ────────────────────────────────────────────────────
+  function initParticles() {
+    const host = $('heroParticles');
+    if (!host || reducedMotion) return;
+    let html = '';
+    for (let i = 0; i < 24; i++) {
+      const size = 2 + Math.random() * 3;
+      const left = Math.random() * 100;
+      const dur = 14 + Math.random() * 18;
+      const del = -Math.random() * dur;
+      html += `<span class="hp" style="width:${size}px;height:${size}px;left:${left}%;bottom:-10px;animation-duration:${dur}s;animation-delay:${del}s"></span>`;
+    }
+    host.innerHTML = html;
+  }
+
+  // ── Infinite food ticker ──────────────────────────────────────────────
+  function initTicker() {
+    const track = $('tickerTrack');
+    if (!track || !foods.length) return;
+    const items = foods.map(f =>
+      `<span class="ticker-item">${f.emoji} ${f.name}</span>`).join('');
+    track.innerHTML = items + items; // duplicate for seamless -50% loop
+  }
+
+  // ── Count-up (preserves trailing unit spans) ──────────────────────────
   function countUp(el, target, duration = 1600) {
     const start = performance.now();
-    // If the element has child nodes (e.g. unit span), only update the first text node
     const hasChildren = el.childElementCount > 0;
     if (hasChildren && !el.firstChild) return;
+    const decimals = target % 1 !== 0 ? 1 : 0;
     const tick = now => {
       const p = Math.min((now - start) / duration, 1);
       const ease = 1 - Math.pow(1 - p, 3);
-      const val = Math.round(target * ease);
+      const val = (target * ease).toFixed(decimals);
       if (hasChildren) {
-        // Update leading text node only — preserves child spans (unit labels)
-        if (el.firstChild.nodeType === Node.TEXT_NODE) {
-          el.firstChild.textContent = val;
-        }
+        if (el.firstChild.nodeType === Node.TEXT_NODE) el.firstChild.textContent = val;
       } else {
         el.textContent = val;
       }
@@ -45,64 +109,62 @@ const App = (() => {
     overlay.classList.remove('active');
   }
 
-  // ── Navbar scroll effect ─────────────────────────────────────────────
+  // ── Navbar scroll state ───────────────────────────────────────────────
   function initNavbar() {
-    const nav = document.querySelector('.navbar');
+    const nav = $('navbar');
     window.addEventListener('scroll', () => {
       nav.classList.toggle('scrolled', window.scrollY > 20);
     }, { passive: true });
   }
 
-  // ── Hero count-up (intersection observer) ────────────────────────────
+  // ── Hero stat count-up on scroll into view ────────────────────────────
   function initHeroStats() {
     const stats = document.querySelectorAll('.hero-stat-num');
     if (!stats.length) return;
-
     const io = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
-          const el = entry.target;
-          const target = parseInt(el.dataset.count, 10);
-          if (target) countUp(el, target, 1800);
-          io.unobserve(el);
+          const target = parseInt(entry.target.dataset.count, 10);
+          if (target) countUp(entry.target, target, 1800);
+          io.unobserve(entry.target);
         }
       });
     }, { threshold: 0.5 });
-
     stats.forEach(el => io.observe(el));
   }
 
-  // ── Fetch foods ───────────────────────────────────────────────────────
+  // ── Data ──────────────────────────────────────────────────────────────
   async function fetchFoods() {
     const res = await fetch('/api/foods');
     foods = await res.json();
   }
 
-  // ── Render bento grid ─────────────────────────────────────────────────
+  // ── Bento grid ────────────────────────────────────────────────────────
   function renderGrid() {
     const grid = $('foodGrid');
     grid.innerHTML = foods.map((f, i) => {
       const num = String(i + 1).padStart(2, '0');
-      const isFeature = i === 0;
+      const cat = CATEGORIES[f.id] || 'fruit';
+      const n = f.nutrition;
       return `
-        <div class="bento-item${isFeature ? ' featured' : ''}"
+        <div class="bento-item"
+             style="--glow:${hexToGlow(f.color)}"
              role="listitem button"
              tabindex="0"
              data-id="${f.id}"
              aria-label="Explore ${f.name} — ${f.calories} kcal">
-          <div class="card-num">
-            <span class="card-num-text">${num}</span>
-            <div class="card-arrow" aria-hidden="true">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                <path d="M2 8L8 2M8 2H4M8 2v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
+          <div class="card-top">
+            <span class="card-num">${num}</span>
+            <span class="card-badge ${cat}">${CATEGORY_LABELS[cat]}</span>
           </div>
-          ${isFeature ? '<span class="card-accent"></span>' : ''}
           <span class="card-emoji" aria-hidden="true">${f.emoji}</span>
           <div class="card-name">${f.name}</div>
-          <span class="card-cal">${f.calories} kcal</span>
-          <p class="card-desc">${f.description}</p>
+          <span class="card-cal">${f.calories} KCAL</span>
+          <div class="card-macros">
+            <span>P <b>${n.protein}g</b></span>
+            <span>C <b>${n.carbs}g</b></span>
+            <span>F <b>${n.fat}g</b></span>
+          </div>
         </div>`;
     }).join('');
 
@@ -115,17 +177,29 @@ const App = (() => {
         }
       });
 
-      // Hover: inline transform beats the running card-float animation
-      card.addEventListener('mouseenter', () => {
-        card.style.transform = 'translateY(-10px)';
-      });
-      card.addEventListener('mouseleave', () => {
-        card.style.transform = '';
-      });
+      // Magnetic hover — card leans toward the cursor
+      if (!reducedMotion) {
+        card.addEventListener('mousemove', e => {
+          const r = card.getBoundingClientRect();
+          const dx = (e.clientX - r.left - r.width / 2) / r.width;
+          const dy = (e.clientY - r.top - r.height / 2) / r.height;
+          card.style.transform = `translate(${dx * 8}px, ${dy * 8 - 5}px)`;
+        });
+        card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+      }
     });
   }
 
-  // ── Open detail view ──────────────────────────────────────────────────
+  function hexToGlow(hex) {
+    // food color → low-alpha rgba for the hover glow
+    const h = (hex || '#22c55e').replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return `rgba(${r},${g},${b},0.16)`;
+  }
+
+  // ── Detail view ───────────────────────────────────────────────────────
   function openDetail(id) {
     const food = foods.find(f => f.id === id);
     if (!food) return;
@@ -134,9 +208,8 @@ const App = (() => {
       $('gridView').style.display = 'none';
       $('detailSection').removeAttribute('style');
 
-      // Update breadcrumb
       const bc = $('bcCurrent');
-      if (bc) bc.textContent = food.name;
+      if (bc) bc.textContent = food.name.toUpperCase();
 
       renderMacros(food);
       renderInfo(food);
@@ -150,20 +223,19 @@ const App = (() => {
     });
   }
 
-  // ── Render macro chips ────────────────────────────────────────────────
   function renderMacros(food) {
     const n = food.nutrition;
     const macros = [
       { label: 'Protein', value: n.protein || 0, unit: 'g', max: 40, cls: 'protein' },
       { label: 'Carbs',   value: n.carbs   || 0, unit: 'g', max: 60, cls: 'carbs'   },
-      { label: 'Fat',     value: n.fat     || 0, unit: 'g', max: 20, cls: 'fat'      },
+      { label: 'Fat',     value: n.fat     || 0, unit: 'g', max: 20, cls: 'fat'     },
     ];
 
     $('quickStats').innerHTML = macros.map(m => {
       const pct = Math.min(100, Math.round((m.value / m.max) * 100));
       return `
         <div class="macro-chip ${m.cls}">
-          <span class="macro-chip-value"><!-- leading text node for count-up -->0<span class="macro-chip-unit">${m.unit}</span></span>
+          <span class="macro-chip-value">0<span class="macro-chip-unit">${m.unit}</span></span>
           <span class="macro-chip-label">${m.label}</span>
           <div class="macro-bar">
             <div class="macro-bar-fill ${m.cls}" data-target="${pct}"></div>
@@ -171,10 +243,7 @@ const App = (() => {
         </div>`;
     }).join('');
 
-    // Stamp target values into the leading text nodes
     $('quickStats').querySelectorAll('.macro-chip-value').forEach((el, i) => {
-      // Replace HTML comment node with a real text node containing "0"
-      el.childNodes[0].textContent = '0';
       el.dataset.target = macros[i].value;
     });
 
@@ -188,7 +257,6 @@ const App = (() => {
     });
   }
 
-  // ── Render info panel ─────────────────────────────────────────────────
   function renderInfo(food) {
     const n = food.nutrition;
     const maxCal = 300;
@@ -247,30 +315,32 @@ const App = (() => {
     }).join('');
 
     const benefits = food.benefits.map(b => `
-      <li class="bl-item">
-        <span class="bl-icon plus" aria-hidden="true">✓</span>
+      <li class="bl-item benefit">
+        <span class="bl-icon plus" aria-hidden="true">→</span>
         <span>${b}</span>
       </li>`).join('');
 
     const drawbacks = food.drawbacks.map(d => `
-      <li class="bl-item">
-        <span class="bl-icon minus" aria-hidden="true">✕</span>
+      <li class="bl-item drawback">
+        <span class="bl-icon minus" aria-hidden="true">!</span>
         <span>${d}</span>
       </li>`).join('');
+
+    const cat = CATEGORIES[food.id] || 'fruit';
 
     $('infoPanel').innerHTML = `
       <div class="food-header">
         <div class="food-header-left">
           <div class="food-tag">
             <span class="food-tag-dot"></span>
-            Superfood Profile
+            ${CATEGORY_LABELS[cat]} · SPECIMEN PROFILE
           </div>
           <h2 class="food-name">${food.name}</h2>
-          <span class="food-serving">Per serving: ${food.serving}</span>
+          <span class="food-serving">PER SERVING — ${food.serving.toUpperCase()}</span>
         </div>
         <div class="calorie-box">
           <span class="calorie-num" data-target="${food.calories}">${food.calories}</span>
-          <span class="calorie-label">kcal</span>
+          <span class="calorie-label">KCAL</span>
         </div>
       </div>
 
@@ -287,32 +357,29 @@ const App = (() => {
       <div class="panel-divider"></div>
 
       ${microEntries.length ? `
-        <p class="section-label-sm"><span class="accent">Micronutrients</span></p>
+        <p class="section-label-sm"><span class="accent">// Micronutrients</span></p>
         <div class="nutrient-grid">${microCards}</div>
         <div class="panel-divider"></div>
       ` : ''}
 
-      <p class="section-label-sm"><span class="accent">Health Benefits</span></p>
+      <p class="section-label-sm"><span class="accent">// Health Benefits</span></p>
       <ul class="bl-list">${benefits}</ul>
 
       <div class="panel-divider"></div>
 
-      <p class="section-label-sm"><span>Considerations</span></p>
+      <p class="section-label-sm">// Considerations</p>
       <ul class="bl-list">${drawbacks}</ul>
     `;
 
-    // Trigger bar animations after render
     requestAnimationFrame(() => {
       $('infoPanel').querySelectorAll('.energy-bar-fill, .nutrient-bar-fill').forEach(el => {
         animateBar(el, el.dataset.target);
       });
-
-      // Count-up calorie number
       const calEl = $('infoPanel').querySelector('.calorie-num');
-      if (calEl) countUp(calEl, parseInt(calEl.dataset.target, 10), 1000);
+      if (calEl) countUp(calEl, parseInt(calEl.dataset.target, 10), 1100);
     });
 
-    // Stagger nutrient item entrance
+    // Stagger entrance of items
     const items = $('infoPanel').querySelectorAll('.nutrient-item, .bl-item');
     items.forEach((el, i) => {
       el.style.opacity = '0';
@@ -321,11 +388,10 @@ const App = (() => {
         el.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
         el.style.opacity = '1';
         el.style.transform = 'translateY(0)';
-      }, i * 40 + 200);
+      }, i * 35 + 180);
     });
   }
 
-  // ── Show grid ─────────────────────────────────────────────────────────
   function showGrid() {
     transition(() => {
       $('detailSection').style.display = 'none';
@@ -336,19 +402,22 @@ const App = (() => {
 
   // ── Init ──────────────────────────────────────────────────────────────
   async function init() {
+    initCursor();
     initNavbar();
     initHeroStats();
+    initParticles();
 
     try {
       await fetchFoods();
     } catch (err) {
       $('foodGrid').innerHTML = `
-        <div class="bento-loading" style="color:var(--text-muted)">
-          <span>Failed to load foods. Please refresh.</span>
+        <div class="bento-loading">
+          <span>CONNECTION FAILED — PLEASE REFRESH</span>
         </div>`;
       return;
     }
 
+    initTicker();
     renderGrid();
     $('backBtn').addEventListener('click', showGrid);
   }
