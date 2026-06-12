@@ -1049,6 +1049,387 @@ const foods = [
     ],
     description: 'A blue-green algae with the highest protein density of any known food.',
     serving: '100g'
+  },
+  {
+    id: 'mango', name: 'Mango', emoji: '🥭', color: '#f5a623', calories: 60,
+    nutrition: { protein: 0.8, carbs: 15, fat: 0.4, fiber: 1.6, vitaminC: 39.6, vitaminA: 486, vitaminB6: 0.15, folate: 44 },
+    benefits: [
+      'High in both vitamin C and vitamin A',
+      'Contains digestive enzymes (amylase)',
+      'Boosts immune function',
+      'Carotenoids support eye health',
+      'Anti-inflammatory polyphenols'
+    ],
+    drawbacks: [
+      'High in natural sugar',
+      'High glycemic index',
+      'Can trigger allergies in sensitive people',
+      'Higher calorie than many fruits'
+    ],
+    description: 'A lush tropical fruit rich in vitamins C and A plus digestive enzymes.',
+    serving: '100g'
+  },
+  {
+    id: 'pineapple', name: 'Pineapple', emoji: '🍍', color: '#e8c84a', calories: 50,
+    nutrition: { protein: 0.5, carbs: 13, fat: 0.1, fiber: 1.4, vitaminC: 71.1, manganese: 1.01, vitaminB6: 0.12, thiamine: 0.07 },
+    benefits: [
+      'Bromelain enzyme aids protein digestion',
+      'Anti-inflammatory properties',
+      'Boosts immune function',
+      'Manganese supports bone health',
+      'Antioxidants support eye health'
+    ],
+    drawbacks: [
+      'High in natural sugar',
+      'Acidic — can erode tooth enamel',
+      'Bromelain can irritate the mouth',
+      'High glycemic for diabetics'
+    ],
+    description: 'A tangy tropical fruit packed with vitamin C and the digestive enzyme bromelain.',
+    serving: '100g'
+  },
+  {
+    id: 'strawberry', name: 'Strawberry', emoji: '🍓', color: '#e63946', calories: 32,
+    nutrition: { protein: 0.7, carbs: 7.7, fat: 0.3, fiber: 2, vitaminC: 88.2, manganese: 0.41, folate: 24, vitaminK: 3.6 },
+    benefits: [
+      'Extremely high in vitamin C',
+      'Supports heart health',
+      'Helps regulate blood sugar',
+      'Anti-inflammatory antioxidants',
+      'Promotes healthy skin'
+    ],
+    drawbacks: [
+      'High pesticide residue (a "dirty dozen" crop)',
+      'Very short shelf life',
+      'Mildly acidic',
+      'Allergenic for some people'
+    ],
+    description: 'A vitamin-C powerhouse berry — one of the richest sources per calorie.',
+    serving: '100g'
+  },
+  {
+    id: 'watermelon', name: 'Watermelon', emoji: '🍉', color: '#f0506a', calories: 30,
+    nutrition: { protein: 0.6, carbs: 7.6, fat: 0.2, fiber: 0.4, vitaminC: 11.7, vitaminA: 99, lycopene: 4.5, vitaminB6: 0.07 },
+    benefits: [
+      'Exceptionally hydrating (about 92% water)',
+      'Lycopene antioxidant supports heart health',
+      'L-citrulline may aid muscle recovery',
+      'Very low in calories',
+      'Naturally cooling and refreshing'
+    ],
+    drawbacks: [
+      'Very high glycemic index',
+      'Low in fiber',
+      'High in natural sugar',
+      'Can cause bloating in some'
+    ],
+    description: 'The ultimate hydrating fruit — 92% water with heart-healthy lycopene.',
+    serving: '100g'
+  },
+  {
+    id: 'grapes', name: 'Grapes', emoji: '🍇', color: '#6b3fa0', calories: 69,
+    nutrition: { protein: 0.7, carbs: 18, fat: 0.2, fiber: 0.9, vitaminK: 16.8, vitaminC: 5.4, vitaminB6: 0.09, resveratrol: 2 },
+    benefits: [
+      'Resveratrol is a powerful antioxidant',
+      'Supports heart health',
+      'Anti-aging polyphenols',
+      'Supports brain health',
+      'May help with cancer prevention'
+    ],
+    drawbacks: [
+      'High in natural sugar',
+      'Low in fiber',
+      'High glycemic index',
+      'High pesticide residue',
+      'Very easy to overeat'
+    ],
+    description: 'Bite-sized antioxidant bombs rich in heart-protective resveratrol.',
+    serving: '100g'
+  },
+  {
+    id: 'peach', name: 'Peach', emoji: '🍑', color: '#f5b08a', calories: 39,
+    nutrition: { protein: 0.9, carbs: 9.5, fat: 0.3, fiber: 1.5, vitaminC: 9.9, vitaminA: 54, vitaminK: 6, niacin: 0.8 },
+    benefits: [
+      'Low in calories',
+      'Provides vitamins C and A',
+      'Supports healthy skin',
+      'Aids digestion with fiber',
+      'Contains protective antioxidants'
+    ],
+    drawbacks: [
+      'Short growing season',
+      'Bruises very easily',
+      'Moderate sugar content',
+      'High pesticide residue'
+    ],
+    description: 'A juicy stone fruit with skin-supporting vitamins C and A.',
+    serving: '100g'
+  },
+  {
+    id: 'pear', name: 'Pear', emoji: '🍐', color: '#c8d44a', calories: 57,
+    nutrition: { protein: 0.4, carbs: 15, fat: 0.1, fiber: 3.1, vitaminK: 4.8, vitaminC: 6.3, copper: 0.04, vitaminB6: 0.03 },
+    benefits: [
+      'High in fiber, especially pectin',
+      'Supports gut health',
+      'Anti-inflammatory flavonoids',
+      'Supports heart health',
+      'Low in calories for its size'
+    ],
+    drawbacks: [
+      'High in natural sugar',
+      'Low overall vitamin content',
+      'High glycemic when very ripe',
+      'Bruises easily'
+    ],
+    description: 'A high-fiber fruit loaded with gut-friendly pectin.',
+    serving: '100g'
+  },
+  {
+    id: 'orange', name: 'Orange', emoji: '🍊', color: '#f5921e', calories: 47,
+    nutrition: { protein: 0.9, carbs: 12, fat: 0.1, fiber: 2.4, vitaminC: 79.2, folate: 32, thiamine: 0.1, potassium: 188 },
+    benefits: [
+      'Very high in vitamin C',
+      'Strengthens the immune system',
+      'Flavonoids support heart health',
+      'Good source of folate',
+      'Pectin fiber aids digestion'
+    ],
+    drawbacks: [
+      'Acidic — can trigger reflux',
+      'Higher sugar than vegetables',
+      'Can erode tooth enamel',
+      'Juicing strips the fiber'
+    ],
+    description: 'The classic immune-boosting citrus, brimming with vitamin C.',
+    serving: '100g'
+  },
+  {
+    id: 'pomegranate', name: 'Pomegranate', emoji: '🔴', color: '#b71c2b', calories: 83,
+    nutrition: { protein: 1.7, carbs: 19, fat: 1.2, fiber: 4, vitaminK: 19.2, vitaminC: 10.8, folate: 40, punicalagins: 15 },
+    benefits: [
+      'Punicalagins are exceptionally powerful antioxidants',
+      'Strongly anti-inflammatory',
+      'Supports heart health',
+      'May support memory and cognition',
+      'Studied for anti-cancer properties'
+    ],
+    drawbacks: [
+      'Expensive',
+      'Messy and time-consuming to eat',
+      'Can interact with medications like grapefruit',
+      'High in natural sugar'
+    ],
+    description: 'Ruby arils packed with punicalagins — among the most potent food antioxidants.',
+    serving: '100g'
+  },
+  {
+    id: 'cherry', name: 'Cherry', emoji: '🍒', color: '#9b1c31', calories: 63,
+    nutrition: { protein: 1.1, carbs: 16, fat: 0.2, fiber: 2.1, vitaminC: 10.8, vitaminK: 3.6, potassium: 235, anthocyanins: 30 },
+    benefits: [
+      'A natural source of melatonin for sleep',
+      'Anti-inflammatory anthocyanins',
+      'May help prevent gout',
+      'Supports heart health',
+      'Aids exercise recovery'
+    ],
+    drawbacks: [
+      'High in natural sugar',
+      'Very short season',
+      'Expensive',
+      'Pits must be removed'
+    ],
+    description: 'A sleep-supporting stone fruit rich in melatonin and anthocyanins.',
+    serving: '100g'
+  },
+  {
+    id: 'papaya', name: 'Papaya', emoji: '🟠', color: '#f5832a', calories: 43,
+    nutrition: { protein: 0.5, carbs: 11, fat: 0.3, fiber: 1.7, vitaminC: 92.7, vitaminA: 198, folate: 40, vitaminK: 3.6, papain: 8 },
+    benefits: [
+      'Papain enzyme aids protein digestion',
+      'Very high in vitamin C',
+      'Carotenoids support eye health',
+      'Anti-inflammatory properties',
+      'Promotes healthy skin'
+    ],
+    drawbacks: [
+      'Strong, musky smell',
+      'Linked to latex allergy in some',
+      'High in natural sugar',
+      'Laxative effect in excess'
+    ],
+    description: 'A tropical fruit with the digestive enzyme papain and over a day of vitamin C.',
+    serving: '100g'
+  },
+  {
+    id: 'fig', name: 'Fig', emoji: '🟣', color: '#7a4a8c', calories: 74,
+    nutrition: { protein: 0.8, carbs: 19, fat: 0.3, fiber: 2.9, vitaminK: 4.8, vitaminB6: 0.1, copper: 0.03, manganese: 0.14 },
+    benefits: [
+      'High in dietary fiber',
+      'Supports bone health',
+      'Helps control blood pressure',
+      'Promotes digestive health',
+      'Rich in antioxidants'
+    ],
+    drawbacks: [
+      'Very high in natural sugar',
+      'High glycemic index',
+      'Calorie-dense, especially dried',
+      'Very short fresh shelf life'
+    ],
+    description: 'A honeyed, fiber-rich fruit that supports bone health and digestion.',
+    serving: '100g'
+  },
+  {
+    id: 'raspberries', name: 'Raspberries', emoji: '🔴', color: '#d11e4a', calories: 52,
+    nutrition: { protein: 1.2, carbs: 12, fat: 0.7, fiber: 6.5, vitaminC: 38.7, vitaminK: 8.4, manganese: 0.74, folate: 20 },
+    benefits: [
+      'One of the highest-fiber common fruits',
+      'Ellagic acid studied for anti-cancer effects',
+      'Helps regulate blood sugar',
+      'Supports heart health',
+      'Low in sugar for a fruit'
+    ],
+    drawbacks: [
+      'Extremely fragile and perishable',
+      'Expensive',
+      'Seedy texture',
+      'Very short shelf life'
+    ],
+    description: 'A delicate berry boasting more fiber than almost any other fruit.',
+    serving: '100g'
+  },
+  {
+    id: 'blackberries', name: 'Blackberries', emoji: '⚫', color: '#2e1a3a', calories: 43,
+    nutrition: { protein: 1.4, carbs: 10, fat: 0.5, fiber: 5.3, vitaminK: 22.8, vitaminC: 31.5, manganese: 0.67, folate: 24 },
+    benefits: [
+      'Very high in dietary fiber',
+      'Vitamin K supports bone health',
+      'Anti-cancer anthocyanins',
+      'Supports brain health',
+      'Low in calories'
+    ],
+    drawbacks: [
+      'Fragile and perishable',
+      'Short shelf life',
+      'Seedy texture',
+      'Expensive out of season'
+    ],
+    description: 'A dark, antioxidant-rich berry high in fiber and bone-supporting vitamin K.',
+    serving: '100g'
+  },
+  {
+    id: 'apricot', name: 'Apricot', emoji: '🟧', color: '#f0a04a', calories: 48,
+    nutrition: { protein: 1.4, carbs: 11, fat: 0.4, fiber: 2, vitaminA: 234, vitaminC: 10.8, vitaminK: 4.8, vitaminE: 0.9, betacarotene: 1090 },
+    benefits: [
+      'High in beta-carotene for eye health',
+      'Supports healthy skin',
+      'Potassium supports heart health',
+      'Good source of fiber',
+      'Low in calories'
+    ],
+    drawbacks: [
+      'Short growing season',
+      'Bruises easily',
+      'Moderate sugar content',
+      'Dried versions are much higher in sugar'
+    ],
+    description: 'A golden stone fruit loaded with eye-protecting beta-carotene.',
+    serving: '100g'
+  },
+  {
+    id: 'plum', name: 'Plum', emoji: '🟪', color: '#5e2a6b', calories: 46,
+    nutrition: { protein: 0.7, carbs: 11, fat: 0.3, fiber: 1.4, vitaminC: 14.4, vitaminK: 7.2, vitaminA: 45, riboflavin: 0.04 },
+    benefits: [
+      'Sorbitol acts as a natural laxative',
+      'Vitamin K supports bone health',
+      'Rich in antioxidants',
+      'Supports heart health',
+      'Low in calories'
+    ],
+    drawbacks: [
+      'Laxative effect in excess',
+      'High in natural sugar',
+      'Pesticide residue',
+      'Short season'
+    ],
+    description: 'A juicy stone fruit with antioxidants and gentle digestive benefits.',
+    serving: '100g'
+  },
+  {
+    id: 'lychee', name: 'Lychee', emoji: '🌸', color: '#f06a8a', calories: 66,
+    nutrition: { protein: 0.8, carbs: 17, fat: 0.4, fiber: 1.3, vitaminC: 107.1, vitaminB6: 0.14, copper: 0.08, potassium: 235 },
+    benefits: [
+      'Extremely high in vitamin C',
+      'Oligonol antioxidant supports circulation',
+      'Supports heart health',
+      'Promotes healthy skin',
+      'Boosts immune function'
+    ],
+    drawbacks: [
+      'Very high in natural sugar',
+      'Not widely available',
+      'Unripe fruit can be toxic',
+      'Short season'
+    ],
+    description: 'A fragrant tropical fruit with more vitamin C than an orange.',
+    serving: '100g'
+  },
+  {
+    id: 'passionfruit', name: 'Passion Fruit', emoji: '🟣', color: '#6b2a8c', calories: 97,
+    nutrition: { protein: 2.2, carbs: 23, fat: 0.7, fiber: 10.4, vitaminA: 225, vitaminC: 27, iron: 2.16, potassium: 376 },
+    benefits: [
+      'Exceptionally high in dietary fiber',
+      'Compounds with calming, sleep-supporting effects',
+      'Boosts immune function',
+      'Carotenoids support eye health',
+      'Supports heart health'
+    ],
+    drawbacks: [
+      'Very high in natural sugar',
+      'Intensely sour taste',
+      'Expensive',
+      'Not widely available'
+    ],
+    description: 'A tart tropical fruit with extraordinary fiber and calming compounds.',
+    serving: '100g'
+  },
+  {
+    id: 'coconut', name: 'Coconut', emoji: '🥥', color: '#d8c8a8', calories: 354,
+    nutrition: { protein: 3.3, carbs: 15, fat: 33, fiber: 9, manganese: 1.73, copper: 0.2, selenium: 7.7, iron: 2.34 },
+    benefits: [
+      'MCT fats provide quick energy',
+      'Lauric acid has antimicrobial effects',
+      'High in dietary fiber',
+      'Supports ketone production for brain fuel',
+      'Manganese supports metabolism'
+    ],
+    drawbacks: [
+      'Very high in saturated fat',
+      'Very calorie-dense',
+      'Some health claims are overstated',
+      'Fiber can slow digestion'
+    ],
+    description: 'A rich tropical fruit high in fiber and quick-energy MCT fats.',
+    serving: '100g'
+  },
+  {
+    id: 'dragonfruit', name: 'Dragon Fruit', emoji: '🐉', color: '#e84a8c', calories: 60,
+    nutrition: { protein: 1.2, carbs: 13, fat: 0, fiber: 3, vitaminC: 8.1, iron: 1.44, magnesium: 29.4, betalains: 9 },
+    benefits: [
+      'Betalain antioxidants fight inflammation',
+      'Prebiotic fiber supports gut health',
+      'May enhance iron absorption',
+      'Anti-inflammatory properties',
+      'Low in calories'
+    ],
+    drawbacks: [
+      'Expensive',
+      'Mild, subtle flavor',
+      'Short shelf life',
+      'Limited availability'
+    ],
+    description: 'A striking tropical fruit with gut-friendly fiber and betalain antioxidants.',
+    serving: '100g'
   }
 ];
 

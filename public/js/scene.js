@@ -2676,6 +2676,441 @@ const FoodScene = (() => {
     return g;
   }
 
+  // ─── Fruit textures + helpers ───────────────────────────────────────────
+
+  function _gradTex(c0, c1, c2, speckle, speckleN) {
+    const S = 512;
+    const cv = document.createElement('canvas'); cv.width = cv.height = S;
+    const ctx = cv.getContext('2d');
+    const g = ctx.createRadialGradient(S*0.4, S*0.35, S*0.05, S*0.5, S*0.5, S*0.62);
+    g.addColorStop(0, c0); g.addColorStop(0.55, c1); g.addColorStop(1, c2);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+    if (speckleN) {
+      for (let i = 0; i < speckleN; i++) {
+        const x = Math.random()*S, y = Math.random()*S;
+        ctx.globalAlpha = 0.04 + Math.random()*0.14; ctx.fillStyle = speckle;
+        ctx.beginPath(); ctx.arc(x, y, 0.5 + Math.random()*2, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    return new THREE.CanvasTexture(cv);
+  }
+
+  function makeCitrusTex(base, pore) {
+    const S = 512;
+    const cv = document.createElement('canvas'); cv.width = cv.height = S;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = base; ctx.fillRect(0, 0, S, S);
+    for (let i = 0; i < 4000; i++) {
+      const x = Math.random()*S, y = Math.random()*S, r = 1 + Math.random()*3;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+      ctx.fillStyle = Math.random() > 0.5 ? pore : '#ffd9a0';
+      ctx.globalAlpha = 0.05 + Math.random()*0.15; ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    return new THREE.CanvasTexture(cv);
+  }
+
+  function makePineappleTex() {
+    const S = 512;
+    const cv = document.createElement('canvas'); cv.width = cv.height = S;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#e3c247'; ctx.fillRect(0, 0, S, S);
+    ctx.strokeStyle = 'rgba(120,80,20,0.5)'; ctx.lineWidth = 2;
+    const n = 10;
+    for (let i = -n; i < n*2; i++) {
+      ctx.beginPath(); ctx.moveTo(i*S/n, 0); ctx.lineTo(i*S/n + S, S); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(i*S/n, 0); ctx.lineTo(i*S/n - S, S); ctx.stroke();
+    }
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      const x = (c+0.5)*S/n, y = (r+0.5)*S/n;
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.fillStyle = 'rgba(90,60,15,0.5)'; ctx.fill();
+    }
+    return new THREE.CanvasTexture(cv);
+  }
+
+  // ─── Fruit builders ─────────────────────────────────────────────────────
+
+  function buildMango() {
+    const g = new THREE.Group();
+    const tex = _gradTex('#ffe14d', '#f5a623', '#d6402a', '#8a4010', 900);
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 40),
+      new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.30, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.15 }));
+    body.scale.set(1.25, 0.92, 0.85); body.castShadow = body.receiveShadow = true; g.add(body);
+    g.rotation.z = 0.3; g.rotation.y = 0.3;
+    return g;
+  }
+
+  function buildPineapple() {
+    const g = new THREE.Group();
+    const tex = makePineappleTex();
+    const skinMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xe8c84a, roughness: 0.7, metalness: 0 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.78, 1.9, 32, 1), skinMat);
+    body.castShadow = body.receiveShadow = true; g.add(body);
+    const top = new THREE.Mesh(new THREE.SphereGeometry(0.85, 24, 12, 0, Math.PI*2, 0, Math.PI/2), skinMat);
+    top.position.y = 0.95; top.scale.set(1, 0.4, 1); g.add(top);
+    const bot = new THREE.Mesh(new THREE.SphereGeometry(0.78, 24, 12, 0, Math.PI*2, 0, Math.PI/2), skinMat);
+    bot.position.y = -0.95; bot.scale.set(1, 0.4, 1); bot.rotation.x = Math.PI; g.add(bot);
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x3a7d3a, roughness: 0.7, metalness: 0, side: THREE.DoubleSide });
+    for (let i = 0; i < 10; i++) {
+      const ang = (i/10) * Math.PI*2, tier = i < 6 ? 0 : 0.25;
+      const sh = new THREE.Shape();
+      sh.moveTo(0, 0); sh.lineTo(0.1, 0.5); sh.lineTo(0, 0.9); sh.lineTo(-0.1, 0.5); sh.lineTo(0, 0);
+      const leaf = new THREE.Mesh(new THREE.ShapeGeometry(sh, 4), leafMat);
+      leaf.position.set(Math.cos(ang)*0.18, 1.05 + tier, Math.sin(ang)*0.18);
+      leaf.rotation.set(0.4 + Math.random()*0.2, -ang + Math.PI/2, 0);
+      leaf.scale.set(1, 1 + Math.random()*0.4, 1);
+      g.add(leaf);
+    }
+    return g;
+  }
+
+  function buildStrawberry() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0xe11d2e, roughness: 0.35, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.2 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 32), mat);
+    body.scale.set(0.85, 1.1, 0.85); body.position.y = 0.1; body.castShadow = true; g.add(body);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.7, 32), mat); tip.position.y = -0.85; g.add(tip);
+    const seedMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.03, 5, 4),
+      new THREE.MeshStandardMaterial({ color: 0xe8d24a, roughness: 0.5 }), 80);
+    const d = new THREE.Object3D();
+    for (let i = 0; i < 80; i++) {
+      const phi = Math.acos(1 - 2*(i+0.5)/80), th = Math.PI*(1+Math.sqrt(5))*i;
+      const x = Math.sin(phi)*Math.cos(th), y = Math.cos(phi), z = Math.sin(phi)*Math.sin(th);
+      d.position.set(x*0.82, (y*1.05) + 0.05, z*0.82); d.scale.set(1, 1.6, 1);
+      d.lookAt(0, d.position.y + 0.5, 0); d.updateMatrix(); seedMesh.setMatrixAt(i, d.matrix);
+    }
+    seedMesh.instanceMatrix.needsUpdate = true; g.add(seedMesh);
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x3a8d3a, roughness: 0.7, side: THREE.DoubleSide });
+    for (let i = 0; i < 6; i++) {
+      const a = (i/6)*Math.PI*2;
+      const sh = new THREE.Shape();
+      sh.moveTo(0, 0); sh.bezierCurveTo(0.12, 0.1, 0.12, 0.4, 0, 0.5); sh.bezierCurveTo(-0.12, 0.4, -0.12, 0.1, 0, 0);
+      const leaf = new THREE.Mesh(new THREE.ShapeGeometry(sh, 5), leafMat);
+      leaf.position.set(Math.cos(a)*0.2, 1.05, Math.sin(a)*0.2); leaf.rotation.set(-0.9, a, 0); g.add(leaf);
+    }
+    g.scale.set(1.05, 1.05, 1.05);
+    return g;
+  }
+
+  function buildWatermelon() {
+    const g = new THREE.Group();
+    const th = Math.PI * 0.42;
+    const sector = (rIn, rOut, depth, color) => {
+      const s = new THREE.Shape();
+      if (rIn <= 0) {
+        s.moveTo(0, 0); s.lineTo(rOut, 0); s.absarc(0, 0, rOut, 0, th, false); s.lineTo(0, 0);
+      } else {
+        s.moveTo(rIn, 0); s.lineTo(rOut, 0); s.absarc(0, 0, rOut, 0, th, false);
+        s.lineTo(Math.cos(th)*rIn, Math.sin(th)*rIn); s.absarc(0, 0, rIn, th, 0, true);
+      }
+      const geo = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 32 });
+      geo.translate(0, 0, -depth/2);
+      const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.55 }));
+      m.castShadow = true; return m;
+    };
+    g.add(sector(0, 1.05, 0.5, 0xe8344e));
+    g.add(sector(1.05, 1.14, 0.52, 0xf2e9e0));
+    g.add(sector(1.14, 1.3, 0.54, 0x3a8d3a));
+    const seedMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4 });
+    for (let i = 0; i < 14; i++) {
+      const a = th*(0.2 + Math.random()*0.6), r = 0.4 + Math.random()*0.55;
+      const seed = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), seedMat);
+      seed.position.set(Math.cos(a)*r, Math.sin(a)*r, (Math.random() > 0.5 ? 1 : -1)*0.26);
+      seed.scale.set(1, 1.8, 0.6); seed.rotation.z = a; g.add(seed);
+    }
+    g.rotation.z = -th/2 - 0.2; g.rotation.x = 0.2;
+    g.scale.set(1.1, 1.1, 1.1);
+    return g;
+  }
+
+  function buildGrapes() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0x6b3fa0, roughness: 0.35, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.25 });
+    const layers = [
+      { y: 0.9, n: 1, r: 0.0 }, { y: 0.6, n: 4, r: 0.28 }, { y: 0.25, n: 6, r: 0.42 },
+      { y: -0.1, n: 6, r: 0.45 }, { y: -0.45, n: 5, r: 0.38 }, { y: -0.78, n: 3, r: 0.25 }, { y: -1.05, n: 1, r: 0.0 },
+    ];
+    layers.forEach(L => {
+      for (let i = 0; i < L.n; i++) {
+        const a = (i/L.n)*Math.PI*2 + L.y;
+        const grape = new THREE.Mesh(new THREE.SphereGeometry(0.26, 20, 16), mat);
+        grape.position.set(Math.cos(a)*L.r, L.y, Math.sin(a)*L.r); grape.castShadow = true; g.add(grape);
+      }
+    });
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.4, 8),
+      new THREE.MeshStandardMaterial({ color: 0x5a4423, roughness: 0.9 }));
+    stem.position.y = 1.15; g.add(stem);
+    return g;
+  }
+
+  function buildPeach() {
+    const g = new THREE.Group();
+    const tex = _gradTex('#ffd9a0', '#f5a76a', '#e8607a', null, 0);
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 40),
+      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, metalness: 0 }));
+    body.scale.set(1, 0.95, 1); body.castShadow = body.receiveShadow = true; g.add(body);
+    const crease = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.012, 6, 40, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0xc04a5a, roughness: 0.9 }));
+    crease.rotation.y = Math.PI/2; crease.scale.set(1, 0.95, 1); g.add(crease);
+    const dim = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 12),
+      new THREE.MeshStandardMaterial({ color: 0xc85a4a, roughness: 0.9 }));
+    dim.position.y = 0.92; dim.scale.set(1, 0.4, 1); g.add(dim);
+    return g;
+  }
+
+  function buildPear() {
+    const g = new THREE.Group();
+    const pts = [
+      new THREE.Vector2(0, -1.1), new THREE.Vector2(0.45, -1.0), new THREE.Vector2(0.7, -0.75), new THREE.Vector2(0.72, -0.4),
+      new THREE.Vector2(0.55, -0.05), new THREE.Vector2(0.42, 0.3), new THREE.Vector2(0.4, 0.6), new THREE.Vector2(0.32, 0.9),
+      new THREE.Vector2(0.16, 1.1), new THREE.Vector2(0, 1.18),
+    ];
+    const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 48),
+      new THREE.MeshStandardMaterial({ color: 0xb5cc3a, roughness: 0.6, metalness: 0 }));
+    body.castShadow = body.receiveShadow = true; g.add(body);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.3, 8),
+      new THREE.MeshStandardMaterial({ color: 0x5a4020, roughness: 0.9 }));
+    stem.position.y = 1.28; g.add(stem);
+    return g;
+  }
+
+  function buildOrange() {
+    const g = new THREE.Group();
+    const tex = makeCitrusTex('#f5921e', '#e07810');
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 40),
+      new THREE.MeshStandardMaterial({ map: tex, color: 0xf5921e, roughness: 0.65, metalness: 0 }));
+    body.scale.set(1, 0.95, 1); body.castShadow = body.receiveShadow = true; g.add(body);
+    const navel = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10),
+      new THREE.MeshStandardMaterial({ color: 0xd07010, roughness: 0.8 }));
+    navel.position.y = -0.93; navel.scale.set(1, 0.4, 1); g.add(navel);
+    const stub = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8),
+      new THREE.MeshStandardMaterial({ color: 0x6a7a2a, roughness: 0.8 }));
+    stub.position.y = 0.95; stub.scale.set(1, 0.5, 1); g.add(stub);
+    return g;
+  }
+
+  function buildPomegranate() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 40),
+      new THREE.MeshPhysicalMaterial({ color: 0xb71c2b, roughness: 0.45, metalness: 0, clearcoat: 0.3, clearcoatRoughness: 0.3 }));
+    body.scale.set(1, 1.02, 1); body.castShadow = body.receiveShadow = true; g.add(body);
+    const crownMat = new THREE.MeshStandardMaterial({ color: 0x8a1520, roughness: 0.7 });
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.26, 0.2, 12), crownMat); base.position.y = 1.0; g.add(base);
+    for (let i = 0; i < 6; i++) {
+      const a = (i/6)*Math.PI*2;
+      const prong = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 6), crownMat);
+      prong.position.set(Math.cos(a)*0.16, 1.12, Math.sin(a)*0.16);
+      prong.rotation.z = Math.cos(a)*0.5; prong.rotation.x = Math.sin(a)*0.5; g.add(prong);
+    }
+    return g;
+  }
+
+  function buildCherry() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0x9b1c31, roughness: 0.3, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.15 });
+    [[-0.45, 0, 0], [0.45, -0.1, 0.1]].forEach(([x, y, z]) => {
+      const c = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 24), mat); c.position.set(x, y, z); c.castShadow = true; g.add(c);
+      const dim = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0x6a1020, roughness: 0.7 }));
+      dim.position.set(x, y + 0.46, z); dim.scale.set(1, 0.4, 1); g.add(dim);
+    });
+    const stemMat = new THREE.MeshStandardMaterial({ color: 0x4a7a2a, roughness: 0.8 });
+    const s1 = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.45, 0.46, 0), new THREE.Vector3(-0.3, 1.0, 0.05), new THREE.Vector3(-0.05, 1.4, 0)]);
+    const s2 = new THREE.CatmullRomCurve3([new THREE.Vector3(0.45, 0.36, 0.1), new THREE.Vector3(0.25, 1.0, 0.05), new THREE.Vector3(-0.05, 1.4, 0)]);
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(s1, 12, 0.03, 6, false), stemMat));
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(s2, 12, 0.03, 6, false), stemMat));
+    g.scale.set(1.1, 1.1, 1.1);
+    return g;
+  }
+
+  function buildPapaya() {
+    const g = new THREE.Group();
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xc9b84a, roughness: 0.6 });
+    const fleshMat = new THREE.MeshStandardMaterial({ color: 0xf5832a, roughness: 0.55 });
+    const cavMat = new THREE.MeshStandardMaterial({ color: 0xb85a18, roughness: 0.6 });
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.8, 40, 24, 0, Math.PI*2, 0, Math.PI/2), skinMat);
+    dome.scale.set(1, 0.95, 1.9); dome.rotation.x = Math.PI; dome.castShadow = true; g.add(dome);
+    const flesh = new THREE.Mesh(new THREE.CircleGeometry(0.74, 40), fleshMat);
+    flesh.rotation.x = -Math.PI/2; flesh.scale.set(1, 1.9, 1); flesh.position.y = 0.001; g.add(flesh);
+    const cav = new THREE.Mesh(new THREE.SphereGeometry(0.4, 24, 16), cavMat);
+    cav.scale.set(0.7, 0.4, 1.5); cav.position.y = 0.02; g.add(cav);
+    const seedMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.05, 6, 5),
+      new THREE.MeshPhysicalMaterial({ color: 0x1a1a1a, roughness: 0.3, clearcoat: 0.5 }), 50);
+    const d = new THREE.Object3D();
+    for (let i = 0; i < 50; i++) {
+      d.position.set((Math.random()-0.5)*0.5, 0.08, (Math.random()-0.5)*2.0); d.updateMatrix(); seedMesh.setMatrixAt(i, d.matrix);
+    }
+    seedMesh.instanceMatrix.needsUpdate = true; g.add(seedMesh);
+    g.rotation.y = 0.3; g.scale.set(1.0, 1.0, 0.85);
+    return g;
+  }
+
+  function buildFig() {
+    const g = new THREE.Group();
+    const pts = [
+      new THREE.Vector2(0, -0.95), new THREE.Vector2(0.25, -0.85), new THREE.Vector2(0.55, -0.55),
+      new THREE.Vector2(0.68, -0.15), new THREE.Vector2(0.6, 0.3), new THREE.Vector2(0.4, 0.62), new THREE.Vector2(0.18, 0.85), new THREE.Vector2(0, 0.95),
+    ];
+    const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 40),
+      new THREE.MeshStandardMaterial({ color: 0x7a4a8c, roughness: 0.6 }));
+    body.scale.set(1, 1.05, 1); body.castShadow = body.receiveShadow = true; g.add(body);
+    const crack = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10),
+      new THREE.MeshStandardMaterial({ color: 0xd96a8a, roughness: 0.6 }));
+    crack.position.y = -0.95; crack.scale.set(1, 0.5, 1); g.add(crack);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.2, 6),
+      new THREE.MeshStandardMaterial({ color: 0x4a6a2a, roughness: 0.85 }));
+    stem.position.y = 1.0; g.add(stem);
+    return g;
+  }
+
+  function buildRaspberries() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0xd11e4a, roughness: 0.35, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.25 });
+    const layers = [
+      { y: 0.0, r: 0.7, n: 10 }, { y: 0.35, r: 0.6, n: 9 }, { y: 0.62, r: 0.42, n: 7 }, { y: 0.82, r: 0.22, n: 5 }, { y: 0.95, r: 0.0, n: 1 },
+    ];
+    layers.forEach(L => {
+      for (let i = 0; i < L.n; i++) {
+        const a = (i/L.n)*Math.PI*2 + L.y*3;
+        const dr = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 12), mat);
+        dr.position.set(Math.cos(a)*L.r, L.y, Math.sin(a)*L.r); dr.castShadow = true; g.add(dr);
+      }
+    });
+    g.scale.set(1.1, 1.1, 1.1);
+    return g;
+  }
+
+  function buildBlackberries() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0x2a1530, roughness: 0.25, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.15 });
+    const layers = [
+      { y: 0.0, r: 0.55, n: 9 }, { y: 0.35, r: 0.52, n: 9 }, { y: 0.7, r: 0.45, n: 8 },
+      { y: 1.0, r: 0.35, n: 7 }, { y: 1.28, r: 0.2, n: 5 }, { y: 1.45, r: 0, n: 1 },
+    ];
+    layers.forEach(L => {
+      for (let i = 0; i < L.n; i++) {
+        const a = (i/L.n)*Math.PI*2 + L.y*2;
+        const dr = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 12), mat);
+        dr.position.set(Math.cos(a)*L.r, L.y - 0.5, Math.sin(a)*L.r); dr.castShadow = true; g.add(dr);
+      }
+    });
+    return g;
+  }
+
+  function buildApricot() {
+    const g = new THREE.Group();
+    const tex = _gradTex('#ffce80', '#f0a04a', '#e07a3a', null, 0);
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 32),
+      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0 }));
+    body.scale.set(0.9, 0.92, 0.9); body.castShadow = body.receiveShadow = true; g.add(body);
+    const crease = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.01, 6, 36, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0xc06a3a, roughness: 0.9 }));
+    crease.rotation.y = Math.PI/2; crease.scale.set(1, 0.92, 1); g.add(crease);
+    g.scale.set(0.92, 0.92, 0.92);
+    return g;
+  }
+
+  function buildPlum() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 32),
+      new THREE.MeshPhysicalMaterial({ color: 0x5e2a6b, roughness: 0.42, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.3 }));
+    body.scale.set(0.92, 1.0, 0.92); body.castShadow = body.receiveShadow = true; g.add(body);
+    const crease = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.012, 6, 40, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0x3a1842, roughness: 0.6 }));
+    crease.rotation.y = Math.PI/2; g.add(crease);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.15, 6),
+      new THREE.MeshStandardMaterial({ color: 0x4a3018, roughness: 0.9 }));
+    stem.position.y = 0.98; g.add(stem);
+    return g;
+  }
+
+  function buildLychee() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.9, 32, 24),
+      new THREE.MeshStandardMaterial({ color: 0xd84050, roughness: 0.7, metalness: 0 }));
+    body.castShadow = body.receiveShadow = true; g.add(body);
+    const bumpMesh = new THREE.InstancedMesh(new THREE.ConeGeometry(0.07, 0.08, 5),
+      new THREE.MeshStandardMaterial({ color: 0xc83545, roughness: 0.7 }), 120);
+    const d = new THREE.Object3D();
+    for (let i = 0; i < 120; i++) {
+      const phi = Math.acos(1 - 2*(i+0.5)/120), th = Math.PI*(1+Math.sqrt(5))*i;
+      const x = Math.sin(phi)*Math.cos(th), y = Math.cos(phi), z = Math.sin(phi)*Math.sin(th);
+      d.position.set(x*0.9, y*0.9, z*0.9); d.lookAt(x*2, y*2, z*2); d.rotateX(Math.PI/2); d.updateMatrix(); bumpMesh.setMatrixAt(i, d.matrix);
+    }
+    bumpMesh.instanceMatrix.needsUpdate = true; g.add(bumpMesh);
+    g.scale.set(1.05, 1.05, 1.05);
+    return g;
+  }
+
+  function buildPassionFruit() {
+    const g = new THREE.Group();
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0x6b2a8c, roughness: 0.6 });
+    const pulpMat = new THREE.MeshStandardMaterial({ color: 0xe8b84a, roughness: 0.5 });
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.9, 36, 24, 0, Math.PI*2, Math.PI/2, Math.PI/2), skinMat);
+    shell.castShadow = true; g.add(shell);
+    const pulp = new THREE.Mesh(new THREE.SphereGeometry(0.78, 32, 20, 0, Math.PI*2, Math.PI/2, Math.PI/2), pulpMat);
+    pulp.position.y = 0.02; g.add(pulp);
+    const pulpTop = new THREE.Mesh(new THREE.CircleGeometry(0.78, 32), pulpMat);
+    pulpTop.rotation.x = -Math.PI/2; pulpTop.position.y = 0.0; g.add(pulpTop);
+    const seedMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.06, 6, 5),
+      new THREE.MeshPhysicalMaterial({ color: 0x1a1a1a, roughness: 0.3, clearcoat: 0.4 }), 40);
+    const d = new THREE.Object3D();
+    for (let i = 0; i < 40; i++) {
+      const a = Math.random()*Math.PI*2, r = Math.random()*0.62;
+      d.position.set(Math.cos(a)*r, 0.04 + Math.random()*0.05, Math.sin(a)*r); d.updateMatrix(); seedMesh.setMatrixAt(i, d.matrix);
+    }
+    seedMesh.instanceMatrix.needsUpdate = true; g.add(seedMesh);
+    g.scale.set(1.1, 1.1, 1.1);
+    return g;
+  }
+
+  function buildCoconut() {
+    const g = new THREE.Group();
+    const shellMat = new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.9 });
+    const fleshMat = new THREE.MeshStandardMaterial({ color: 0xf5f0e6, roughness: 0.5 });
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(1.0, 36, 24, 0, Math.PI*2, Math.PI/2, Math.PI/2), shellMat);
+    shell.castShadow = true; g.add(shell);
+    const flesh = new THREE.Mesh(new THREE.SphereGeometry(0.82, 32, 20, 0, Math.PI*2, Math.PI/2, Math.PI/2), fleshMat);
+    g.add(flesh);
+    const cav = new THREE.Mesh(new THREE.SphereGeometry(0.6, 24, 16, 0, Math.PI*2, Math.PI/2, Math.PI/2),
+      new THREE.MeshStandardMaterial({ color: 0x3a2510, roughness: 0.8 }));
+    cav.position.y = 0.02; g.add(cav);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.82, 0.06, 8, 40), fleshMat);
+    rim.rotation.x = Math.PI/2; g.add(rim);
+    return g;
+  }
+
+  function buildDragonFruit() {
+    const g = new THREE.Group();
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xe84a8c, roughness: 0.5 });
+    const fleshMat = new THREE.MeshStandardMaterial({ color: 0xf7f0f2, roughness: 0.5 });
+    const scaleMat = new THREE.MeshStandardMaterial({ color: 0x6aaa4a, roughness: 0.6, side: THREE.DoubleSide });
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.95, 36, 24, 0, Math.PI*2, Math.PI/2, Math.PI/2), skinMat);
+    shell.castShadow = true; g.add(shell);
+    const flesh = new THREE.Mesh(new THREE.SphereGeometry(0.82, 32, 20, 0, Math.PI*2, Math.PI/2, Math.PI/2), fleshMat);
+    flesh.scale.set(1, 0.6, 1); g.add(flesh);
+    const fleshTop = new THREE.Mesh(new THREE.CircleGeometry(0.82, 32), fleshMat);
+    fleshTop.rotation.x = -Math.PI/2; fleshTop.position.y = 0.49; g.add(fleshTop);
+    const seedMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.025, 5, 4),
+      new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 }), 120);
+    const d = new THREE.Object3D();
+    for (let i = 0; i < 120; i++) {
+      const a = Math.random()*Math.PI*2, r = Math.random()*0.7;
+      d.position.set(Math.cos(a)*r, 0.5, Math.sin(a)*r); d.updateMatrix(); seedMesh.setMatrixAt(i, d.matrix);
+    }
+    seedMesh.instanceMatrix.needsUpdate = true; g.add(seedMesh);
+    for (let i = 0; i < 8; i++) {
+      const a = (i/8)*Math.PI*2;
+      const sh = new THREE.Shape();
+      sh.moveTo(0, 0); sh.bezierCurveTo(0.12, 0.18, 0.1, 0.5, 0, 0.6); sh.bezierCurveTo(-0.1, 0.5, -0.12, 0.18, 0, 0);
+      const sc = new THREE.Mesh(new THREE.ShapeGeometry(sh, 5), scaleMat);
+      sc.position.set(Math.cos(a)*0.85, -0.1, Math.sin(a)*0.85); sc.rotation.set(0.9, -a + Math.PI/2, 0); sc.scale.set(1, 1.2, 1); g.add(sc);
+    }
+    g.scale.set(1.05, 1.05, 1.05);
+    return g;
+  }
+
   // ─── Scene Setup ─────────────────────────────────────────────────────────
 
   function makeSceneBackground() {
@@ -2883,6 +3318,13 @@ const FoodScene = (() => {
     octopus: buildOctopus, duck: buildDuck, hempseeds: buildHempSeeds,
     pumpkinseeds: buildPumpkinSeeds, beefliver: buildBeefLiver,
     mussels: buildMussels, spirulina: buildSpirulina,
+    mango: buildMango, pineapple: buildPineapple, strawberry: buildStrawberry,
+    watermelon: buildWatermelon, grapes: buildGrapes, peach: buildPeach,
+    pear: buildPear, orange: buildOrange, pomegranate: buildPomegranate,
+    cherry: buildCherry, papaya: buildPapaya, fig: buildFig,
+    raspberries: buildRaspberries, blackberries: buildBlackberries, apricot: buildApricot,
+    plum: buildPlum, lychee: buildLychee, passionfruit: buildPassionFruit,
+    coconut: buildCoconut, dragonfruit: buildDragonFruit,
   };
   const PARTICLE_COLORS = {
     apple: 0xff4422, banana: 0xf5c600,
@@ -2904,6 +3346,13 @@ const FoodScene = (() => {
     octopus: 0xc97a8e, duck: 0x8a4a3a, hempseeds: 0xb5b08a,
     pumpkinseeds: 0xc5d18a, beefliver: 0x6b3528,
     mussels: 0xe89048, spirulina: 0x1a8b6a,
+    mango: 0xf5a623, pineapple: 0xe8c84a, strawberry: 0xe63946,
+    watermelon: 0xf0506a, grapes: 0x6b3fa0, peach: 0xf5b08a,
+    pear: 0xc8d44a, orange: 0xf5921e, pomegranate: 0xb71c2b,
+    cherry: 0x9b1c31, papaya: 0xf5832a, fig: 0x7a4a8c,
+    raspberries: 0xd11e4a, blackberries: 0x4a2a5a, apricot: 0xf0a04a,
+    plum: 0x5e2a6b, lychee: 0xf06a8a, passionfruit: 0x8a5aac,
+    coconut: 0xd8c8a8, dragonfruit: 0xe84a8c,
   };
 
   // ─── Public API ────────────────────────────────────────────────────────────

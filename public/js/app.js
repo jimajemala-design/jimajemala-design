@@ -13,6 +13,11 @@ const App = (() => {
   const CATEGORIES = {
     apple: 'fruit', banana: 'fruit', blueberry: 'fruit', lemon: 'fruit',
     tomato: 'fruit', kiwi: 'fruit', avocado: 'fruit',
+    mango: 'fruit', pineapple: 'fruit', strawberry: 'fruit', watermelon: 'fruit',
+    grapes: 'fruit', peach: 'fruit', pear: 'fruit', orange: 'fruit',
+    pomegranate: 'fruit', cherry: 'fruit', papaya: 'fruit', fig: 'fruit',
+    raspberries: 'fruit', blackberries: 'fruit', apricot: 'fruit', plum: 'fruit',
+    lychee: 'fruit', passionfruit: 'fruit', coconut: 'fruit', dragonfruit: 'fruit',
     chicken: 'protein', fish: 'protein', egg: 'protein', greekyogurt: 'protein',
     tuna: 'protein', turkey: 'protein', cottagecheese: 'protein', beef: 'protein',
     pork: 'protein', shrimp: 'protein', whey: 'protein', edamame: 'protein',
@@ -283,7 +288,9 @@ const App = (() => {
       lycopene: 'Lycopene', allicin: 'Allicin', flavonoids: 'Flavonoids',
       gingerol: 'Gingerol', betaGlucan: 'Beta-Glucan',
       thiamine: 'Thiamine', niacin: 'Niacin', iron: 'Iron',
-      iodine: 'Iodine', leucine: 'Leucine', gla: 'GLA'
+      iodine: 'Iodine', leucine: 'Leucine', gla: 'GLA',
+      resveratrol: 'Resveratrol', punicalagins: 'Punicalagins', anthocyanins: 'Anthocyanins',
+      papain: 'Papain', betacarotene: 'Beta-Carotene', betalains: 'Betalains'
     };
     const units = {
       protein: 'g', carbs: 'g', fat: 'g', fiber: 'g', sugar: 'g',
@@ -296,7 +303,9 @@ const App = (() => {
       lycopene: 'mg', allicin: 'mg', flavonoids: 'mg',
       gingerol: 'mg', betaGlucan: 'g',
       thiamine: 'mg', niacin: 'mg', iron: 'mg',
-      iodine: 'µg', leucine: 'g', gla: 'g'
+      iodine: 'µg', leucine: 'g', gla: 'g',
+      resveratrol: 'mg', punicalagins: 'mg', anthocyanins: 'mg',
+      papain: 'mg', betacarotene: 'µg', betalains: 'mg'
     };
     const maxVals = {
       protein: 40, carbs: 60, fat: 20, fiber: 25, sugar: 30,
@@ -309,7 +318,9 @@ const App = (() => {
       lycopene: 15, allicin: 10, flavonoids: 200,
       gingerol: 50, betaGlucan: 6,
       thiamine: 1.2, niacin: 16, iron: 18,
-      iodine: 150, leucine: 10, gla: 2
+      iodine: 150, leucine: 10, gla: 2,
+      resveratrol: 2, punicalagins: 15, anthocyanins: 30,
+      papain: 8, betacarotene: 1100, betalains: 9
     };
 
     const macroKeys = new Set(['protein', 'carbs', 'fat']);
