@@ -733,6 +733,152 @@ const FoodScene = (() => {
     return new THREE.CanvasTexture(c);
   }
 
+  // ─── Normal Map Generation ───────────────────────────────────────────────
+  // Draws a greyscale height field onto a canvas, then runs a Sobel filter
+  // to produce an RGB normal map returned as a THREE.CanvasTexture.
+
+  function makeNormalMap(w, h, drawFn, strength) {
+    const hc = document.createElement('canvas');
+    hc.width = w; hc.height = h;
+    const hCtx = hc.getContext('2d');
+    hCtx.fillStyle = '#808080';
+    hCtx.fillRect(0, 0, w, h);
+    drawFn(hCtx, w, h);
+    const src = hCtx.getImageData(0, 0, w, h).data;
+    const getH = (x, y) => src[(((y + h) % h) * w + ((x + w) % w)) * 4] / 255;
+    const nc = document.createElement('canvas');
+    nc.width = w; nc.height = h;
+    const nCtx = nc.getContext('2d');
+    const nd = nCtx.createImageData(w, h);
+    const str = strength || 6.0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const dx = (getH(x + 1, y) - getH(x - 1, y)) * str;
+        const dy = (getH(x, y + 1) - getH(x, y - 1)) * str;
+        const len = Math.sqrt(dx * dx + dy * dy + 1);
+        const i = (y * w + x) * 4;
+        nd.data[i]     = Math.round((-dx / len * 0.5 + 0.5) * 255);
+        nd.data[i + 1] = Math.round((-dy / len * 0.5 + 0.5) * 255);
+        nd.data[i + 2] = Math.round((1 / len * 0.5 + 0.5) * 255);
+        nd.data[i + 3] = 255;
+      }
+    }
+    nCtx.putImageData(nd, 0, 0);
+    return new THREE.CanvasTexture(nc);
+  }
+
+  function makeAppleNormal() {
+    return makeNormalMap(512, 512, (ctx, w, h) => {
+      for (let i = 0; i < 5000; i++) {
+        const x = Math.random() * w, y = Math.random() * h, r = 1 + Math.random() * 3.5;
+        const gr = ctx.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, 'rgba(0,0,0,0.45)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+      const sg = ctx.createRadialGradient(256, 40, 0, 256, 60, 90);
+      sg.addColorStop(0, 'rgba(0,0,0,0.85)'); sg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(256, 60, 90, 0, Math.PI * 2); ctx.fill();
+      const ng = ctx.createRadialGradient(256, 490, 0, 256, 476, 68);
+      ng.addColorStop(0, 'rgba(0,0,0,0.75)'); ng.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = ng; ctx.beginPath(); ctx.arc(256, 476, 68, 0, Math.PI * 2); ctx.fill();
+    }, 8.0);
+  }
+
+  function makeFishScaleNormal() {
+    return makeNormalMap(512, 512, (ctx, w, h) => {
+      const sz = 30;
+      const rows = Math.ceil(h / (sz * 0.60)) + 4, cols = Math.ceil(w / sz) + 4;
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const ox = (row % 2) * sz * 0.5;
+          const cx = (col - 1) * sz + ox, cy = (row - 1) * sz * 0.60;
+          const gr = ctx.createRadialGradient(cx, cy + sz * 0.25, 0, cx, cy + sz * 0.50, sz * 0.56);
+          gr.addColorStop(0, 'rgba(255,255,255,0.55)');
+          gr.addColorStop(0.65, 'rgba(160,160,160,0.2)');
+          gr.addColorStop(1, 'rgba(0,0,0,0.40)');
+          ctx.fillStyle = gr;
+          ctx.beginPath(); ctx.arc(cx, cy + sz * 0.50, sz * 0.56, -Math.PI, Math.PI); ctx.fill();
+        }
+      }
+    }, 7.0);
+  }
+
+  function makeChickenFiberNormal() {
+    return makeNormalMap(512, 512, (ctx, w, h) => {
+      for (let i = 0; i < 90; i++) {
+        const yc = (i / 90) * h, wave = Math.sin(i * 1.7) * 5;
+        const gr = ctx.createLinearGradient(0, yc - 4, 0, yc + 4);
+        gr.addColorStop(0, 'rgba(255,255,255,0)');
+        gr.addColorStop(0.5, 'rgba(255,255,255,0.38)');
+        gr.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gr; ctx.fillRect(0, yc + wave - 5, w, 10);
+      }
+      for (let i = 0; i < 18; i++) {
+        const sx = 60 + Math.random() * 392, sy = 60 + Math.random() * 392;
+        ctx.beginPath(); ctx.moveTo(sx, sy);
+        ctx.bezierCurveTo(sx + (Math.random() - 0.5) * 130, sy + (Math.random() - 0.5) * 90,
+          sx + (Math.random() - 0.5) * 110, sy + (Math.random() - 0.5) * 70,
+          sx + (Math.random() - 0.5) * 160, sy + (Math.random() - 0.5) * 100);
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 3.5; ctx.stroke();
+      }
+    }, 5.0);
+  }
+
+  function makeAlmondRidgeNormal() {
+    return makeNormalMap(512, 512, (ctx, w, h) => {
+      for (let i = 0; i < 30; i++) {
+        const xb = (i / 30) * w;
+        const gr = ctx.createLinearGradient(xb - 14, 0, xb + 14, 0);
+        gr.addColorStop(0, 'rgba(0,0,0,0)');
+        gr.addColorStop(0.5, i % 3 === 0 ? 'rgba(255,255,255,0.55)' : 'rgba(200,200,200,0.22)');
+        gr.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gr;
+        for (let y = 0; y < h; y += 4) {
+          ctx.fillRect(xb + Math.sin(y / 72 + i * 2.1) * 9 - 12, y, 24, 4);
+        }
+      }
+    }, 9.0);
+  }
+
+  function makeCitrusPeelNormal() {
+    return makeNormalMap(512, 512, (ctx, w, h) => {
+      for (let i = 0; i < 4500; i++) {
+        const x = Math.random() * w, y = Math.random() * h, r = 2.5 + Math.random() * 5.5;
+        const gr = ctx.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, 'rgba(255,255,255,0.62)');
+        gr.addColorStop(0.55, 'rgba(180,180,180,0.18)');
+        gr.addColorStop(1, 'rgba(40,40,40,0.30)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+    }, 7.0);
+  }
+
+  function makeStrawberrySeedNormal() {
+    return makeNormalMap(512, 512, (ctx, w, h) => {
+      for (let i = 0; i < 200; i++) {
+        const x = 38 + Math.random() * 436, y = 55 + Math.random() * 410, r = 5 + Math.random() * 9;
+        const gr = ctx.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, 'rgba(255,255,255,0.52)');
+        gr.addColorStop(0.45, 'rgba(120,120,120,0.2)');
+        gr.addColorStop(1, 'rgba(0,0,0,0.42)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+    }, 6.0);
+  }
+
+  function makeBroccoliFloretNormal() {
+    return makeNormalMap(512, 512, (ctx, w, h) => {
+      for (let i = 0; i < 750; i++) {
+        const x = Math.random() * w, y = Math.random() * h, r = 9 + Math.random() * 20;
+        const gr = ctx.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, 'rgba(255,255,255,0.62)');
+        gr.addColorStop(0.65, 'rgba(140,140,140,0.18)');
+        gr.addColorStop(1, 'rgba(15,15,15,0.42)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+    }, 10.0);
+  }
+
   // ─── Food Model Builders ─────────────────────────────────────────────────
 
   function buildApple() {
@@ -760,10 +906,14 @@ const FoodScene = (() => {
     const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 96),
       new THREE.MeshPhysicalMaterial({
         map: tex,
-        roughness: 0.20,
+        normalMap: makeAppleNormal(),
+        normalScale: new THREE.Vector2(0.75, 0.75),
+        roughness: 0.18,
         metalness: 0.00,
         clearcoat: 1.00,
         clearcoatRoughness: 0.06,
+        transmission: 0.08,
+        thickness: 0.55,
         envMapIntensity: 0.90,
       })
     );
@@ -899,8 +1049,11 @@ const FoodScene = (() => {
     const g = new THREE.Group();
     const tex = makeChickenTex();
 
-    const meatMat = new THREE.MeshStandardMaterial({
-      map: tex, color: 0xe8c49a, roughness: 0.90, metalness: 0,
+    const meatMat = new THREE.MeshPhysicalMaterial({
+      map: tex, color: 0xe8c49a, roughness: 0.88, metalness: 0,
+      normalMap: makeChickenFiberNormal(),
+      normalScale: new THREE.Vector2(0.60, 0.60),
+      transmission: 0.04, thickness: 0.30,
     });
 
     // Main breast lobe
@@ -960,7 +1113,10 @@ const FoodScene = (() => {
     const tex = makeFishTex();
 
     const bodyMat = new THREE.MeshPhysicalMaterial({
-      map: tex, roughness: 0.24, metalness: 0.06,
+      map: tex,
+      normalMap: makeFishScaleNormal(),
+      normalScale: new THREE.Vector2(1.20, 1.20),
+      roughness: 0.24, metalness: 0.06,
       clearcoat: 0.62, clearcoatRoughness: 0.14, envMapIntensity: 0.88,
     });
 
@@ -1075,7 +1231,11 @@ const FoodScene = (() => {
       new THREE.Vector2(0.00,  1.16),
     ];
     const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 56),
-      new THREE.MeshStandardMaterial({ map: tex, color: 0xa07828, roughness: 0.82, metalness: 0 })
+      new THREE.MeshStandardMaterial({
+        map: tex, color: 0xa07828, roughness: 0.82, metalness: 0,
+        normalMap: makeAlmondRidgeNormal(),
+        normalScale: new THREE.Vector2(1.0, 1.0),
+      })
     );
     body.scale.set(1, 1, 0.74);
     body.castShadow = body.receiveShadow = true;
@@ -1277,7 +1437,11 @@ const FoodScene = (() => {
     const g = new THREE.Group();
     const tex = makeBroccoliTex();
     const stemMat = new THREE.MeshStandardMaterial({ color: 0x4a9e40, roughness: 0.78, metalness: 0 });
-    const floretMat = new THREE.MeshPhysicalMaterial({ map: tex, color: 0x1a5c22, roughness: 0.85, metalness: 0 });
+    const floretMat = new THREE.MeshPhysicalMaterial({
+      map: tex, color: 0x1a5c22, roughness: 0.85, metalness: 0,
+      normalMap: makeBroccoliFloretNormal(),
+      normalScale: new THREE.Vector2(1.0, 1.0),
+    });
     const darkFloretMat = new THREE.MeshStandardMaterial({ color: 0x0f3d16, roughness: 0.90, metalness: 0 });
 
     // Main stem
@@ -1598,7 +1762,10 @@ const FoodScene = (() => {
     const body = new THREE.Mesh(new THREE.LatheGeometry(pts,64),
       new THREE.MeshPhysicalMaterial({
         map: tex, color: 0xfde047, roughness: 0.22, metalness: 0,
+        normalMap: makeCitrusPeelNormal(),
+        normalScale: new THREE.Vector2(0.85, 0.85),
         clearcoat: 0.68, clearcoatRoughness: 0.12,
+        transmission: 0.06, thickness: 0.45,
       })
     );
     body.scale.set(1,1,0.88);
@@ -2767,7 +2934,13 @@ const FoodScene = (() => {
 
   function buildStrawberry() {
     const g = new THREE.Group();
-    const mat = new THREE.MeshPhysicalMaterial({ color: 0xe11d2e, roughness: 0.35, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.2 });
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: 0xe11d2e, roughness: 0.35, metalness: 0,
+      normalMap: makeStrawberrySeedNormal(),
+      normalScale: new THREE.Vector2(0.80, 0.80),
+      clearcoat: 0.5, clearcoatRoughness: 0.2,
+      transmission: 0.06, thickness: 0.40,
+    });
     const body = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 32), mat);
     body.scale.set(0.85, 1.1, 0.85); body.position.y = 0.1; body.castShadow = true; g.add(body);
     const tip = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.7, 32), mat); tip.position.y = -0.85; g.add(tip);
@@ -2879,7 +3052,13 @@ const FoodScene = (() => {
     const g = new THREE.Group();
     const tex = makeCitrusTex('#f5921e', '#e07810');
     const body = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 40),
-      new THREE.MeshStandardMaterial({ map: tex, color: 0xf5921e, roughness: 0.65, metalness: 0 }));
+      new THREE.MeshPhysicalMaterial({
+        map: tex, color: 0xf5921e, roughness: 0.62, metalness: 0,
+        normalMap: makeCitrusPeelNormal(),
+        normalScale: new THREE.Vector2(0.90, 0.90),
+        clearcoat: 0.30, clearcoatRoughness: 0.35,
+        transmission: 0.05, thickness: 0.40,
+      }));
     body.scale.set(1, 0.95, 1); body.castShadow = body.receiveShadow = true; g.add(body);
     const navel = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10),
       new THREE.MeshStandardMaterial({ color: 0xd07010, roughness: 0.8 }));
