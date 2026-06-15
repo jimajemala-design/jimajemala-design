@@ -178,8 +178,15 @@
       const name = $('logName').value.trim();
       const cals = Number($('logCals').value);
       if (!name || !cals) { toast('Enter a meal name and calories', 'error'); return; }
-      logMeal({ name, calories: cals, protein: 0, carbs: 0, fat: 0 });
-      $('logName').value = ''; $('logCals').value = ''; $('logForm').classList.remove('show');
+      logMeal({
+        name, calories: cals,
+        protein: Number($('logProtein').value) || 0,
+        carbs:   Number($('logCarbs').value)   || 0,
+        fat:     Number($('logFat').value)     || 0,
+      });
+      $('logName').value = ''; $('logCals').value = '';
+      $('logProtein').value = ''; $('logCarbs').value = ''; $('logFat').value = '';
+      $('logForm').classList.remove('show');
     });
   }
   async function logMeal(entry) {

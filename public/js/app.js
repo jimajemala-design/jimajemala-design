@@ -4,6 +4,8 @@
 const App = (() => {
   let foods = [];
   let sceneReady = false;
+  let activeCategory = 'all';
+  let searchQuery = '';
 
   const $ = id => document.getElementById(id);
   const delay = ms => new Promise(r => setTimeout(r, ms));
@@ -153,11 +155,51 @@ const App = (() => {
     foods = await res.json();
   }
 
+  // ── Filter helpers ────────────────────────────────────────────────────
+  function filteredFoods() {
+    const q = searchQuery.toLowerCase();
+    return foods.filter(f => {
+      const matchCat = activeCategory === 'all' || (CATEGORIES[f.id] || 'fruit') === activeCategory;
+      const matchSearch = !q || f.name.toLowerCase().includes(q);
+      return matchCat && matchSearch;
+    });
+  }
+
+  function applyFilter() {
+    renderGrid(filteredFoods());
+  }
+
+  function initFilter() {
+    const searchEl = $('gallerySearch');
+    if (searchEl) {
+      searchEl.addEventListener('input', () => {
+        searchQuery = searchEl.value.trim();
+        applyFilter();
+      });
+    }
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeCategory = btn.dataset.cat;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applyFilter();
+      });
+    });
+  }
+
   // ── Bento grid ────────────────────────────────────────────────────────
-  function renderGrid() {
+  function renderGrid(list) {
+    if (!list) list = foods;
     const grid = $('foodGrid');
-    grid.innerHTML = foods.map((f, i) => {
-      const num = String(i + 1).padStart(2, '0');
+
+    if (list.length === 0) {
+      grid.innerHTML = `<div class="bento-empty">No foods match your search.</div>`;
+      return;
+    }
+
+    grid.innerHTML = list.map(f => {
+      const globalIdx = foods.indexOf(f);
+      const num = String(globalIdx + 1).padStart(2, '0');
       const cat = CATEGORIES[f.id] || 'fruit';
       const n = f.nutrition;
       return `
@@ -445,6 +487,7 @@ const App = (() => {
 
     initTicker();
     renderGrid();
+    initFilter();
     $('backBtn').addEventListener('click', showGrid);
   }
 

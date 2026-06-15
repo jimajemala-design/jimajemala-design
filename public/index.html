@@ -116,6 +116,25 @@
           </h2>
         </div>
 
+        <div class="gallery-controls">
+          <div class="gallery-search-wrap">
+            <svg class="gallery-search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <circle cx="5.8" cy="5.8" r="4.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M9.5 9.5L12.5 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <input class="gallery-search" id="gallerySearch" type="text" placeholder="Search 74 foods…" autocomplete="off" aria-label="Search foods" />
+          </div>
+          <div class="gallery-filters" role="group" aria-label="Filter by category">
+            <button class="filter-btn active" data-cat="all">All</button>
+            <button class="filter-btn" data-cat="fruit">Fruit</button>
+            <button class="filter-btn" data-cat="protein">Protein</button>
+            <button class="filter-btn" data-cat="vegetable">Vegetable</button>
+            <button class="filter-btn" data-cat="grain">Grain</button>
+            <button class="filter-btn" data-cat="legume">Legume</button>
+            <button class="filter-btn" data-cat="nut">Nut</button>
+          </div>
+        </div>
+
         <div class="bento-grid" id="foodGrid" role="list" aria-label="Food items">
           <div class="bento-loading" aria-live="polite">
             <div class="loading-ring" aria-hidden="true"></div>
