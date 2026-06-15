@@ -812,16 +812,24 @@
   /* Quick-add chips: horizontal scroll */
   .quick-add { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
   .quick-add::-webkit-scrollbar { height: 0; }
-  .quick-chip { flex-shrink: 0; padding: 10px 14px; min-height: 40px; }
+  .quick-chip { flex-shrink: 0; padding: 10px 14px; min-height: 44px; font-size: 13px; }
 
-  /* Fridge items: bigger delete button */
-  .fi-del { width: 36px; height: 36px; flex-shrink: 0; }
-  .fridge-item { padding: 14px; }
+  /* Search autocomplete: full width so it doesn't get clipped by Add button */
+  .search-results { right: 0; }
 
-  /* Weekly strip: scrollable on small screens */
-  .weekly-strip { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .weekly-strip::-webkit-scrollbar { height: 0; }
-  .week-day { min-width: 44px; }
+  /* Fridge items: 44×44 delete tap target */
+  .fi-del { width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0; }
+  .fridge-item { padding: 12px; gap: 10px; }
+
+  /* Quantity input: tall enough to tap comfortably */
+  .fridge-item .fi-qty { height: 48px; width: 72px; }
+
+  /* Weekly strip: all 7 days in one compact row (no wrapping) */
+  .weekly-strip { grid-template-columns: repeat(7, 1fr); gap: 5px; overflow-x: visible; }
+  .week-day { padding: 8px 3px; min-width: 0; }
+  .wd-label { font-size: 8px; letter-spacing: 0; }
+  .wd-cal { font-size: 11px; margin: 4px 0; }
+  .wd-dot { width: 6px; height: 6px; }
 
   /* Suggestions: 1 col */
   .suggest-grid { grid-template-columns: 1fr; }
@@ -829,6 +837,10 @@
   /* Meal plan targets: 2 cols */
   .plan-targets { grid-template-columns: repeat(2, 1fr); }
   .plan-actions { flex-direction: column; }
+
+  /* Meal card: allow head to wrap and macros to wrap */
+  .meal-card-head { flex-wrap: wrap; gap: 6px; }
+  .meal-macros { flex-wrap: wrap; gap: 6px 14px; }
 
   /* Stats: 2 cols */
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -852,12 +864,19 @@
   .chat-panel.open { transform: translateY(0) scale(1); }
   .chat-fab { bottom: 18px; right: 16px; width: 56px; height: 56px; font-size: 22px; }
 
+  /* Chat send: 48px tap target, input 16px prevents iOS zoom */
+  .chat-send { width: 48px; height: 48px; }
+  .chat-input { font-size: 16px; }
+  .chat-bubble { font-size: 14px; line-height: 1.5; }
+  .chat-msg { max-width: 88%; }
+
   /* Fridge header */
   .fridge-header { margin-bottom: 18px; }
   .fridge-header h1 { font-size: clamp(22px, 7vw, 36px); }
 
-  /* Logged meal: bigger delete */
-  .lm-del { width: 32px; height: 32px; }
+  /* Logged meals: bigger delete */
+  .lm-del { width: 44px; height: 44px; border-radius: 10px; }
+  .logged-meal { gap: 8px; }
 }
 
 /* ── 480px: small phones ─────────────────────────────────────────────── */
@@ -866,10 +885,51 @@
   .form-row { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .macro-split { grid-template-columns: 1fr 1fr; }
-  .weekly-strip { grid-template-columns: repeat(4, 1fr); }
   .log-macros-row { grid-template-columns: 1fr 1fr; }
   .plan-targets { grid-template-columns: repeat(2, 1fr); }
   .calorie-result-num { font-size: 30px; }
+}
+
+/* ── 390px: iPhone SE / very narrow phones ───────────────────────────── */
+@media (max-width: 390px) {
+  /* Tighter horizontal padding */
+  .app-page { padding-left: 12px; padding-right: 12px; }
+  .tracker-card { padding: 14px; }
+  .panel { padding: 14px; }
+
+  /* Calorie number: smaller so it fits */
+  .tk-cals-num { font-size: 28px; }
+  .tk-cals-num span { font-size: 13px; }
+
+  /* Macro rows: stack vertically — side-by-side too cramped at 375px */
+  .tk-macros { flex-direction: column; gap: 10px; min-width: 0; }
+  .tk-macro-head { font-size: 12px; }
+
+  /* Cal input: no fixed max-width on tiny screens */
+  .log-form .form-input.cal { max-width: none; }
+
+  /* Weekly: even more compact to fit 7 days */
+  .weekly-strip { gap: 3px; }
+  .week-day { padding: 6px 2px; }
+  .wd-label { font-size: 7px; }
+  .wd-cal { font-size: 10px; margin: 3px 0; }
+  .wd-dot { width: 5px; height: 5px; }
+
+  /* Fridge item: tight gap, narrower qty */
+  .fridge-item { gap: 8px; padding: 10px; }
+  .fridge-item .fi-qty { width: 60px; }
+
+  /* Plan targets: smaller mono numbers */
+  .plan-target b { font-size: 15px; }
+  .plan-target span { font-size: 8px; }
+  .plan-target { padding: 10px 6px; }
+
+  /* Chat bubbles: wider on narrow screen */
+  .chat-msg { max-width: 92%; }
+  .chat-suggest button { font-size: 11px; padding: 7px 10px; }
+
+  /* Fridge header */
+  .fridge-header { margin-bottom: 12px; }
 }
 
 /* ── Touch-device improvements ───────────────────────────────────────── */
