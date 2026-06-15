@@ -780,15 +780,116 @@
 /* ── Responsive ───────────────────────────────────────────────────────── */
 @media (max-width: 920px) {
   .fridge-layout { grid-template-columns: 1fr; }
-  .suggest-grid { grid-template-columns: 1fr; }
+  .suggest-grid { grid-template-columns: repeat(2, 1fr); }
   .tk-top { flex-direction: column; }
 }
-@media (max-width: 520px) {
-  .auth-card { padding: 28px 22px; }
-  .form-row { grid-template-columns: 1fr; }
+
+/* ── 768px: tablets + large phones ──────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Page shell */
+  .app-page { padding: 76px 16px 50px; }
+
+  /* Auth cards */
+  .auth-card { padding: 28px 20px; }
+  .auth-title { font-size: 23px; }
+  .auth-wrap { min-height: calc(100dvh - 120px); align-items: flex-start; padding-top: 20px; }
+
+  /* Prevent iOS auto-zoom on inputs (font-size < 16px triggers it) */
+  .form-input,
+  .form-select,
+  .chat-input,
+  .fi-qty { font-size: 16px !important; }
+
+  /* Bigger touch targets for buttons */
+  .btn-primary { min-height: 52px; }
+  .btn-ghost { min-height: 46px; }
+  .btn-primary.btn-block { font-size: 15px; }
+
+  /* Log form: stack vertically */
+  .log-form { flex-direction: column; }
+  .log-macros-row { grid-template-columns: 1fr 1fr; }
+
+  /* Quick-add chips: horizontal scroll */
+  .quick-add { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+  .quick-add::-webkit-scrollbar { height: 0; }
+  .quick-chip { flex-shrink: 0; padding: 10px 14px; min-height: 40px; }
+
+  /* Fridge items: bigger delete button */
+  .fi-del { width: 36px; height: 36px; flex-shrink: 0; }
+  .fridge-item { padding: 14px; }
+
+  /* Weekly strip: scrollable on small screens */
+  .weekly-strip { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .weekly-strip::-webkit-scrollbar { height: 0; }
+  .week-day { min-width: 44px; }
+
+  /* Suggestions: 1 col */
+  .suggest-grid { grid-template-columns: 1fr; }
+
+  /* Meal plan targets: 2 cols */
   .plan-targets { grid-template-columns: repeat(2, 1fr); }
+  .plan-actions { flex-direction: column; }
+
+  /* Stats: 2 cols */
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat b { font-size: 18px; }
+
+  /* Profile calorie result */
+  .calorie-result-num { font-size: 36px; }
+  .calorie-macros { gap: 16px; flex-wrap: wrap; justify-content: center; }
+
+  /* Toast stays visible above virtual keyboard */
+  .toast { top: auto; bottom: 80px; }
+
+  /* AI Chat: full screen on mobile */
+  .chat-panel {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%; height: 100%; max-width: none; max-height: none;
+    border-radius: 0; border: none;
+    transform: translateY(100%) scale(1);
+  }
+  .chat-panel.open { transform: translateY(0) scale(1); }
+  .chat-fab { bottom: 18px; right: 16px; width: 56px; height: 56px; font-size: 22px; }
+
+  /* Fridge header */
+  .fridge-header { margin-bottom: 18px; }
+  .fridge-header h1 { font-size: clamp(22px, 7vw, 36px); }
+
+  /* Logged meal: bigger delete */
+  .lm-del { width: 32px; height: 32px; }
+}
+
+/* ── 480px: small phones ─────────────────────────────────────────────── */
+@media (max-width: 520px) {
+  .auth-card { padding: 24px 18px; }
+  .form-row { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .macro-split { grid-template-columns: 1fr 1fr; }
   .weekly-strip { grid-template-columns: repeat(4, 1fr); }
-  .chat-panel { right: 8px; bottom: 8px; width: calc(100vw - 16px); }
-  .app-page { padding: 84px 16px 50px; }
+  .log-macros-row { grid-template-columns: 1fr 1fr; }
+  .plan-targets { grid-template-columns: repeat(2, 1fr); }
+  .calorie-result-num { font-size: 30px; }
+}
+
+/* ── Touch-device improvements ───────────────────────────────────────── */
+@media (hover: none), (pointer: coarse) {
+  /* iOS-style smooth scrolling */
+  .chat-body, .fridge-list, .search-results { -webkit-overflow-scrolling: touch; }
+
+  /* Remove desktop-only hover effects */
+  .btn-primary:hover { transform: none; box-shadow: 0 0 28px rgba(34,197,94,0.3), 0 6px 18px rgba(34,197,94,0.22); }
+  .suggest-card:hover { border-color: var(--border-subtle); }
+  .search-item:hover { background: transparent; color: var(--text-2); }
+  .fi-del:hover { color: var(--text-3); border-color: var(--border-subtle); background: rgba(255,255,255,0.02); }
+
+  /* Active tap feedback */
+  .fridge-item:active { background: rgba(255,255,255,0.04); }
+  .quick-chip:active { color: var(--green); border-color: var(--border-active); background: rgba(34,197,94,0.06); }
+  .search-item:active { background: rgba(34,197,94,0.08); color: var(--text-1); }
+  .fi-del:active { color: #f87171; border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.08); }
+  .sg-add:active { transform: scale(0.97); }
+
+  /* Prevent double-tap zoom */
+  button, a, .bento-item { touch-action: manipulation; }
 }

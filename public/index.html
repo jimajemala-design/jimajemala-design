@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="NutriBase Georgia — Interactive 3D nutrition explorer. 22 superfoods rendered in real-time 3D with complete nutritional intelligence." />
   <title>NutriBase Georgia — Premium Nutrition Explorer</title>
 
@@ -242,36 +242,114 @@
   <script src="/js/auth.js"></script>
   <script src="/js/app.js"></script>
 
-  <!-- Install banner -->
-  <div class="install-banner" id="install-banner">
-    <span class="install-banner-text">Install NutriBase on your phone</span>
-    <button class="install-btn" id="install-btn">Install</button>
-    <button class="install-dismiss" id="install-dismiss" aria-label="Dismiss">✕</button>
+  <!-- Android / Chrome install sheet -->
+  <div class="pwa-sheet" id="androidSheet" role="dialog" aria-label="Install app">
+    <div class="pwa-sheet-inner">
+      <div class="pwa-sheet-icon">
+        <img src="/icons/icon-96.png" width="60" height="60" alt="NutriBase icon" />
+      </div>
+      <div>
+        <div class="pwa-sheet-title">Install NutriBase Georgia</div>
+        <div class="pwa-sheet-sub">Get the full app experience — works offline!</div>
+      </div>
+    </div>
+    <button class="pwa-install-btn" id="androidInstallBtn">Install App</button>
+    <button class="pwa-dismiss" id="androidDismiss">Not now</button>
+  </div>
+
+  <!-- iOS Safari install instructions sheet -->
+  <div class="pwa-sheet" id="iosSheet" role="dialog" aria-label="Add to Home Screen">
+    <div class="pwa-sheet-header">
+      <div class="pwa-sheet-title">Install NutriBase on iPhone</div>
+      <button class="pwa-close" id="iosDismiss" aria-label="Dismiss">✕</button>
+    </div>
+    <div class="pwa-steps">
+      <div class="pwa-step">
+        <div class="pwa-step-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+            <path d="M11 14V3M11 3L7 7M11 3L15 7" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M3 16v2a1 1 0 001 1h14a1 1 0 001-1v-2" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="pwa-step-text"><b>Step 1</b> — Tap the <b>Share</b> button in the Safari toolbar</div>
+      </div>
+      <div class="pwa-step">
+        <div class="pwa-step-icon" style="font-size:22px">＋</div>
+        <div class="pwa-step-text"><b>Step 2</b> — Scroll down and tap <b>"Add to Home Screen"</b></div>
+      </div>
+      <div class="pwa-step">
+        <div class="pwa-step-icon" style="font-size:22px">✓</div>
+        <div class="pwa-step-text"><b>Step 3</b> — Tap <b>"Add"</b> in the top right to confirm</div>
+      </div>
+    </div>
+    <button class="pwa-install-btn" id="iosGotIt">Got it!</button>
   </div>
 
   <script>
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', e => {
-      e.preventDefault();
-      deferredPrompt = e;
-      document.getElementById('install-banner').classList.add('show');
-    });
-    document.getElementById('install-btn').addEventListener('click', () => {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(({ outcome }) => {
-        if (outcome === 'accepted') {
-          document.getElementById('install-banner').classList.remove('show');
-        }
-        deferredPrompt = null;
-      });
-    });
-    document.getElementById('install-dismiss').addEventListener('click', () => {
-      document.getElementById('install-banner').classList.remove('show');
-    });
-    window.addEventListener('appinstalled', () => {
-      document.getElementById('install-banner').classList.remove('show');
-    });
+    (function () {
+      const DISMISS_KEY  = 'nb_pwa_dismiss';
+      const DISMISS_TTL  = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+      // Already installed as a PWA — never show
+      if (window.matchMedia('(display-mode: standalone)').matches) return;
+      if (navigator.standalone === true) return;
+
+      // Dismissed recently
+      const stamp = localStorage.getItem(DISMISS_KEY);
+      if (stamp && Date.now() - Number(stamp) < DISMISS_TTL) return;
+
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+      function dismiss() { localStorage.setItem(DISMISS_KEY, Date.now()); }
+
+      if (isIOS) {
+        setTimeout(() => {
+          const sheet = document.getElementById('iosSheet');
+          if (sheet) sheet.classList.add('show');
+        }, 3000);
+
+        document.getElementById('iosDismiss').addEventListener('click', () => {
+          document.getElementById('iosSheet').classList.remove('show');
+          dismiss();
+        });
+        document.getElementById('iosGotIt').addEventListener('click', () => {
+          document.getElementById('iosSheet').classList.remove('show');
+          dismiss();
+        });
+      } else {
+        // Android / Chrome — wait for browser install prompt
+        let deferredPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', e => {
+          e.preventDefault();
+          deferredPrompt = e;
+          setTimeout(() => {
+            document.getElementById('androidSheet').classList.add('show');
+          }, 3000);
+        });
+
+        window.addEventListener('appinstalled', () => {
+          document.getElementById('androidSheet').classList.remove('show');
+          deferredPrompt = null;
+        });
+
+        document.getElementById('androidInstallBtn').addEventListener('click', () => {
+          if (!deferredPrompt) return;
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then(({ outcome }) => {
+            if (outcome === 'accepted') {
+              document.getElementById('androidSheet').classList.remove('show');
+            }
+            deferredPrompt = null;
+          });
+        });
+
+        document.getElementById('androidDismiss').addEventListener('click', () => {
+          document.getElementById('androidSheet').classList.remove('show');
+          dismiss();
+        });
+      }
+    })();
   </script>
 
   <script>
