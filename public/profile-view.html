@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>My Profile — NutriBase Georgia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#22c55e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NutriBase">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <style>
+    .pv-page { min-height: 100vh; padding: 80px 0 48px; }
+    .pv-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .pv-loading {
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      padding: 80px 20px; color: var(--text-3); font-size: 15px;
+    }
+
+    /* ── Profile header ── */
+    .pv-header {
+      display: flex; align-items: center; gap: 20px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px; padding: 24px;
+    }
+    .pv-avatar {
+      width: 80px; height: 80px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      color: #fff;
+      font-family: var(--font-display); font-size: 32px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 32px rgba(34,197,94,0.35);
+    }
+    .pv-info { flex: 1; min-width: 0; }
+    .pv-name {
+      font-family: var(--font-display); font-size: 24px; font-weight: 700;
+      color: var(--text-1); margin: 0 0 4px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .pv-since { font-size: 13px; color: var(--text-3); margin-bottom: 10px; }
+    .pv-goal-badge {
+      display: inline-block;
+      font-size: 12px; font-weight: 600; color: var(--green);
+      background: var(--green-dim); border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 20px; padding: 4px 12px;
+    }
+
+    /* ── 2×2 Stats grid ── */
+    .pv-stats-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .pv-stat-card {
+      border-radius: 16px; padding: 20px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.03);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .pv-stat-card.orange { border-color: rgba(251,146,60,0.2); background: rgba(251,146,60,0.05); }
+    .pv-stat-card.blue   { border-color: rgba(96,165,250,0.2); background: rgba(96,165,250,0.05); }
+    .pv-stat-card.purple { border-color: rgba(167,139,250,0.2); background: rgba(167,139,250,0.05); }
+    .pv-stat-card.green  { border-color: rgba(34,197,94,0.2); background: rgba(34,197,94,0.05); }
+    .pv-stat-icon { font-size: 22px; }
+    .pv-stat-value {
+      font-family: var(--font-display); font-size: 18px; font-weight: 700;
+      color: var(--text-1); line-height: 1.2;
+    }
+    .pv-stat-label { font-size: 12px; color: var(--text-3); font-weight: 500; }
+
+    /* ── Progress row ── */
+    .pv-progress-row {
+      display: flex; gap: 20px; align-items: flex-start;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px; padding: 24px;
+    }
+    .pv-ring-wrap { flex-shrink: 0; }
+    .pv-ring { width: 120px; height: 120px; }
+    .pv-chart-wrap { flex: 1; min-width: 0; }
+    .pv-chart-title {
+      font-size: 13px; font-weight: 600; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+    .pv-chart-wrap .pred-svg { width: 100%; height: 80px; }
+
+    /* ── Macros ── */
+    .pv-macros {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px; padding: 24px;
+    }
+    .pv-section-title {
+      font-family: var(--font-display); font-size: 15px; font-weight: 600;
+      color: var(--text-2); margin: 0 0 16px; letter-spacing: 0.01em;
+    }
+    .pv-macro-bars { display: flex; flex-direction: column; gap: 14px; }
+    .pv-macro-bar-item {}
+    .pv-macro-bar-head {
+      display: flex; justify-content: space-between;
+      font-size: 13px; color: var(--text-2); font-weight: 500;
+      margin-bottom: 6px;
+    }
+    .pv-macro-track {
+      height: 8px; border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+    .pv-macro-fill {
+      height: 100%; border-radius: 4px;
+      transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+    }
+    .pv-macro-protein { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .pv-macro-carbs   { background: linear-gradient(90deg, #22c55e, #4ade80); }
+    .pv-macro-fats    { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+
+    /* ── Body stats ── */
+    .pv-body-stats {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px; padding: 24px;
+    }
+    .pv-body-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    }
+    .pv-body-item {
+      display: flex; flex-direction: column; gap: 4px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 12px; padding: 14px;
+    }
+    .pv-body-label { font-size: 11px; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .pv-body-value { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--text-1); }
+
+    /* ── Actions ── */
+    .pv-actions { display: flex; justify-content: center; }
+    .pv-actions .btn-primary {
+      padding: 13px 36px; font-size: 15px;
+      border-radius: var(--r-pill); text-decoration: none;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+
+    /* ── Error state ── */
+    .pv-error {
+      text-align: center; padding: 48px 20px;
+      color: var(--text-3); font-size: 15px;
+    }
+    .pv-error a { color: var(--green); }
+
+    @media (max-width: 480px) {
+      .pv-header { flex-direction: column; text-align: center; align-items: center; }
+      .pv-stats-grid { grid-template-columns: 1fr 1fr; }
+      .pv-progress-row { flex-direction: column; align-items: center; }
+      .pv-body-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar" id="navbar">
+    <div class="nb-inner">
+      <button class="nb-hamburger" id="nbHamburger" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <a class="nb-logo" href="/">NutriBase <span>Georgia</span></a>
+      <div class="nb-right" id="navRight"></div>
+    </div>
+  </header>
+
+  <main class="app-page pv-page">
+    <div class="mesh-gradient" aria-hidden="true"></div>
+    <div class="pv-wrap" id="pvWrap">
+      <div class="pv-loading" id="pvLoading">
+        <div class="loading-ring" aria-hidden="true"></div>
+        Loading your profile…
+      </div>
+
+      <!-- Profile header -->
+      <div class="pv-header" id="pvHeader" style="display:none">
+        <div class="pv-avatar" id="pvAvatar"></div>
+        <div class="pv-info">
+          <h1 class="pv-name" id="pvName"></h1>
+          <div class="pv-since" id="pvSince"></div>
+          <div class="pv-goal-badge" id="pvGoalBadge"></div>
+        </div>
+      </div>
+
+      <!-- 2×2 Stats cards -->
+      <div class="pv-stats-grid" id="pvStatsGrid" style="display:none">
+        <div class="pv-stat-card orange">
+          <div class="pv-stat-icon">🔥</div>
+          <div class="pv-stat-value" id="pvCalories">—</div>
+          <div class="pv-stat-label">Daily Calories</div>
+        </div>
+        <div class="pv-stat-card blue">
+          <div class="pv-stat-icon">⚖️</div>
+          <div class="pv-stat-value" id="pvWeight">—</div>
+          <div class="pv-stat-label">Weight Journey</div>
+        </div>
+        <div class="pv-stat-card purple">
+          <div class="pv-stat-icon">📅</div>
+          <div class="pv-stat-value" id="pvTimeline">—</div>
+          <div class="pv-stat-label">Weeks Left</div>
+        </div>
+        <div class="pv-stat-card green">
+          <div class="pv-stat-icon">📉</div>
+          <div class="pv-stat-value" id="pvWeekly">—</div>
+          <div class="pv-stat-label">Weekly Change</div>
+        </div>
+      </div>
+
+      <!-- Progress ring + prediction chart -->
+      <div class="pv-progress-row" id="pvProgressRow" style="display:none">
+        <div class="pv-ring-wrap">
+          <svg class="pv-ring" viewBox="0 0 120 120" aria-hidden="true">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10"/>
+            <circle id="pvRingFill" cx="60" cy="60" r="50" fill="none"
+                    stroke="#22c55e" stroke-width="10" stroke-linecap="round"
+                    stroke-dasharray="314" stroke-dashoffset="314"
+                    transform="rotate(-90 60 60)"
+                    style="transition:stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1)"/>
+            <text id="pvRingPct" x="60" y="56" text-anchor="middle"
+                  font-size="22" font-weight="700" fill="white"
+                  font-family="Space Grotesk, sans-serif">0%</text>
+            <text x="60" y="72" text-anchor="middle" font-size="10"
+                  fill="rgba(255,255,255,0.4)" font-family="Inter, sans-serif">progress</text>
+          </svg>
+        </div>
+        <div class="pv-chart-wrap">
+          <div class="pv-chart-title">Weight Prediction</div>
+          <div id="pvChart"></div>
+          <div class="pv-chart-ends" id="pvChartEnds"
+               style="display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;"></div>
+        </div>
+      </div>
+
+      <!-- Macro targets -->
+      <div class="pv-macros" id="pvMacros" style="display:none">
+        <h3 class="pv-section-title">Macro Targets</h3>
+        <div class="pv-macro-bars">
+          <div class="pv-macro-bar-item">
+            <div class="pv-macro-bar-head">
+              <span>Protein</span><span id="pvProtein">0g</span>
+            </div>
+            <div class="pv-macro-track"><div class="pv-macro-fill pv-macro-protein" id="pvProteinBar" style="width:0%"></div></div>
+          </div>
+          <div class="pv-macro-bar-item">
+            <div class="pv-macro-bar-head">
+              <span>Carbohydrates</span><span id="pvCarbs">0g</span>
+            </div>
+            <div class="pv-macro-track"><div class="pv-macro-fill pv-macro-carbs" id="pvCarbsBar" style="width:0%"></div></div>
+          </div>
+          <div class="pv-macro-bar-item">
+            <div class="pv-macro-bar-head">
+              <span>Fats</span><span id="pvFats">0g</span>
+            </div>
+            <div class="pv-macro-track"><div class="pv-macro-fill pv-macro-fats" id="pvFatsBar" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Body stats -->
+      <div class="pv-body-stats" id="pvBodyStats" style="display:none">
+        <h3 class="pv-section-title">Body Stats</h3>
+        <div class="pv-body-grid" id="pvBodyGrid"></div>
+      </div>
+
+      <!-- Edit Profile button -->
+      <div class="pv-actions" id="pvActions" style="display:none">
+        <a class="btn-primary" href="/profile.html">✏️ Edit Profile</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
+
+    (async function () {
+      if (!requireAuth()) return;
+
+      const loading  = document.getElementById('pvLoading');
+      const sections = ['pvHeader','pvStatsGrid','pvProgressRow','pvMacros','pvBodyStats','pvActions'];
+      function showAll() { loading.style.display = 'none'; sections.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; }); }
+
+      try {
+        const [profileRes, stats] = await Promise.all([
+          Auth.api('/api/profile'),
+          Auth.api('/api/profile/stats'),
+        ]);
+        const { user } = profileRes;
+
+        // ── Header
+        const initial = (user.name || user.email || '?').charAt(0).toUpperCase();
+        document.getElementById('pvAvatar').textContent = initial;
+        document.getElementById('pvName').textContent = user.name || 'User';
+        const since = user.createdAt
+          ? new Date(user.createdAt).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })
+          : 'Recently';
+        document.getElementById('pvSince').textContent = 'Member since ' + since;
+        const goalMap = { lose_weight: '🎯 Lose Weight', gain_muscle: '💪 Gain Muscle', maintain: '⚖️ Maintain' };
+        document.getElementById('pvGoalBadge').textContent = goalMap[user.goal] || '🏃 Healthy Living';
+
+        // ── Stats cards
+        document.getElementById('pvCalories').textContent = stats.dailyCalories + ' kcal';
+        document.getElementById('pvWeight').textContent = stats.currentWeight + ' → ' + stats.targetWeight + ' kg';
+        document.getElementById('pvTimeline').textContent =
+          stats.direction === 'maintain' ? '—' : (Math.round(stats.weeksRemaining * 10) / 10) + ' wks';
+        const weekSign = stats.direction === 'lose' ? '−' : stats.direction === 'gain' ? '+' : '';
+        document.getElementById('pvWeekly').textContent =
+          stats.direction === 'maintain' ? '⚖️ Stable' : weekSign + stats.weeklyLoss + ' kg/wk';
+
+        // ── Progress ring (0% since we don't track actual logged weight)
+        const pct = Math.min(100, Math.max(0, stats.progressPercent || 0));
+        const circumference = 2 * Math.PI * 50;
+        const offset = circumference * (1 - pct / 100);
+        setTimeout(() => {
+          document.getElementById('pvRingFill').style.strokeDashoffset = offset;
+          document.getElementById('pvRingPct').textContent = pct + '%';
+        }, 200);
+
+        // ── Weight prediction chart
+        if (stats.prediction && stats.prediction.length > 1) {
+          document.getElementById('pvChart').innerHTML = predictionSVG(stats.prediction, stats.direction);
+          const first = stats.prediction[0];
+          const last  = stats.prediction[stats.prediction.length - 1];
+          document.getElementById('pvChartEnds').innerHTML =
+            `<span>${first.weight} kg</span><span>Week ${last.week} · ${last.weight} kg</span>`;
+        }
+
+        // ── Macro bars
+        const m = stats.macros;
+        const totalCals = (m.protein * 4) + (m.carbs * 4) + (m.fats * 9);
+        document.getElementById('pvProtein').textContent = m.protein + 'g';
+        document.getElementById('pvCarbs').textContent   = m.carbs + 'g';
+        document.getElementById('pvFats').textContent    = m.fats + 'g';
+        setTimeout(() => {
+          document.getElementById('pvProteinBar').style.width = ((m.protein * 4 / totalCals) * 100).toFixed(1) + '%';
+          document.getElementById('pvCarbsBar').style.width   = ((m.carbs * 4 / totalCals) * 100).toFixed(1) + '%';
+          document.getElementById('pvFatsBar').style.width    = ((m.fats * 9 / totalCals) * 100).toFixed(1) + '%';
+        }, 300);
+
+        // ── Body stats grid
+        const actLabels = {
+          sedentary: 'Sedentary', light: 'Lightly Active',
+          moderate: 'Moderate', very: 'Very Active', extreme: 'Athlete',
+        };
+        const bmiLabel = stats.bmi
+          ? stats.bmi + (stats.bmi < 18.5 ? ' · Underweight' : stats.bmi < 25 ? ' · Healthy' : stats.bmi < 30 ? ' · Overweight' : ' · Obese')
+          : '—';
+        const bodyItems = [
+          { label: 'Age',      value: (user.age || '—') + (user.age ? ' yrs' : '') },
+          { label: 'Height',   value: (user.height || '—') + (user.height ? ' cm' : '') },
+          { label: 'BMI',      value: bmiLabel },
+          { label: 'BMR',      value: stats.bmr + ' kcal' },
+          { label: 'TDEE',     value: stats.tdee + ' kcal' },
+          { label: 'Activity', value: actLabels[user.activityLevel] || user.activityLevel || '—' },
+        ];
+        document.getElementById('pvBodyGrid').innerHTML = bodyItems.map(it =>
+          `<div class="pv-body-item"><span class="pv-body-label">${it.label}</span><span class="pv-body-value">${it.value}</span></div>`
+        ).join('');
+
+        showAll();
+      } catch (err) {
+        loading.innerHTML = `
+          <div class="pv-error">
+            ⚠️ ${err.message || 'Failed to load profile'}<br>
+            <a href="/profile.html" style="display:inline-block;margin-top:14px">Complete your profile →</a>
+          </div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

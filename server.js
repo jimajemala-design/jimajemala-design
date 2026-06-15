@@ -1648,6 +1648,33 @@ app.put('/api/profile', auth, (req, res) => {
   res.json({ user: publicUser(u), calories: calcCalories(u) });
 });
 
+// ─── PROFILE STATS ────────────────────────────────────────────────────────
+app.get('/api/profile/stats', auth, (req, res) => {
+  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const cal = calcCalories(user);
+  if (!cal) return res.status(400).json({ error: 'Profile incomplete — fill in your stats first.' });
+  const bmi = user.height ? +(user.weight / Math.pow(user.height / 100, 2)).toFixed(1) : null;
+  res.json({
+    bmi,
+    bmr: cal.bmr,
+    tdee: cal.tdee,
+    dailyCalories: cal.target,
+    weeklyLoss: +Math.abs(cal.weeklyChange).toFixed(2),
+    weeksRemaining: cal.effWeeks,
+    progressPercent: 0,
+    estimatedCompletion: cal.completionDate,
+    direction: cal.direction,
+    goalKg: cal.goalKg,
+    currentWeight: cal.currentWeight,
+    targetWeight: cal.targetWeight,
+    activityMultiplier: cal.activityMultiplier,
+    macros: { protein: cal.protein, carbs: cal.carbs, fats: cal.fats },
+    prediction: cal.prediction,
+    warning: cal.warning,
+  });
+});
+
 // ─── FRIDGE ──────────────────────────────────────────────────────────────
 app.get('/api/fridge', auth, (req, res) => {
   res.json(readJSON(FRIDGES_FILE).filter(i => i.userId === req.userId));

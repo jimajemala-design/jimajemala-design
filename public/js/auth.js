@@ -187,152 +187,109 @@ const validEmail = (v) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
 
 // ── Navbar auth state ─────────────────────────────────────────────────────
 function renderNav() {
-  const host = document.getElementById('navAuth');
-  if (!host) return;
+  const navRight = document.getElementById('navRight');
+  if (!navRight) return;
   const user = Auth.user();
-
-  let desktopHTML, mobileLinksHTML;
 
   if (Auth.isAuthed() && user) {
     const initial = (user.name || user.email || '?').trim().charAt(0).toUpperCase();
-    const firstName = user.name ? user.name.split(' ')[0] : 'Account';
-    desktopHTML = `
-      <a class="nav-link" href="/fridge.html">My Fridge</a>
-      <div class="nav-user">
-        <button class="nav-user-btn" id="navUserBtn" aria-haspopup="true">
-          <span class="nav-avatar">${initial}</span>
-          <span>${firstName}</span>
-        </button>
-        <div class="nav-dropdown" id="navDropdown">
-          <a href="/profile.html">👤 My Profile</a>
-          <a href="/fridge.html">🧊 My Fridge</a>
-          <div class="divider"></div>
-          <a href="#" class="danger" id="navLogout">⏻ Logout</a>
-        </div>
-      </div>`;
-    mobileLinksHTML = `
-      <a class="mobile-nav-item" href="/">🏠 Home</a>
-      <a class="mobile-nav-item" href="/#gallery">🌿 Food Explorer</a>
-      <a class="mobile-nav-item" href="/fridge.html">🧊 My Fridge</a>
-      <a class="mobile-nav-item" href="/profile.html">👤 Profile</a>
-      <div class="mobile-nav-divider"></div>
-      <a class="mobile-nav-item danger" href="#" id="mobileLogout">⏻ Logout</a>`;
+    navRight.innerHTML = `<button class="nb-avatar-btn" id="nbAvatarBtn" title="My Profile">${initial}</button>`;
+    document.getElementById('nbAvatarBtn').addEventListener('click', () => {
+      location.href = '/profile-view.html';
+    });
   } else {
-    desktopHTML = `
-      <a class="nav-link" href="/fridge.html">My Fridge</a>
-      <a class="nav-cta" href="/login.html">Login</a>`;
-    mobileLinksHTML = `
-      <a class="mobile-nav-item" href="/">🏠 Home</a>
-      <a class="mobile-nav-item" href="/#gallery">🌿 Food Explorer</a>
-      <a class="mobile-nav-item" href="/fridge.html">🧊 My Fridge</a>
-      <div class="mobile-nav-divider"></div>
-      <a class="mobile-nav-item" href="/login.html">Login</a>
-      <a class="mobile-nav-item highlight" href="/register.html">Create Account</a>`;
+    navRight.innerHTML = `<a class="nb-login-link" href="/login.html">Login</a>`;
   }
 
-  host.innerHTML = `
-    <div class="desktop-nav">${desktopHTML}</div>
-    <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>`;
-
-  // Wire desktop dropdown
-  if (Auth.isAuthed() && user) {
-    const btn = document.getElementById('navUserBtn');
-    const dd  = document.getElementById('navDropdown');
-    if (btn && dd) {
-      btn.addEventListener('click', e => { e.stopPropagation(); dd.classList.toggle('show'); });
-      document.addEventListener('click', () => dd.classList.remove('show'));
-    }
-    const logoutBtn = document.getElementById('navLogout');
-    if (logoutBtn) logoutBtn.addEventListener('click', e => { e.preventDefault(); Auth.logout(); });
-  }
-
-  _setupMobileNav(mobileLinksHTML);
+  _buildSidebar(user);
 }
 
-function _openMobileNav() {
-  const overlay = document.getElementById('mobileNavOverlay');
-  const burger  = document.getElementById('hamburger');
+function _buildSidebar(user) {
+  let overlay = document.getElementById('nbSidebarOverlay');
+
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'nbSidebarOverlay';
+    overlay.className = 'nb-sidebar-overlay';
+    overlay.innerHTML = `
+      <aside class="nb-sidebar" id="nbSidebar" role="dialog" aria-modal="true" aria-label="Navigation">
+        <div class="nb-sidebar-head" id="nbSidebarHead"></div>
+        <nav class="nb-sidebar-nav">
+          <a class="nb-nav-item" href="/">🏠 Home</a>
+          <a class="nb-nav-item" href="/#gallery">🥗 Food Database</a>
+          <a class="nb-nav-item" href="/fridge.html">🧊 My Fridge</a>
+          <a class="nb-nav-item" href="/profile-view.html">👤 My Profile</a>
+          <div class="nb-nav-item nb-nav-disabled">⚙️ Settings <span class="nb-soon">Soon</span></div>
+        </nav>
+        <div class="nb-sidebar-foot" id="nbSidebarFoot"></div>
+      </aside>`;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) _closeSidebar(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') _closeSidebar(); });
+    overlay.querySelectorAll('.nb-nav-item:not(.nb-nav-disabled)').forEach(item => {
+      item.addEventListener('click', _closeSidebar);
+    });
+
+    const path = location.pathname;
+    overlay.querySelectorAll('.nb-nav-item[href]').forEach(item => {
+      const href = item.getAttribute('href').split('#')[0];
+      if ((href === '/' && path === '/') || (href !== '/' && path === href)) {
+        item.classList.add('active');
+      }
+    });
+  }
+
+  const burger = document.getElementById('nbHamburger');
+  if (burger) {
+    const fresh = burger.cloneNode(true);
+    burger.replaceWith(fresh);
+    fresh.addEventListener('click', _openSidebar);
+  }
+
+  const head = document.getElementById('nbSidebarHead');
+  const foot = document.getElementById('nbSidebarFoot');
+
+  if (user && Auth.isAuthed()) {
+    const initial = (user.name || user.email || '?').trim().charAt(0).toUpperCase();
+    const goalMap = { lose_weight: 'Lose Weight', gain_muscle: 'Gain Muscle', maintain: 'Maintain' };
+    const goalLabel = goalMap[user.goal] || 'Healthy Living';
+    head.innerHTML = `
+      <div class="nb-sidebar-user">
+        <div class="nb-sidebar-avatar">${initial}</div>
+        <div class="nb-sidebar-name">${user.name || 'User'}</div>
+        <div class="nb-sidebar-email">${user.email || ''}</div>
+        <div class="nb-sidebar-goal">🎯 ${goalLabel}</div>
+      </div>`;
+    foot.innerHTML = `
+      <button class="nb-logout-btn" id="nbLogoutBtn">⏻ Logout</button>
+      <div class="nb-version">NutriBase v1.0 · Georgia</div>`;
+    const logoutBtn = document.getElementById('nbLogoutBtn');
+    if (logoutBtn) logoutBtn.addEventListener('click', () => { _closeSidebar(); Auth.logout(); });
+  } else {
+    head.innerHTML = `
+      <div class="nb-sidebar-welcome">
+        <div class="nb-welcome-title">Welcome to NutriBase</div>
+        <div class="nb-welcome-sub">Track nutrition. Reach your goals.</div>
+        <a class="btn-primary nb-sidebar-cta" href="/login.html">Login</a>
+        <a class="nb-register-link" href="/register.html">Create free account</a>
+      </div>`;
+    foot.innerHTML = `<div class="nb-version">NutriBase v1.0 · Georgia</div>`;
+  }
+}
+
+function _openSidebar() {
+  const overlay = document.getElementById('nbSidebarOverlay');
   if (!overlay) return;
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
-  if (burger) { burger.classList.add('active'); burger.setAttribute('aria-expanded', 'true'); }
 }
 
-function _closeMobileNav() {
-  const overlay = document.getElementById('mobileNavOverlay');
-  const burger  = document.getElementById('hamburger');
+function _closeSidebar() {
+  const overlay = document.getElementById('nbSidebarOverlay');
   if (!overlay) return;
   overlay.classList.remove('open');
   document.body.style.overflow = '';
-  if (burger) { burger.classList.remove('active'); burger.setAttribute('aria-expanded', 'false'); }
-}
-
-function _setupMobileNav(linksHTML) {
-  // Create overlay once
-  if (!document.getElementById('mobileNavOverlay')) {
-    const overlay = document.createElement('div');
-    overlay.id = 'mobileNavOverlay';
-    overlay.className = 'mobile-nav-overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', 'Navigation menu');
-    overlay.innerHTML = `
-      <div class="mobile-nav-sheet">
-        <div class="mobile-nav-handle"></div>
-        <div class="mobile-nav-head">
-          <div class="mobile-nav-brand">
-            <div class="logo-mark" style="width:28px;height:28px;border-radius:8px;flex-shrink:0">
-              <svg width="13" height="15" viewBox="0 0 16 18" fill="none" aria-hidden="true">
-                <path d="M8 1C8 1 1.5 4.5 1.5 10.5C1.5 13.8 4.5 16.5 8 16.5C11.5 16.5 14.5 13.8 14.5 10.5C14.5 4.5 8 1 8 1Z" fill="white" fill-opacity="0.9"/>
-                <path d="M8 7V13.5" stroke="#080c14" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M5.5 9.5L8 7L10.5 9.5" stroke="#080c14" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <span>NutriBase</span>
-          </div>
-          <button class="mobile-nav-close" id="mobileNavClose" aria-label="Close menu">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M2 2L14 14M14 2L2 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </div>
-        <nav class="mobile-nav-links" id="mobileNavLinks"></nav>
-      </div>`;
-    document.body.appendChild(overlay);
-    overlay.addEventListener('click', e => { if (e.target === overlay) _closeMobileNav(); });
-    document.getElementById('mobileNavClose').addEventListener('click', _closeMobileNav);
-
-    // Close on Escape
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') _closeMobileNav(); });
-  }
-
-  // Refresh links (handles auth state changes without recreating overlay)
-  document.getElementById('mobileNavLinks').innerHTML = linksHTML;
-
-  // Wire nav item clicks
-  document.querySelectorAll('#mobileNavLinks .mobile-nav-item').forEach(link => {
-    link.addEventListener('click', () => {
-      if (link.id !== 'mobileLogout') _closeMobileNav();
-    });
-  });
-
-  // Wire overlay logout
-  const mobileLogout = document.getElementById('mobileLogout');
-  if (mobileLogout) {
-    mobileLogout.addEventListener('click', e => {
-      e.preventDefault();
-      _closeMobileNav();
-      Auth.logout();
-    });
-  }
-
-  // Wire hamburger (re-attach each render)
-  const burger = document.getElementById('hamburger');
-  if (burger) {
-    burger.addEventListener('click', _openMobileNav);
-  }
 }
 
 // ── Page guards ───────────────────────────────────────────────────────────
