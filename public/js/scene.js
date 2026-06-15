@@ -3297,43 +3297,43 @@ const FoodScene = (() => {
   }
 
   function setupLights() {
-    scene.add(new THREE.AmbientLight(0x202030, 0.30));
-    scene.add(new THREE.HemisphereLight(0x8ab2cc, 0x080c14, 0.40));
+    // Low ambient — keeps shadows deep and dramatic
+    scene.add(new THREE.AmbientLight(0x202030, 0.20));
 
-    // Key: warm white SpotLight, upper-right front, soft-edged shadows
-    const key = new THREE.SpotLight(0xfff8f0, 3.0);
+    // Key: warm white SpotLight, upper-right front — sharper angle, harder shadow
+    const key = new THREE.SpotLight(0xfff8f0, 3.5);
     key.position.set(4.2, 6.5, 4.2);
-    key.angle = Math.PI / 3.8;
-    key.penumbra = 0.30;
+    key.angle = Math.PI / 5;
+    key.penumbra = 0.18;
     key.decay = 0;
     key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
-    key.shadow.camera.near = 0.5;
-    key.shadow.camera.far  = 28;
-    key.shadow.radius = 8;
-    key.shadow.bias   = -0.0008;
+    key.shadow.mapSize.set(4096, 4096);
+    key.shadow.camera.near = 0.1;
+    key.shadow.camera.far  = 20;
+    key.shadow.radius = 3;
+    key.shadow.bias   = -0.001;
     key.target.position.set(0, 0, 0);
     scene.add(key);
     scene.add(key.target);
 
-    // Fill: cool blue DirectionalLight from left
-    const fill = new THREE.DirectionalLight(0xc8e0ff, 0.80);
+    // Fill: cool blue from left — kept low so shadow side stays dark
+    const fill = new THREE.DirectionalLight(0xc8e0ff, 0.40);
     fill.position.set(-5, 1.8, 2);
     scene.add(fill);
 
-    // Rim: pure white SpotLight from behind — edge highlight / silhouette pop
-    rimLight = new THREE.SpotLight(0xffffff, 2.0);
-    rimLight.position.set(0, 4.5, -6.5);
-    rimLight.angle = Math.PI / 4;
-    rimLight.penumbra = 0.15;
+    // Rim: pure white SpotLight directly behind — sharp edge separation
+    rimLight = new THREE.SpotLight(0xffffff, 2.5);
+    rimLight.position.set(0, 3.5, -7);
+    rimLight.angle = Math.PI / 4.5;
+    rimLight.penumbra = 0.12;
     rimLight.decay = 0;
     rimLight.target.position.set(0, 0, 0);
     scene.add(rimLight);
     scene.add(rimLight.target);
 
-    // Ground bounce: warm amber under-fill
-    const under = new THREE.DirectionalLight(0xffe0a0, 0.28);
-    under.position.set(0, -4, 2);
+    // Subtle warm ground-bounce point — simulates studio floor without a platform
+    const under = new THREE.PointLight(0xffe0a0, 0.20, 12);
+    under.position.set(0, -3.5, 1.5);
     scene.add(under);
   }
 
@@ -3480,7 +3480,7 @@ const FoodScene = (() => {
     composer = new THREE.EffectComposer(renderer);
     composer.addPass(new THREE.RenderPass(scene, camera));
     // (resolution, strength, radius, threshold)
-    bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(size, size), 0.30, 0.40, 0.85);
+    bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(size, size), 0.08, 0.20, 0.95);
     composer.addPass(bloomPass);
     composer.setSize(size, size);
   }
@@ -3582,7 +3582,7 @@ const FoodScene = (() => {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.40; // slightly reduced — bloom pass adds perceived brightness
+    renderer.toneMappingExposure = 1.10;
     // r128: sRGBEncoding; newer Three.js (r152+) uses SRGBColorSpace
     if (typeof THREE.SRGBColorSpace !== 'undefined') {
       renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -3638,7 +3638,15 @@ const FoodScene = (() => {
               const mats = Array.isArray(child.material) ? child.material : [child.material];
               mats.forEach(m => {
                 if (scene.environment) m.envMap = scene.environment;
-                m.envMapIntensity = 1.5;
+                // Subtle reflection — not glowing
+                m.envMapIntensity = 1.2;
+                // Strip any artificial emissive bloom baked into the model
+                if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 0;
+                // Boost clearcoat on smooth/shiny surfaces for sharp highlights
+                if (m.isMeshPhysicalMaterial && m.roughness < 0.4) {
+                  m.clearcoat = Math.max(m.clearcoat || 0, 0.9);
+                  m.clearcoatRoughness = Math.min(m.clearcoatRoughness || 0.1, 0.12);
+                }
                 m.needsUpdate = true;
               });
             }
@@ -3658,7 +3666,7 @@ const FoodScene = (() => {
       const mats = Array.isArray(child.material) ? child.material : [child.material];
       mats.forEach(m => {
         if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) {
-          m.envMapIntensity = Math.max(m.envMapIntensity || 0, 1.5);
+          m.envMapIntensity = Math.max(m.envMapIntensity || 0, 1.2);
           m.needsUpdate = true;
         }
       });
