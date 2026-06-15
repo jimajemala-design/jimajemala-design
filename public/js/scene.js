@@ -3659,6 +3659,81 @@ const FoodScene = (() => {
     animate();
   }
 
+  // ─── GLB Loader ───────────────────────────────────────────────────────────
+
+  function loadGLBModel(path) {
+    return new Promise((resolve, reject) => {
+      if (typeof THREE.GLTFLoader === 'undefined') {
+        reject(new Error('GLTFLoader not available'));
+        return;
+      }
+      const loader = new THREE.GLTFLoader();
+      loader.load(
+        path,
+        (gltf) => {
+          const model = gltf.scene;
+          const box = new THREE.Box3().setFromObject(model);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const scale = 2.0 / maxDim;
+          model.scale.setScalar(scale);
+          model.position.sub(center.multiplyScalar(scale));
+          model.traverse(child => {
+            if (!child.isMesh) return;
+            child.castShadow = true;
+            child.receiveShadow = true;
+            if (child.material) {
+              const mats = Array.isArray(child.material) ? child.material : [child.material];
+              mats.forEach(m => {
+                if (scene.environment) m.envMap = scene.environment;
+                m.envMapIntensity = 1.5;
+                m.needsUpdate = true;
+              });
+            }
+          });
+          resolve(model);
+        },
+        undefined,
+        reject
+      );
+    });
+  }
+
+  function _applyEnvMap(group) {
+    if (!scene.environment) return;
+    group.traverse(child => {
+      if (!child.isMesh) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach(m => {
+        if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) {
+          m.envMapIntensity = Math.max(m.envMapIntensity || 0, 1.5);
+          m.needsUpdate = true;
+        }
+      });
+    });
+  }
+
+  function _spawnProceduralFood(id) {
+    const fn = BUILDERS[id];
+    if (!fn) return;
+    foodGroup = fn();
+    _applyEnvMap(foodGroup);
+    scene.add(foodGroup);
+    addPlatform();
+    addParticles(PARTICLE_COLORS[id] || 0x22c55e);
+  }
+
+  function _showGLBSpinner(visible) {
+    const el = document.getElementById('glbLoadSpinner');
+    if (el) el.style.display = visible ? 'flex' : 'none';
+  }
+
+  // GLB_OVERRIDES maps food IDs to model paths. Add entries as models become available.
+  const GLB_OVERRIDES = {
+    apple: '/models/apple.glb',
+  };
+
   function loadFood(id) {
     clearScene();
     autoRotate = true;
@@ -3667,27 +3742,25 @@ const FoodScene = (() => {
     camera.position.set(0, 0.4, 4.8);
     floatT = 0;
 
-    const fn = BUILDERS[id];
-    if (!fn) return;
-    foodGroup = fn();
-
-    // Boost envMapIntensity on every PBR material — scene.environment does the rest
-    if (scene.environment) {
-      foodGroup.traverse(child => {
-        if (!child.isMesh) return;
-        const mats = Array.isArray(child.material) ? child.material : [child.material];
-        mats.forEach(m => {
-          if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) {
-            m.envMapIntensity = Math.max(m.envMapIntensity || 0, 1.5);
-            m.needsUpdate = true;
-          }
+    const glbPath = GLB_OVERRIDES[id];
+    if (glbPath) {
+      _showGLBSpinner(true);
+      loadGLBModel(glbPath)
+        .then(model => {
+          _showGLBSpinner(false);
+          foodGroup = model;
+          scene.add(foodGroup);
+          addPlatform();
+          addParticles(PARTICLE_COLORS[id] || 0x22c55e);
+        })
+        .catch(() => {
+          _showGLBSpinner(false);
+          _spawnProceduralFood(id);
         });
-      });
+      return;
     }
 
-    scene.add(foodGroup);
-    addPlatform();
-    addParticles(PARTICLE_COLORS[id] || 0x22c55e);
+    _spawnProceduralFood(id);
   }
 
   // ─── Animation Loop ────────────────────────────────────────────────────────

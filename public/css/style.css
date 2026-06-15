@@ -1633,3 +1633,22 @@ body {
 .ip-install-btn:hover { filter: brightness(1.1); }
 .ip-later { font-size: 13px; color: var(--text-3); text-align: center; padding: 4px; transition: var(--t-fast); display: block; width: 100%; }
 .ip-later:hover { color: var(--text-2); }
+
+/* ── 23. GLB LOAD SPINNER ─────────────────────────────────────────────── */
+.glb-spinner {
+  position: absolute; inset: 0; z-index: 50;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; background: rgba(8,12,20,0.82); border-radius: inherit;
+  backdrop-filter: blur(4px);
+}
+.glb-spinner-ring {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 3px solid rgba(34,197,94,0.18);
+  border-top-color: var(--green);
+  animation: glb-spin 0.9s linear infinite;
+}
+@keyframes glb-spin { to { transform: rotate(360deg); } }
+.glb-spinner-label {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+  color: var(--text-3); text-transform: uppercase;
+}
