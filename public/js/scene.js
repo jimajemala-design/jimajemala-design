@@ -3614,6 +3614,11 @@ const FoodScene = (() => {
         return;
       }
       const loader = new THREE.GLTFLoader();
+      if (typeof THREE.DRACOLoader !== 'undefined') {
+        const draco = new THREE.DRACOLoader();
+        draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+        loader.setDRACOLoader(draco);
+      }
       loader.load(
         path,
         (gltf) => {
@@ -3677,7 +3682,17 @@ const FoodScene = (() => {
 
   // GLB_OVERRIDES maps food IDs to model paths. Add entries as models become available.
   const GLB_OVERRIDES = {
-    apple: '/models/apple.glb',
+    apple:       '/models/apple.glb',
+    banana:      '/models/banana.glb',
+    chicken:     '/models/chicken.glb',
+    fish:        '/models/salmon.glb',
+    egg:         '/models/egg.glb',
+    sweetpotato: '/models/sweet_potato.glb',
+    broccoli:    '/models/broccoli.glb',
+    avocado:     '/models/avocado.glb',
+    blueberry:   '/models/blueberry.glb',
+    greekyogurt: '/models/greek_yogurt.glb',
+    carrot:      '/models/carrot.glb',
   };
 
   function loadFood(id) {
