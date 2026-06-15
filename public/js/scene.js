@@ -3127,53 +3127,141 @@ const FoodScene = (() => {
   }
 
   function setupLights() {
-    scene.add(new THREE.AmbientLight(0x404040, 0.50));
-    scene.add(new THREE.HemisphereLight(0x8ab2cc, 0x6b4422, 0.36));
+    scene.add(new THREE.AmbientLight(0x202030, 0.30));
+    scene.add(new THREE.HemisphereLight(0x8ab2cc, 0x334422, 0.40));
 
-    // Key: warm white, upper-right front, casts shadows
-    const key = new THREE.DirectionalLight(0xfff5e0, 2.0);
-    key.position.set(4.2, 6.2, 4.2);
+    // Key: warm white SpotLight, upper-right front, soft-edged shadows
+    const key = new THREE.SpotLight(0xfff8f0, 3.0);
+    key.position.set(4.2, 6.5, 4.2);
+    key.angle = Math.PI / 3.8;
+    key.penumbra = 0.30;
+    key.decay = 0;
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
-    key.shadow.camera.near   = 0.5;
-    key.shadow.camera.far    = 32;
-    key.shadow.camera.left   = -5;
-    key.shadow.camera.right  =  5;
-    key.shadow.camera.top    =  5;
-    key.shadow.camera.bottom = -5;
-    key.shadow.radius = 10;
-    key.shadow.bias   = -0.001;
+    key.shadow.camera.near = 0.5;
+    key.shadow.camera.far  = 28;
+    key.shadow.radius = 8;
+    key.shadow.bias   = -0.0008;
+    key.target.position.set(0, 0, 0);
     scene.add(key);
+    scene.add(key.target);
 
-    // Fill: cool blue from left
-    const fill = new THREE.DirectionalLight(0xe0f0ff, 0.80);
+    // Fill: cool blue DirectionalLight from left
+    const fill = new THREE.DirectionalLight(0xc8e0ff, 0.80);
     fill.position.set(-5, 1.8, 2);
     scene.add(fill);
 
-    // Rim: bright white from behind for silhouette pop
-    rimLight = new THREE.DirectionalLight(0xffffff, 1.50);
-    rimLight.position.set(0, 4, -6);
+    // Rim: pure white SpotLight from behind — edge highlight / silhouette pop
+    rimLight = new THREE.SpotLight(0xffffff, 2.0);
+    rimLight.position.set(0, 4.5, -6.5);
+    rimLight.angle = Math.PI / 4;
+    rimLight.penumbra = 0.15;
+    rimLight.decay = 0;
+    rimLight.target.position.set(0, 0, 0);
     scene.add(rimLight);
+    scene.add(rimLight.target);
 
-    // Subtle warm under-fill
-    const under = new THREE.DirectionalLight(0xffe0c0, 0.24);
+    // Ground bounce: warm amber under-fill
+    const under = new THREE.DirectionalLight(0xffe0a0, 0.28);
     under.position.set(0, -4, 2);
     scene.add(under);
   }
 
+  function setupEnvMap() {
+    try {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 256;
+      const ctx = c.getContext('2d');
+      // Studio gradient: deep blue sky → warm horizon → dark floor
+      const g = ctx.createLinearGradient(0, 0, 0, 256);
+      g.addColorStop(0,    '#18203a');
+      g.addColorStop(0.28, '#28386a');
+      g.addColorStop(0.47, '#f0e0c8');
+      g.addColorStop(0.53, '#e8d8c0');
+      g.addColorStop(0.72, '#1e2840');
+      g.addColorStop(1,    '#12161e');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 256);
+      // Key-light hot spot (upper right)
+      const sun = ctx.createRadialGradient(390, 85, 10, 390, 85, 130);
+      sun.addColorStop(0,   'rgba(255,248,235,1)');
+      sun.addColorStop(0.3, 'rgba(255,240,200,0.6)');
+      sun.addColorStop(1,   'rgba(255,240,200,0)');
+      ctx.fillStyle = sun; ctx.fillRect(200, 0, 312, 240);
+      // Rim-light hot spot (upper left, behind)
+      const rim = ctx.createRadialGradient(90, 75, 4, 90, 75, 90);
+      rim.addColorStop(0, 'rgba(215,235,255,0.85)');
+      rim.addColorStop(1, 'rgba(215,235,255,0)');
+      ctx.fillStyle = rim; ctx.fillRect(0, 0, 230, 200);
+
+      const envTex = new THREE.CanvasTexture(c);
+      envTex.mapping = THREE.EquirectangularReflectionMapping;
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      pmrem.compileEquirectangularShader();
+      const envMap = pmrem.fromEquirectangular(envTex).texture;
+      scene.environment = envMap;
+      pmrem.dispose();
+      envTex.dispose();
+    } catch (_) {
+      // PMREMGenerator unavailable in this build — env map skipped
+    }
+  }
+
   // ─── Platform + Particles ─────────────────────────────────────────────────
 
+  function makeMarbleTex() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 512;
+    const ctx = c.getContext('2d');
+    // Dark slate base
+    ctx.fillStyle = '#191d25';
+    ctx.fillRect(0, 0, 512, 512);
+    // Marble veins
+    for (let i = 0; i < 16; i++) {
+      const sx = Math.random() * 512, sy = Math.random() * 512;
+      ctx.beginPath(); ctx.moveTo(sx, sy);
+      ctx.bezierCurveTo(
+        sx + (Math.random() - 0.5) * 340, sy + (Math.random() - 0.5) * 220,
+        sx + (Math.random() - 0.5) * 460, sy + (Math.random() - 0.5) * 320,
+        sx + (Math.random() - 0.5) * 640, sy + (Math.random() - 0.5) * 450
+      );
+      const a = 0.04 + Math.random() * 0.11;
+      ctx.strokeStyle = Math.random() > 0.5 ? `rgba(100,115,138,${a})` : `rgba(58,68,88,${a})`;
+      ctx.lineWidth = 0.5 + Math.random() * 2.5;
+      ctx.stroke();
+    }
+    // Subtle reflection bloom
+    const sh = ctx.createRadialGradient(210, 195, 20, 210, 210, 370);
+    sh.addColorStop(0, 'rgba(78,92,118,0.13)');
+    sh.addColorStop(1, 'rgba(78,92,118,0)');
+    ctx.fillStyle = sh; ctx.fillRect(0, 0, 512, 512);
+    return new THREE.CanvasTexture(c);
+  }
+
   function addPlatform() {
+    // Shadow-only receiver plane
     const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(16, 16),
-      new THREE.ShadowMaterial({ opacity: 0.48 })
+      new THREE.PlaneGeometry(22, 22),
+      new THREE.ShadowMaterial({ opacity: 0.55 })
     );
     plane.rotation.x = -Math.PI / 2;
-    plane.position.y = -1.92;
+    plane.position.y = -1.93;
     plane.receiveShadow = true;
     scene.add(plane);
     shadowPlane = plane;
 
+    // Dark marble/slate surface disc
+    const marble = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.2, 3.2, 0.055, 72),
+      new THREE.MeshStandardMaterial({
+        map: makeMarbleTex(),
+        roughness: 0.12, metalness: 0.06, envMapIntensity: 1.4,
+      })
+    );
+    marble.position.y = -1.978;
+    marble.receiveShadow = true;
+    scene.add(marble);
+
+    // Glowing green scan disc
     platformDisc = new THREE.Mesh(
       new THREE.CylinderGeometry(1.26, 1.26, 0.012, 90),
       new THREE.MeshStandardMaterial({
@@ -3185,6 +3273,7 @@ const FoodScene = (() => {
     platformDisc.receiveShadow = true;
     scene.add(platformDisc);
 
+    // Amber accent ring
     const ring = new THREE.Mesh(
       new THREE.TorusGeometry(1.52, 0.013, 6, 92),
       new THREE.MeshStandardMaterial({
@@ -3266,7 +3355,7 @@ const FoodScene = (() => {
     composer = new THREE.EffectComposer(renderer);
     composer.addPass(new THREE.RenderPass(scene, camera));
     // (resolution, strength, radius, threshold)
-    bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(size, size), 0.40, 0.50, 0.80);
+    bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(size, size), 0.30, 0.40, 0.85);
     composer.addPass(bloomPass);
     composer.setSize(size, size);
   }
@@ -3369,7 +3458,12 @@ const FoodScene = (() => {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.40; // slightly reduced — bloom pass adds perceived brightness
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    // r128: sRGBEncoding; newer Three.js (r152+) uses SRGBColorSpace
+    if (typeof THREE.SRGBColorSpace !== 'undefined') {
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+    } else {
+      renderer.outputEncoding = THREE.sRGBEncoding;
+    }
 
     scene = new THREE.Scene();
     scene.background = makeSceneBackground();
@@ -3380,6 +3474,7 @@ const FoodScene = (() => {
     renderer.setSize(sz, sz);
 
     setupLights();
+    setupEnvMap();
     setupComposer(sz);
     setupEvents(canvas);
     animate();
@@ -3396,6 +3491,21 @@ const FoodScene = (() => {
     const fn = BUILDERS[id];
     if (!fn) return;
     foodGroup = fn();
+
+    // Boost envMapIntensity on every PBR material — scene.environment does the rest
+    if (scene.environment) {
+      foodGroup.traverse(child => {
+        if (!child.isMesh) return;
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach(m => {
+          if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) {
+            m.envMapIntensity = Math.max(m.envMapIntensity || 0, 1.5);
+            m.needsUpdate = true;
+          }
+        });
+      });
+    }
+
     scene.add(foodGroup);
     addPlatform();
     addParticles(PARTICLE_COLORS[id] || 0x22c55e);
@@ -3428,7 +3538,7 @@ const FoodScene = (() => {
     }
 
     if (rimLight) {
-      rimLight.intensity = 1.42 + Math.sin(floatT * 0.60) * 0.24;
+      rimLight.intensity = 1.85 + Math.sin(floatT * 0.60) * 0.22;
     }
 
     if (composer) composer.render();
