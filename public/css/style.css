@@ -582,7 +582,7 @@ body {
 .canvas-frame {
   position: relative;
   aspect-ratio: 1;
-  background: #0a0e1c;
+  background: #080c14;
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-xl);
   overflow: hidden;
@@ -606,65 +606,6 @@ body {
   -webkit-mask-image: radial-gradient(ellipse 75% 75% at 50% 50%, black 0%, transparent 100%);
 }
 
-/* Scanning line */
-.scan-line {
-  position: absolute;
-  left: 6%; right: 6%;
-  height: 2px;
-  z-index: 2;
-  background: linear-gradient(90deg, transparent, rgba(34,197,94,0.55), transparent);
-  box-shadow: 0 0 18px rgba(34,197,94,0.4);
-  animation: scan 4.5s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes scan {
-  0%, 100% { top: 8%; opacity: 0; }
-  8%       { opacity: 1; }
-  46%      { top: 90%; opacity: 1; }
-  54%      { opacity: 0; }
-  55%      { top: 8%; }
-}
-
-/* Viewfinder corner brackets */
-.viewfinder { position: absolute; inset: 14px; z-index: 2; pointer-events: none; }
-.vf {
-  position: absolute;
-  width: 26px; height: 26px;
-  border-color: rgba(34,197,94,0.65);
-  border-style: solid;
-  border-width: 0;
-}
-.vf-tl { top: 0; left: 0;       border-top-width: 2px; border-left-width: 2px;   border-top-left-radius: 6px; }
-.vf-tr { top: 0; right: 0;      border-top-width: 2px; border-right-width: 2px;  border-top-right-radius: 6px; }
-.vf-bl { bottom: 0; left: 0;    border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 6px; }
-.vf-br { bottom: 0; right: 0;   border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 6px; }
-
-.canvas-ui {
-  position: absolute;
-  top: 22px; left: 26px; right: 26px;
-  z-index: 3;
-  display: flex; justify-content: space-between;
-  pointer-events: none;
-}
-.canvas-badge {
-  font-family: var(--font-mono);
-  font-size: 9px; font-weight: 600;
-  letter-spacing: 0.20em;
-  color: var(--green);
-  background: rgba(34,197,94,0.08);
-  border: 1px solid rgba(34,197,94,0.3);
-  padding: 5px 11px;
-  border-radius: var(--r-pill);
-}
-.canvas-hint {
-  font-family: var(--font-mono);
-  font-size: 9px; letter-spacing: 0.18em;
-  color: var(--text-3);
-  background: rgba(8,12,20,0.65);
-  border: 1px solid var(--border-subtle);
-  padding: 5px 11px;
-  border-radius: var(--r-pill);
-}
 
 /* ── 10. MACRO PILLS ──────────────────────────────────────────────────── */
 .macro-row {
@@ -1424,8 +1365,7 @@ body {
 /* ── 16. REDUCED MOTION ───────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
-  .scan-line, .ticker-track, .hp { animation: none !important; }
-  .scan-line { display: none; }
+  .ticker-track, .hp { animation: none !important; }
 }
 
 /* ── 20. NEW NAVBAR (v2) ──────────────────────────────────────────────── */

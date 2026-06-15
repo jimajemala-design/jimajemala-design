@@ -3293,21 +3293,12 @@ const FoodScene = (() => {
   // ─── Scene Setup ─────────────────────────────────────────────────────────
 
   function makeSceneBackground() {
-    const c = document.createElement('canvas');
-    c.width = 4; c.height = 512;
-    const ctx = c.getContext('2d');
-    const grd = ctx.createLinearGradient(0, 0, 0, 512);
-    grd.addColorStop(0,   '#08091a');
-    grd.addColorStop(0.5, '#0d1225');
-    grd.addColorStop(1,   '#181d38');
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, 0, 4, 512);
-    return new THREE.CanvasTexture(c);
+    return new THREE.Color(0x080c14);
   }
 
   function setupLights() {
     scene.add(new THREE.AmbientLight(0x202030, 0.30));
-    scene.add(new THREE.HemisphereLight(0x8ab2cc, 0x334422, 0.40));
+    scene.add(new THREE.HemisphereLight(0x8ab2cc, 0x080c14, 0.40));
 
     // Key: warm white SpotLight, upper-right front, soft-edged shadows
     const key = new THREE.SpotLight(0xfff8f0, 3.0);
@@ -3417,52 +3408,7 @@ const FoodScene = (() => {
   }
 
   function addPlatform() {
-    // Shadow-only receiver plane
-    const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(22, 22),
-      new THREE.ShadowMaterial({ opacity: 0.55 })
-    );
-    plane.rotation.x = -Math.PI / 2;
-    plane.position.y = -1.93;
-    plane.receiveShadow = true;
-    scene.add(plane);
-    shadowPlane = plane;
-
-    // Dark marble/slate surface disc
-    const marble = new THREE.Mesh(
-      new THREE.CylinderGeometry(3.2, 3.2, 0.055, 72),
-      new THREE.MeshStandardMaterial({
-        map: makeMarbleTex(),
-        roughness: 0.12, metalness: 0.06, envMapIntensity: 1.4,
-      })
-    );
-    marble.position.y = -1.978;
-    marble.receiveShadow = true;
-    scene.add(marble);
-
-    // Glowing green scan disc
-    platformDisc = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.26, 1.26, 0.012, 90),
-      new THREE.MeshStandardMaterial({
-        color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 1.0,
-        roughness: 0.04, metalness: 0.55, transparent: true, opacity: 0.30,
-      })
-    );
-    platformDisc.position.y = -1.91;
-    platformDisc.receiveShadow = true;
-    scene.add(platformDisc);
-
-    // Amber accent ring
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(1.52, 0.013, 6, 92),
-      new THREE.MeshStandardMaterial({
-        color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 0.72,
-        transparent: true, opacity: 0.52,
-      })
-    );
-    ring.rotation.x = Math.PI / 2;
-    ring.position.y = -1.90;
-    scene.add(ring);
+    // Platform removed — food floats in pure dark space
   }
 
   function addParticles(colorHex) {
@@ -3776,12 +3722,6 @@ const FoodScene = (() => {
       foodGroup.rotation.x = currentRotX;
       foodGroup.rotation.y = currentRotY;
       foodGroup.position.y = Math.sin(floatT) * 0.065;
-    }
-
-    if (platformDisc) {
-      platformDisc.rotation.y += 0.006;
-      platformDisc.material.opacity = 0.22 + Math.sin(floatT * 0.80) * 0.12;
-      platformDisc.material.emissiveIntensity = 0.80 + Math.sin(floatT * 1.10) * 0.30;
     }
 
     if (particleSystem) {
