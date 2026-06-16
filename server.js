@@ -1879,7 +1879,7 @@ function buildSystemPrompt(user, fridge, cal) {
   const foodDb = foods.map(f => `${f.name} (${f.calories}kcal P${f.nutrition.protein} C${f.nutrition.carbs} F${f.nutrition.fat})`).join('; ');
   const target = cal ? `${cal.target} kcal/day` : 'not set (profile incomplete)';
   const macros = cal ? `Protein ${cal.protein}g, Carbs ${cal.carbs}g, Fats ${cal.fats}g` : 'not set';
-  return `You are NutriAI, an expert nutrition and fitness assistant for NutriBase Georgia. You have access to the user's profile and fridge contents. Always be encouraging, scientific, and practical.
+  return `You are NutriAI, an expert nutrition and fitness assistant for NutriFell. You have access to the user's profile and fridge contents. Always be encouraging, scientific, and practical.
 
 User Profile: ${JSON.stringify(profile)}
 Fridge Contents: ${JSON.stringify(fridgeList)}

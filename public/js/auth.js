@@ -263,18 +263,18 @@ function _buildSidebar(user) {
       </div>`;
     foot.innerHTML = `
       <button class="nb-logout-btn" id="nbLogoutBtn">⏻ Logout</button>
-      <div class="nb-version">NutriBase v1.0 · Georgia</div>`;
+      <div class="nb-version">NutriFell v1.0</div>`;
     const logoutBtn = document.getElementById('nbLogoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', () => { _closeSidebar(); Auth.logout(); });
   } else {
     head.innerHTML = `
       <div class="nb-sidebar-welcome">
-        <div class="nb-welcome-title">Welcome to NutriBase</div>
+        <div class="nb-welcome-title">Welcome to NutriFell</div>
         <div class="nb-welcome-sub">Track nutrition. Reach your goals.</div>
         <a class="btn-primary nb-sidebar-cta" href="/login.html">Login</a>
         <a class="nb-register-link" href="/register.html">Create free account</a>
       </div>`;
-    foot.innerHTML = `<div class="nb-version">NutriBase v1.0 · Georgia</div>`;
+    foot.innerHTML = `<div class="nb-version">NutriFell v1.0</div>`;
   }
 }
 

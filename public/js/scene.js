@@ -1,4 +1,4 @@
-/* scene.js — AAA-quality PBR food renderer · NutriBase Georgia */
+/* scene.js — AAA-quality PBR food renderer · NutriFell */
 const FoodScene = (() => {
   'use strict';
 

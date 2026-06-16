@@ -1,6 +1,6 @@
 {
-  "name": "NutriBase Georgia",
-  "short_name": "NutriBase",
+  "name": "NutriFell",
+  "short_name": "NutriFell",
   "description": "Healthy food database with AI nutrition assistant",
   "start_url": "/",
   "display": "standalone",

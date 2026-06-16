@@ -1,6 +1,7 @@
-# NutriBase Georgia — Progress & Roadmap
+# NutriFell — Progress & Roadmap
 
 > Last updated: 2026-06-16
+> Formerly "NutriBase Georgia" — rebranded to **NutriFell** on 2026-06-16.
 
 An interactive 3D nutrition explorer + installable PWA. Browse 74 foods with
 complete nutritional profiles rendered in real-time 3D, plus personalized
@@ -54,12 +55,14 @@ assistant.
 
 ## Known gaps / loose ends
 - Only 11 of 74 foods have real GLB models.
-- Branding ("NutriBase Georgia", "EST. 2035") is placeholder — rename pending.
+- The `NutriAI` assistant sub-brand and the `EST. 2035` aesthetic were
+  intentionally kept through the rebrand.
 
 ## Roadmap (next up)
-1. **Rebrand** — new app name replacing "NutriBase Georgia" across the app.
-2. **Pricing / subscription plans page** — tiered plans.
-3. **Stripe payment integration** — checkout + subscription handling.
+1. ~~**Rebrand**~~ — ✅ done: renamed "NutriBase Georgia" → **NutriFell**.
+2. **Pricing / subscription plans page** — tiered plans. ← next
+3. **Stripe payment integration** — checkout + subscription handling
+   (test-mode/placeholder keys first; real keys added later).
 4. **Social media assets** — promo imagery/video (leverage `remotion/`).
 
 ### Later / backlog

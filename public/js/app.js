@@ -1,4 +1,4 @@
-/* app.js — NutriBase Georgia UI Controller · AAA edition */
+/* app.js — NutriFell UI Controller · AAA edition */
 'use strict';
 
 const App = (() => {
