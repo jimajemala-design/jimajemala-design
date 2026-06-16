@@ -55,7 +55,9 @@
   document.querySelectorAll('[data-action="subscribe"]').forEach(btn => {
     btn.addEventListener('click', () => {
       const plan = btn.dataset.plan;
-      const authed = window.Auth && Auth.isAuthed();
+      // NOTE: auth.js declares `const Auth` (a lexical global, NOT a window
+      // property), so check the bare `Auth` binding — never `window.Auth`.
+      const authed = typeof Auth !== 'undefined' && Auth.isAuthed();
 
       if (plan === 'free') {
         location.href = authed ? '/fridge.html' : '/register.html';
@@ -72,7 +74,7 @@
 
   // ── Reflect the user's current plan ────────────────────────────────────
   async function markCurrentPlan() {
-    if (!(window.Auth && Auth.isAuthed())) return;
+    if (!(typeof Auth !== 'undefined' && Auth.isAuthed())) return;
     try {
       const { plan } = await Auth.api('/api/subscription/status');
       const current = plan || 'free';

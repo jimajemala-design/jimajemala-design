@@ -32,6 +32,9 @@
     <div class="mesh-gradient" aria-hidden="true"></div>
     <div class="auth-wrap">
       <div class="auth-card">
+
+        <!-- STEP 1 — details -->
+        <div id="detailsStep">
         <div class="auth-head">
           <div class="auth-logo" aria-hidden="true">
             <svg width="20" height="22" viewBox="0 0 16 18" fill="none"><path d="M8 1C8 1 1.5 4.5 1.5 10.5C1.5 13.8 4.5 16.5 8 16.5C11.5 16.5 14.5 13.8 14.5 10.5C14.5 4.5 8 1 8 1Z" fill="#051008"/></svg>
@@ -77,6 +80,29 @@
         </form>
 
         <p class="auth-foot">Already have an account? <a href="/login.html">Log in</a></p>
+        </div><!-- /detailsStep -->
+
+        <!-- STEP 2 — verify -->
+        <div id="verifyStep" style="display:none">
+          <div class="auth-head">
+            <div class="auth-logo" aria-hidden="true">
+              <svg width="20" height="22" viewBox="0 0 16 18" fill="none"><path d="M8 1C8 1 1.5 4.5 1.5 10.5C1.5 13.8 4.5 16.5 8 16.5C11.5 16.5 14.5 13.8 14.5 10.5C14.5 4.5 8 1 8 1Z" fill="#051008"/></svg>
+            </div>
+            <h1 class="auth-title">Check your email</h1>
+            <p class="auth-sub">Enter the 6-digit code we sent to <strong id="verifyEmail"></strong></p>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="verifyCode">Verification code</label>
+            <input class="form-input code-input" id="verifyCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" aria-label="6-digit verification code" />
+            <p class="form-error" id="verifyError"></p>
+          </div>
+          <button class="btn-primary btn-block" id="verifyBtn" type="button">Verify &amp; Create Account</button>
+          <p class="dev-code-hint" id="devCodeHint" style="display:none"></p>
+          <div class="verify-actions">
+            <button class="link-btn" id="resendBtn" type="button">Resend code</button>
+            <button class="link-btn" id="regBackBtn" type="button">← Back</button>
+          </div>
+        </div><!-- /verifyStep -->
       </div>
     </div>
   </main>

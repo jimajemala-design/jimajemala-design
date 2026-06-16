@@ -53,6 +53,17 @@ assistant.
   egg, sweet potato, broccoli, avocado, blueberry, greek yogurt, carrot.
 - Remaining foods fall back to procedural meshes in `scene.js`.
 
+## Auth notes
+- **Registration is two-step with email verification:** `POST /api/auth/send-code`
+  (emails a 6-digit code, 10-min expiry, pending reg held in memory) →
+  `POST /api/auth/verify-code` (creates the account, returns JWT). Legacy
+  `POST /api/register` still exists but the UI no longer uses it.
+- **Email needs Gmail creds:** set `EMAIL_USER` + `EMAIL_PASS` (Gmail App
+  Password) in `.env`. Until then the server returns the code as `devCode`
+  in the response and logs it (dev fallback) instead of emailing.
+- Client treats an expired JWT (`exp`) as logged-out and clears the stale
+  session (`Auth.isAuthed()` in `auth.js`).
+
 ## Known gaps / loose ends
 - Only 11 of 74 foods have real GLB models.
 - The `NutriAI` assistant sub-brand and the `EST. 2035` aesthetic were

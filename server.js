@@ -40,6 +40,51 @@ const STRIPE_PRICES = {
   elite: { monthly: process.env.STRIPE_PRICE_ELITE_MONTHLY, annual: process.env.STRIPE_PRICE_ELITE_ANNUAL },
 };
 
+// ─── Email (Nodemailer) — registration verification codes ────────────────
+let mailer = null;
+try {
+  const nodemailer = require('nodemailer');
+  const u = process.env.EMAIL_USER, p = process.env.EMAIL_PASS;
+  if (u && p && !p.includes('your-') && !u.includes('your-')) {
+    mailer = nodemailer.createTransport({ service: 'gmail', auth: { user: u, pass: p } });
+  }
+} catch (e) { /* nodemailer not installed — falls back to dev code in response */ }
+
+// In-memory pending registrations: email -> { name, email, passwordHash, code, expiresAt, lastSent }
+const pendingVerifications = new Map();
+const VERIFY_TTL = 10 * 60 * 1000; // 10 minutes
+
+const genCode = () => String(Math.floor(100000 + Math.random() * 900000));
+
+function verificationEmailHTML(code) {
+  return `<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background:#080c14;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;padding:40px 24px;">
+    <div style="text-align:center;margin-bottom:8px;">
+      <span style="font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#f8fafc;">Nutri<span style="color:#22c55e;">Fell</span></span>
+    </div>
+    <div style="background:#0d1117;border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:36px 32px;text-align:center;">
+      <p style="color:#94a3b8;font-size:15px;margin:0 0 18px;">Your verification code is:</p>
+      <div style="font-size:44px;font-weight:800;letter-spacing:10px;color:#22c55e;font-family:'Courier New',monospace;margin:8px 0 22px;">${code}</div>
+      <p style="color:#64748b;font-size:13px;margin:0 0 6px;">⏱ Code expires in 10 minutes</p>
+      <p style="color:#475569;font-size:12px;margin:18px 0 0;line-height:1.6;">If you didn't request this, you can safely ignore this email.</p>
+    </div>
+    <p style="text-align:center;color:#334155;font-size:11px;margin-top:24px;">NutriFell · Fuel Your Best Self</p>
+  </div>
+</body></html>`;
+}
+
+async function sendVerificationEmail(to, code) {
+  if (!mailer) return false;
+  await mailer.sendMail({
+    from: `"NutriFell" <${process.env.EMAIL_USER}>`,
+    to,
+    subject: 'Your NutriFell verification code',
+    html: verificationEmailHTML(code),
+  });
+  return true;
+}
+
 // ─── Data storage (server-side JSON files) ──────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET || 'nutrifell-georgia-secret-key-2035';
 const DATA_DIR = path.join(__dirname, 'data');
@@ -1594,6 +1639,70 @@ function matchFoodId(name) {
 }
 
 // ─── AUTH ────────────────────────────────────────────────────────────────
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+// Step 1 — validate details, store a pending registration, email a 6-digit code
+app.post('/api/auth/send-code', async (req, res) => {
+  const { name, email, password } = req.body || {};
+  if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password are required' });
+  if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Invalid email format' });
+  if (String(password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  const emailNorm = String(email).trim().toLowerCase();
+  const users = readJSON(USERS_FILE);
+  if (users.find(u => u.email.toLowerCase() === emailNorm)) {
+    return res.status(409).json({ error: 'An account with this email already exists' });
+  }
+
+  const code = genCode();
+  const passwordHash = await bcrypt.hash(String(password), 10);
+  pendingVerifications.set(emailNorm, {
+    name: String(name).trim(), email: emailNorm, passwordHash,
+    code, expiresAt: Date.now() + VERIFY_TTL, lastSent: Date.now(),
+  });
+
+  let sent = false;
+  try { sent = await sendVerificationEmail(emailNorm, code); }
+  catch (err) { console.error('Email send failed:', err.message); sent = false; }
+
+  if (sent) return res.json({ success: true, emailSent: true });
+  // Email not configured (or send failed) — dev fallback so the flow is testable
+  console.log(`[verify] code for ${emailNorm}: ${code}`);
+  res.json({ success: true, emailSent: false, devCode: code, note: 'Email not configured — using dev code (set EMAIL_USER/EMAIL_PASS).' });
+});
+
+// Step 2 — verify the code, create the account, return a JWT
+app.post('/api/auth/verify-code', async (req, res) => {
+  const { email, code } = req.body || {};
+  if (!email || !code) return res.status(400).json({ error: 'Email and code are required' });
+  const emailNorm = String(email).trim().toLowerCase();
+
+  const pending = pendingVerifications.get(emailNorm);
+  if (!pending) return res.status(400).json({ error: 'No pending verification — please start again.' });
+  if (Date.now() > pending.expiresAt) {
+    pendingVerifications.delete(emailNorm);
+    return res.status(400).json({ error: 'Code expired — please request a new one.' });
+  }
+  if (String(code).trim() !== pending.code) return res.status(400).json({ error: 'Incorrect code — please try again.' });
+
+  const users = readJSON(USERS_FILE);
+  if (users.find(u => u.email.toLowerCase() === emailNorm)) {
+    pendingVerifications.delete(emailNorm);
+    return res.status(409).json({ error: 'An account with this email already exists' });
+  }
+  const user = {
+    id: uuidv4(), email: emailNorm, password: pending.passwordHash, name: pending.name,
+    age: null, weight: null, height: null, gender: null, goal: 'maintain',
+    emailVerified: true, plan: 'free', createdAt: new Date().toISOString(),
+  };
+  users.push(user);
+  writeJSON(USERS_FILE, users);
+  pendingVerifications.delete(emailNorm);
+
+  const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+  res.status(201).json({ token, user: publicUser(user) });
+});
+
 app.post('/api/register', async (req, res) => {
   const { email, password, name, age, weight, goal } = req.body || {};
   if (!email || !password || !name) return res.status(400).json({ error: 'Name, email and password are required' });

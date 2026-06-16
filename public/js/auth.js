@@ -9,8 +9,26 @@ const Auth = {
     localStorage.setItem('nb_user', JSON.stringify(user));
   },
   updateUser(user) { localStorage.setItem('nb_user', JSON.stringify(user)); },
-  logout() { localStorage.removeItem('nb_token'); localStorage.removeItem('nb_user'); location.href = '/'; },
-  isAuthed: () => !!localStorage.getItem('nb_token'),
+  clearSession() { localStorage.removeItem('nb_token'); localStorage.removeItem('nb_user'); },
+  logout() { Auth.clearSession(); location.href = '/'; },
+  // Decode a JWT payload (no verification — just to read `exp` client-side)
+  _decode(token) {
+    try {
+      const part = token.split('.')[1];
+      return JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+    } catch { return null; }
+  },
+  isAuthed() {
+    const t = localStorage.getItem('nb_token');
+    if (!t) return false;
+    const payload = Auth._decode(t);
+    // If the token carries an expiry and it has passed, drop the stale session
+    if (payload && payload.exp && Date.now() >= payload.exp * 1000) {
+      Auth.clearSession();
+      return false;
+    }
+    return true;
+  },
   async api(path, opts = {}) {
     const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
     const t = Auth.token();
@@ -305,6 +323,8 @@ function initRegister() {
   if (!form) return;
   if (Auth.isAuthed()) { location.href = '/fridge.html'; return; }
 
+  const detailsStep = document.getElementById('detailsStep');
+  const verifyStep = document.getElementById('verifyStep');
   const f = {
     name: form.querySelector('[name=name]'),
     email: form.querySelector('[name=email]'),
@@ -313,6 +333,20 @@ function initRegister() {
   };
   Object.values(f).forEach(i => i.addEventListener('input', () => clearError(i)));
 
+  const reg = { name: '', email: '', password: '' }; // kept for verify + resend
+  let resendTimer = null;
+
+  const sendCode = () => Auth.api('/api/auth/send-code', { method: 'POST', body: JSON.stringify(reg) });
+
+  function showDevHint(data, prefix) {
+    const hint = document.getElementById('devCodeHint');
+    if (data && data.devCode) {
+      hint.style.display = 'block';
+      hint.innerHTML = `${prefix} <strong>${data.devCode}</strong>`;
+    } else { hint.style.display = 'none'; }
+  }
+
+  // ── Step 1: validate details → send code ────────────────────────────────
   form.addEventListener('submit', async e => {
     e.preventDefault();
     let ok = true;
@@ -322,22 +356,87 @@ function initRegister() {
     if (f.confirm.value !== f.password.value) { setError(f.confirm, 'Passwords do not match'); ok = false; } else markValid(f.confirm);
     if (!ok) return;
 
+    reg.name = f.name.value.trim();
+    reg.email = f.email.value.trim();
+    reg.password = f.password.value;
+
     const btn = form.querySelector('button[type=submit]');
     const label = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Creating account…';
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Sending code…';
     try {
-      const data = await Auth.api('/api/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: f.name.value.trim(), email: f.email.value.trim(), password: f.password.value,
-        }),
-      });
-      Auth.setSession(data.token, data.user);
-      toast('Account created! Setting up your profile…', 'success');
-      setTimeout(() => location.href = '/profile.html', 700);
+      const data = await sendCode();
+      document.getElementById('verifyEmail').textContent = reg.email;
+      detailsStep.style.display = 'none';
+      verifyStep.style.display = 'block';
+      const codeInput = document.getElementById('verifyCode');
+      codeInput.value = ''; codeInput.focus();
+      showDevHint(data, "📭 Email isn't configured yet — your code is");
+      startResendCooldown();
     } catch (err) {
       toast(err.message, 'error');
+    } finally {
       btn.disabled = false; btn.innerHTML = label;
+    }
+  });
+
+  // ── Resend (60s cooldown) ───────────────────────────────────────────────
+  const resendBtn = document.getElementById('resendBtn');
+  function startResendCooldown() {
+    let left = 60;
+    clearInterval(resendTimer);
+    resendBtn.disabled = true;
+    resendBtn.textContent = `Resend code (${left}s)`;
+    resendTimer = setInterval(() => {
+      left--;
+      if (left <= 0) { clearInterval(resendTimer); resendBtn.disabled = false; resendBtn.textContent = 'Resend code'; }
+      else { resendBtn.textContent = `Resend code (${left}s)`; }
+    }, 1000);
+  }
+  if (resendBtn) resendBtn.addEventListener('click', async () => {
+    resendBtn.disabled = true;
+    try {
+      const data = await sendCode();
+      toast('New code sent', 'success', 2000);
+      showDevHint(data, '📭 Dev code:');
+      startResendCooldown();
+    } catch (err) {
+      toast(err.message, 'error');
+      resendBtn.disabled = false;
+    }
+  });
+
+  // ── Back to step 1 ──────────────────────────────────────────────────────
+  const backBtn = document.getElementById('regBackBtn');
+  if (backBtn) backBtn.addEventListener('click', () => {
+    clearInterval(resendTimer);
+    verifyStep.style.display = 'none';
+    detailsStep.style.display = 'block';
+  });
+
+  // ── Step 2: verify code → create account ────────────────────────────────
+  const verifyBtn = document.getElementById('verifyBtn');
+  const codeInput = document.getElementById('verifyCode');
+  const errEl = document.getElementById('verifyError');
+  if (codeInput) codeInput.addEventListener('input', () => {
+    codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 6);
+    if (errEl) errEl.classList.remove('show');
+  });
+  if (verifyBtn) verifyBtn.addEventListener('click', async () => {
+    const code = (codeInput.value || '').trim();
+    if (code.length !== 6) { errEl.textContent = 'Enter the 6-digit code'; errEl.classList.add('show'); return; }
+    const label = verifyBtn.innerHTML;
+    verifyBtn.disabled = true; verifyBtn.innerHTML = '<span class="spinner"></span> Verifying…';
+    try {
+      const data = await Auth.api('/api/auth/verify-code', {
+        method: 'POST', body: JSON.stringify({ email: reg.email, code }),
+      });
+      clearInterval(resendTimer);
+      Auth.setSession(data.token, data.user);
+      toast('Email verified! Setting up your profile…', 'success');
+      setTimeout(() => location.href = '/profile.html', 700);
+    } catch (err) {
+      errEl.textContent = err.message; errEl.classList.add('show');
+      verifyBtn.disabled = false; verifyBtn.innerHTML = label;
     }
   });
 }

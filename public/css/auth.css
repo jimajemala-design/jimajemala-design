@@ -953,3 +953,45 @@
   /* Prevent double-tap zoom */
   button, a, .bento-item { touch-action: manipulation; }
 }
+
+/* ── Email verification step (register) ─────────────────────────────────── */
+.code-input {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 14px;
+  padding-left: 14px; /* offset letter-spacing so text stays centered */
+  color: var(--green);
+}
+.code-input::placeholder { color: var(--text-3); letter-spacing: 10px; }
+
+.verify-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 18px;
+}
+.link-btn {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: var(--t-fast);
+}
+.link-btn:hover:not(:disabled) { color: var(--green); }
+.link-btn:disabled { color: var(--text-3); cursor: not-allowed; }
+
+.dev-code-hint {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--gold);
+  background: var(--gold-dim);
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+}
+.dev-code-hint strong { color: var(--gold); font-family: var(--font-mono); letter-spacing: 2px; }
