@@ -50,6 +50,9 @@ try {
   }
 } catch (e) { /* nodemailer not installed — falls back to dev code in response */ }
 
+// Startup diagnostic — confirms whether email creds were loaded from .env
+console.log('Email configured:', !!mailer, '| EMAIL_USER set:', !!process.env.EMAIL_USER);
+
 // In-memory pending registrations: email -> { name, email, passwordHash, code, expiresAt, lastSent }
 const pendingVerifications = new Map();
 const VERIFY_TTL = 10 * 60 * 1000; // 10 minutes
