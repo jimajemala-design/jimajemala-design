@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = '2.1.0';
+const VERSION = 'v1';
 const CACHE_NAME = 'nutrifell-' + VERSION;
 
 const STATIC_ASSETS = [

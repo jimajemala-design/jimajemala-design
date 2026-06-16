@@ -22,7 +22,7 @@ try {
 } catch (e) { /* SDK not installed or no key — fall back to built-in assistant */ }
 
 // ─── Data storage (server-side JSON files) ──────────────────────────────
-const JWT_SECRET = process.env.JWT_SECRET || 'nutribase-georgia-secret-key-2035';
+const JWT_SECRET = process.env.JWT_SECRET || 'nutrifell-georgia-secret-key-2035';
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const FRIDGES_FILE = path.join(DATA_DIR, 'fridges.json');
