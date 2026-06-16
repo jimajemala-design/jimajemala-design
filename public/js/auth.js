@@ -219,6 +219,7 @@ function _buildSidebar(user) {
           <a class="nb-nav-item" href="/#gallery">🥗 Food Database</a>
           <a class="nb-nav-item" href="/fridge.html">🧊 My Fridge</a>
           <a class="nb-nav-item" href="/profile-view.html">👤 My Profile</a>
+          <a class="nb-nav-item" href="/pricing.html">💎 Pricing</a>
           <div class="nb-nav-item nb-nav-disabled">⚙️ Settings <span class="nb-soon">Soon</span></div>
         </nav>
         <div class="nb-sidebar-foot" id="nbSidebarFoot"></div>

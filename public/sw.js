@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = '2.0.0';
-const CACHE_NAME = 'nutribase-' + VERSION;
+const VERSION = '2.1.0';
+const CACHE_NAME = 'nutrifell-' + VERSION;
 
 const STATIC_ASSETS = [
   '/',
@@ -11,12 +11,15 @@ const STATIC_ASSETS = [
   '/register.html',
   '/profile.html',
   '/profile-view.html',
+  '/pricing.html',
   '/css/style.css',
   '/css/auth.css',
+  '/css/pricing.css',
   '/js/app.js',
   '/js/scene.js',
   '/js/fridge.js',
   '/js/auth.js',
+  '/js/pricing.js',
   '/manifest.json',
 ];
 

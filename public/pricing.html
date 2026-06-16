@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="NutriFell pricing — choose the plan that fits your goals. Free forever, or upgrade for unlimited AI meal planning and progress tracking." />
+  <title>Pricing — NutriFell</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
+  <link rel="stylesheet" href="/css/pricing.css" />
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#22c55e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NutriFell">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+</head>
+<body>
+  <header class="navbar" id="navbar">
+    <div class="nb-inner">
+      <button class="nb-hamburger" id="nbHamburger" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <a class="nb-logo" href="/">Nutri<span>Fell</span></a>
+      <div class="nb-right" id="navRight"></div>
+    </div>
+  </header>
+
+  <main class="app-page">
+    <div class="mesh-gradient" aria-hidden="true"></div>
+
+    <!-- HEADER -->
+    <div class="pricing-header">
+      <div class="pricing-eyebrow"><span class="eyebrow-pulse"></span> Plans &amp; Pricing</div>
+      <h1>Fuel your goals with <em>NutriFell</em></h1>
+      <p>Start free and explore 74 foods in 3D. Upgrade anytime for unlimited AI meal planning, progress tracking, and more.</p>
+    </div>
+
+    <!-- BILLING TOGGLE -->
+    <div class="billing-toggle">
+      <span class="bt-label active" id="lblMonthly">Monthly</span>
+      <button class="bt-switch" id="billingSwitch" role="switch" aria-checked="false" aria-label="Toggle annual billing"></button>
+      <span class="bt-label" id="lblAnnual">Annual</span>
+      <span class="bt-save">Save ~22%</span>
+    </div>
+
+    <!-- PLANS -->
+    <section class="plan-grid" aria-label="Subscription plans">
+
+      <!-- FREE -->
+      <article class="plan-card" data-plan="free">
+        <div class="plan-name">Explorer</div>
+        <div class="plan-tag">Everything you need to start eating smarter.</div>
+        <div class="plan-price">
+          <span class="currency">$</span>
+          <span class="amount" data-monthly="0" data-annual="0">0</span>
+          <span class="period">/mo</span>
+        </div>
+        <div class="plan-billed">Free forever</div>
+        <button class="btn-outline plan-cta" data-action="subscribe" data-plan="free">Get Started</button>
+        <div class="plan-features">
+          <div class="plan-feat"><span class="ck">✓</span><span>Browse all <b>74 foods</b> in real-time 3D</span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span>Calorie &amp; macro calculator</span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span>Virtual fridge — up to <b>15 items</b></span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span><b>5</b> NutriAI messages / day</span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span>Daily meal logging</span></div>
+        </div>
+      </article>
+
+      <!-- PRO (featured) -->
+      <article class="plan-card featured" data-plan="pro">
+        <div class="plan-badge">Most Popular</div>
+        <div class="plan-name">Nutritionist</div>
+        <div class="plan-tag">Unlimited AI planning for serious progress.</div>
+        <div class="plan-price">
+          <span class="currency">$</span>
+          <span class="amount" data-monthly="9" data-annual="7">9</span>
+          <span class="period">/mo</span>
+        </div>
+        <div class="plan-billed" data-annual-total="$84 billed annually">&nbsp;</div>
+        <button class="btn-primary plan-cta" data-action="subscribe" data-plan="pro">Upgrade to Pro</button>
+        <div class="plan-features">
+          <div class="plan-feat"><span class="ck">✓</span><span>Everything in <b>Explorer</b></span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span><b>Unlimited</b> fridge items</span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span>AI-generated meal plans</span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span><b>Unlimited</b> NutriAI chat</span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span>Weekly progress &amp; weight prediction</span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span>Personalized macro targets</span></div>
+        </div>
+      </article>
+
+      <!-- PREMIUM -->
+      <article class="plan-card" data-plan="premium">
+        <div class="plan-name">Elite</div>
+        <div class="plan-tag">Power features for households &amp; pros.</div>
+        <div class="plan-price">
+          <span class="currency">$</span>
+          <span class="amount" data-monthly="19" data-annual="15">19</span>
+          <span class="period">/mo</span>
+        </div>
+        <div class="plan-billed" data-annual-total="$180 billed annually">&nbsp;</div>
+        <button class="btn-outline plan-cta" data-action="subscribe" data-plan="premium">Go Elite</button>
+        <div class="plan-features">
+          <div class="plan-feat"><span class="ck">✓</span><span>Everything in <b>Nutritionist</b></span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span><b>Priority AI</b> — advanced model, faster replies</span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span>Custom recipes &amp; meal-plan exports</span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span>Family sharing — up to <b>5 profiles</b></span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span>Early access to new 3D models &amp; features</span></div>
+          <div class="plan-feat"><span class="ck">✓</span><span>Priority support</span></div>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- TRUST + FAQ -->
+    <div class="pricing-foot">
+      <div class="pricing-trust">
+        <span>🔒 Secure payments</span>
+        <span>↩️ Cancel anytime</span>
+        <span>✦ No hidden fees</span>
+      </div>
+
+      <div class="faq">
+        <div class="faq-item">
+          <h3>Can I switch plans later?</h3>
+          <p>Yes — upgrade, downgrade, or cancel at any time. Changes take effect at your next billing cycle and unused time is prorated.</p>
+        </div>
+        <div class="faq-item">
+          <h3>What happens to my data if I downgrade?</h3>
+          <p>Your fridge, logs, and profile stay intact. You'll simply return to the Explorer plan's limits until you upgrade again.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Is the Free plan really free?</h3>
+          <p>Absolutely. Explorer is free forever — no credit card required. Paid plans just unlock unlimited AI and advanced tracking.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/pricing.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(() => console.log('SW registered'))
+          .catch(err => console.log('SW failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>

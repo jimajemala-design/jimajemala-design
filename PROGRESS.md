@@ -60,9 +60,14 @@ assistant.
 
 ## Roadmap (next up)
 1. ~~**Rebrand**~~ — ✅ done: renamed "NutriBase Georgia" → **NutriFell**.
-2. **Pricing / subscription plans page** — tiered plans. ← next
-3. **Stripe payment integration** — checkout + subscription handling
-   (test-mode/placeholder keys first; real keys added later).
+2. ~~**Pricing / subscription plans page**~~ — ✅ done. `/pricing.html` with 3
+   tiers (Explorer Free / Nutritionist Pro / Elite Premium), monthly⇄annual
+   toggle, and a nav link. Subscribe buttons are stubbed (toast) pending Stripe.
+   Files: `public/pricing.html`, `public/css/pricing.css`, `public/js/pricing.js`.
+   Placeholder prices: Pro $9/mo ($7 annual), Elite $19/mo ($15 annual).
+3. **Stripe payment integration** — checkout + subscription handling ← next
+   (test-mode/placeholder keys first; real keys added later). Wire the stubbed
+   buttons in `pricing.js` (`[data-action="subscribe"]`) to a checkout flow.
 4. **Social media assets** — promo imagery/video (leverage `remotion/`).
 
 ### Later / backlog
