@@ -1,10 +1,8 @@
-/* pricing.js — billing toggle + (stubbed) subscribe actions
-   Stripe checkout is wired up in a later step; for now paid plans show a
-   "coming soon" toast and the selected plan/billing is logged for dev. */
+/* pricing.js — billing toggle + Stripe Checkout subscribe actions */
 'use strict';
 
 (function () {
-  const PLAN_NAMES = { free: 'Explorer', pro: 'Nutritionist', premium: 'Elite' };
+  const PLAN_NAMES = { free: 'Explorer', pro: 'Nutritionist', elite: 'Elite' };
 
   let annual = false;
 
@@ -15,16 +13,11 @@
   const billedLines = document.querySelectorAll('.plan-billed[data-annual-total]');
 
   function applyBilling() {
-    // Prices
-    amounts.forEach(el => {
-      el.textContent = annual ? el.dataset.annual : el.dataset.monthly;
-    });
-    // Annual "billed $X/yr" sublines (paid plans only)
+    amounts.forEach(el => { el.textContent = annual ? el.dataset.annual : el.dataset.monthly; });
     billedLines.forEach(el => {
       if (annual) { el.textContent = el.dataset.annualTotal; el.classList.add('show-annual'); }
       else { el.innerHTML = '&nbsp;'; el.classList.remove('show-annual'); }
     });
-    // Toggle UI state
     switchEl.classList.toggle('annual', annual);
     switchEl.setAttribute('aria-checked', String(annual));
     lblMonthly.classList.toggle('active', !annual);
@@ -39,28 +32,62 @@
     lblAnnual.addEventListener('click', () => { if (!annual) toggleBilling(); });
   }
 
-  // Subscribe / Get Started buttons
+  // ── Subscribe / Get Started ────────────────────────────────────────────
+  async function startCheckout(btn, plan) {
+    const label = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Redirecting…';
+    try {
+      const billing = annual ? 'annual' : 'monthly';
+      const { sessionUrl } = await Auth.api('/api/checkout/create-session', {
+        method: 'POST',
+        body: JSON.stringify({ plan, billing }),
+      });
+      if (sessionUrl) { window.location.href = sessionUrl; return; }
+      throw new Error('Could not start checkout');
+    } catch (err) {
+      if (typeof toast === 'function') toast(err.message || 'Checkout failed', 'error', 4000);
+      btn.disabled = false;
+      btn.innerHTML = label;
+    }
+  }
+
   document.querySelectorAll('[data-action="subscribe"]').forEach(btn => {
     btn.addEventListener('click', () => {
       const plan = btn.dataset.plan;
+      const authed = window.Auth && Auth.isAuthed();
 
       if (plan === 'free') {
-        // Free plan: send to sign-up (or the app if already logged in)
-        location.href = (window.Auth && Auth.isAuthed()) ? '/fridge.html' : '/register.html';
+        location.href = authed ? '/fridge.html' : '/register.html';
         return;
       }
-
-      // Paid plan — Stripe checkout placeholder
-      const billing = annual ? 'annual' : 'monthly';
-      console.log('[checkout] selected plan:', plan, 'billing:', billing); // wired to Stripe later
-      const name = PLAN_NAMES[plan] || plan;
-      if (typeof toast === 'function') {
-        toast(`💳 ${name} (${billing}) checkout is coming soon — payments launch shortly!`, 'success', 4000);
-      } else {
-        alert(`${name} (${billing}) checkout coming soon!`);
+      if (!authed) {
+        if (typeof toast === 'function') toast('Please log in to subscribe', 'info', 2600);
+        setTimeout(() => { location.href = '/login.html'; }, 900);
+        return;
       }
+      startCheckout(btn, plan);
     });
   });
 
+  // ── Reflect the user's current plan ────────────────────────────────────
+  async function markCurrentPlan() {
+    if (!(window.Auth && Auth.isAuthed())) return;
+    try {
+      const { plan } = await Auth.api('/api/subscription/status');
+      const current = plan || 'free';
+      document.querySelectorAll('.plan-card[data-plan]').forEach(card => {
+        if (card.dataset.plan !== current) return;
+        const btn = card.querySelector('[data-action="subscribe"]');
+        if (!btn) return;
+        btn.textContent = 'Current Plan';
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'default';
+      });
+    } catch { /* not logged in or status unavailable — ignore */ }
+  }
+
   applyBilling();
+  markCurrentPlan();
 })();

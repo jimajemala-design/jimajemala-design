@@ -9,7 +9,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
+// The Stripe webhook needs the raw request body for signature verification,
+// so JSON parsing is skipped for that one route (it uses express.raw instead).
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/webhook/stripe') return next();
+  express.json()(req, res, next);
+});
 
 // Google Gemini — primary AI provider for the nutrition chat assistant
 let genAI = null;
@@ -20,6 +25,20 @@ try {
     genAI = new GoogleGenerativeAI(key);
   }
 } catch (e) { /* SDK not installed or no key — fall back to built-in assistant */ }
+
+// ─── Stripe (subscription payments) ──────────────────────────────────────
+let stripe = null;
+try {
+  if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.startsWith('sk_')) {
+    stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  }
+} catch (e) { /* stripe SDK not installed — payment routes return 503 */ }
+
+// plan + billing cycle → Stripe Price ID (created via scripts/setup-stripe-prices.js)
+const STRIPE_PRICES = {
+  pro:   { monthly: process.env.STRIPE_PRICE_PRO_MONTHLY,   annual: process.env.STRIPE_PRICE_PRO_ANNUAL },
+  elite: { monthly: process.env.STRIPE_PRICE_ELITE_MONTHLY, annual: process.env.STRIPE_PRICE_ELITE_ANNUAL },
+};
 
 // ─── Data storage (server-side JSON files) ──────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET || 'nutrifell-georgia-secret-key-2035';
@@ -1972,6 +1991,141 @@ app.post('/api/ai/chat', auth, async (req, res) => {
   } catch (err) {
     res.json({ reply: fallbackReply(message, user, fridge, cal), fallback: true, note: 'AI service temporarily unavailable' });
   }
+});
+
+// ─── STRIPE SUBSCRIPTIONS ───────────────────────────────────────────────
+function updateUserSub(userId, fields) {
+  if (!userId) return;
+  const users = readJSON(USERS_FILE);
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) return;
+  users[idx] = { ...users[idx], ...fields };
+  writeJSON(USERS_FILE, users);
+}
+function findUserByStripe(customerId, subId) {
+  const users = readJSON(USERS_FILE);
+  return users.find(u =>
+    (subId && u.stripeSubscriptionId === subId) ||
+    (customerId && u.stripeCustomerId === customerId)
+  ) || null;
+}
+
+// Create a Stripe Checkout session for a subscription, return its URL
+app.post('/api/checkout/create-session', auth, async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Payments are not configured on this server.' });
+  const planKey = String((req.body && req.body.plan) || '').toLowerCase();
+  const cycle = (req.body && req.body.billing) === 'annual' ? 'annual' : 'monthly';
+  const priceId = STRIPE_PRICES[planKey] && STRIPE_PRICES[planKey][cycle];
+  if (!priceId) return res.status(400).json({ error: 'Invalid plan or billing cycle' });
+
+  const users = readJSON(USERS_FILE);
+  const user = users.find(u => u.id === req.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  try {
+    // Reuse this user's Stripe customer, or create one and persist the id
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({ email: user.email, name: user.name, metadata: { userId: user.id } });
+      customerId = customer.id;
+      user.stripeCustomerId = customerId;
+      writeJSON(USERS_FILE, users);
+    }
+
+    const origin = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: customerId,
+      client_reference_id: user.id,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${origin}/fridge.html?upgraded=true`,
+      cancel_url: `${origin}/pricing.html`,
+      metadata: { userId: user.id, plan: planKey, billing: cycle },
+      subscription_data: { metadata: { userId: user.id, plan: planKey } },
+      allow_promotion_codes: true,
+    });
+    res.json({ sessionUrl: session.url });
+  } catch (err) {
+    console.error('Checkout error:', err.message);
+    res.status(500).json({ error: 'Could not start checkout. Please try again.' });
+  }
+});
+
+// Stripe webhook — keeps user plan in sync with subscription lifecycle
+app.post('/api/webhook/stripe', express.raw({ type: '*/*' }), async (req, res) => {
+  if (!stripe) return res.status(503).end();
+  const sig = req.headers['stripe-signature'];
+  const whSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  let event;
+  try {
+    if (whSecret && whSecret.startsWith('whsec_') && !whSecret.includes('replace_me')) {
+      event = stripe.webhooks.constructEvent(req.body, sig, whSecret);
+    } else {
+      // Dev fallback when no verified secret is configured — parse unverified.
+      event = JSON.parse(req.body.toString('utf8'));
+      console.warn('⚠ Stripe webhook signature NOT verified — set STRIPE_WEBHOOK_SECRET for production.');
+    }
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const s = event.data.object;
+        const userId = s.client_reference_id || (s.metadata && s.metadata.userId);
+        const plan = (s.metadata && s.metadata.plan) || 'pro';
+        let validUntil = null, cancelAtPeriodEnd = false;
+        const subId = s.subscription;
+        if (subId) {
+          const sub = await stripe.subscriptions.retrieve(subId);
+          validUntil = sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null;
+          cancelAtPeriodEnd = !!sub.cancel_at_period_end;
+        }
+        updateUserSub(userId, {
+          plan, stripeCustomerId: s.customer, stripeSubscriptionId: subId,
+          planValidUntil: validUntil, cancelAtPeriodEnd,
+        });
+        break;
+      }
+      case 'customer.subscription.updated': {
+        const sub = event.data.object;
+        const user = findUserByStripe(sub.customer, sub.id);
+        if (user) {
+          const active = ['active', 'trialing', 'past_due'].includes(sub.status);
+          const keepPlan = user.plan && user.plan !== 'free' ? user.plan : ((sub.metadata && sub.metadata.plan) || 'pro');
+          updateUserSub(user.id, {
+            plan: active ? keepPlan : 'free',
+            planValidUntil: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : user.planValidUntil,
+            cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+            stripeSubscriptionId: sub.id,
+          });
+        }
+        break;
+      }
+      case 'customer.subscription.deleted': {
+        const sub = event.data.object;
+        const user = findUserByStripe(sub.customer, sub.id);
+        if (user) updateUserSub(user.id, { plan: 'free', planValidUntil: null, cancelAtPeriodEnd: false, stripeSubscriptionId: null });
+        break;
+      }
+    }
+  } catch (err) {
+    console.error('Webhook handler error:', err.message);
+  }
+  res.json({ received: true });
+});
+
+// Current subscription status for the logged-in user
+app.get('/api/subscription/status', auth, (req, res) => {
+  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json({
+    plan: user.plan || 'free',
+    validUntil: user.planValidUntil || null,
+    cancelAtPeriodEnd: !!user.cancelAtPeriodEnd,
+  });
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));

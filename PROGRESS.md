@@ -65,10 +65,20 @@ assistant.
    toggle, and a nav link. Subscribe buttons are stubbed (toast) pending Stripe.
    Files: `public/pricing.html`, `public/css/pricing.css`, `public/js/pricing.js`.
    Placeholder prices: Pro $9/mo ($7 annual), Elite $19/mo ($15 annual).
-3. **Stripe payment integration** — checkout + subscription handling ← next
-   (test-mode/placeholder keys first; real keys added later). Wire the stubbed
-   buttons in `pricing.js` (`[data-action="subscribe"]`) to a checkout flow.
-4. **Social media assets** — promo imagery/video (leverage `remotion/`).
+3. ~~**Stripe payment integration**~~ — ✅ done (test mode). Subscription Checkout
+   wired end-to-end:
+   - `scripts/setup-stripe-prices.js` creates products/prices idempotently
+     (lookup_key based). Price IDs live in `.env` (see `.env.example`).
+   - Endpoints in `server.js`: `POST /api/checkout/create-session`,
+     `POST /api/webhook/stripe` (raw-body signature verify), `GET /api/subscription/status`.
+   - User records gain `plan` (free/pro/elite), `stripeCustomerId`,
+     `stripeSubscriptionId`, `planValidUntil`, `cancelAtPeriodEnd`.
+   - `pricing.js` calls the checkout endpoint and redirects to Stripe; success
+     returns to `/fridge.html?upgraded=true` (celebration); cancel returns to pricing.
+   - **Local webhooks:** run `stripe listen --forward-to localhost:3000/api/webhook/stripe`
+     and put the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET`. Without it, the
+     server parses webhooks UNVERIFIED (dev only) and logs a warning.
+4. **Social media assets** — promo imagery/video (leverage `remotion/`). ← next
 
 ### Later / backlog
 - Add GLB models for the remaining foods.

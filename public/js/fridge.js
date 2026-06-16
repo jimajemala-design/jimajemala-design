@@ -34,6 +34,12 @@
 
   // ── Init ────────────────────────────────────────────────────────────────
   async function init() {
+    // Returning from a successful Stripe Checkout
+    if (new URLSearchParams(location.search).get('upgraded') === 'true') {
+      try { celebrate('💎', 'Welcome aboard!', 'Your subscription is active — enjoy unlimited AI planning and tracking!'); } catch (e) {}
+      toast('Subscription activated — welcome aboard! 🎉', 'success', 4000);
+      history.replaceState({}, '', location.pathname);
+    }
     try {
       foods = await fetch('/api/foods').then(r => r.json());
       const prof = await Auth.api('/api/profile');
