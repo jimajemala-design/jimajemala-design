@@ -236,6 +236,9 @@ function _buildSidebar(user) {
           <a class="nb-nav-item" href="/">🏠 Home</a>
           <a class="nb-nav-item" href="/#gallery">🥗 Food Database</a>
           <a class="nb-nav-item" href="/fridge.html">🧊 My Fridge</a>
+          <a class="nb-nav-item" href="/water.html">💧 Water Tracker</a>
+          <a class="nb-nav-item" href="/quit-smoking.html">🚭 Quit Smoking</a>
+          <a class="nb-nav-item" href="/recipes.html">👨‍🍳 Recipes</a>
           <a class="nb-nav-item" href="/profile-view.html">👤 My Profile</a>
           <a class="nb-nav-item" href="/pricing.html">💎 Pricing</a>
           <div class="nb-nav-item nb-nav-disabled">⚙️ Settings <span class="nb-soon">Soon</span></div>

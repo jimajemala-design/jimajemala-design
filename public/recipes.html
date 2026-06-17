@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Community Recipes — NutriFell</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
+  <link rel="stylesheet" href="/css/features.css" />
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#22c55e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="NutriFell">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+</head>
+<body>
+  <header class="navbar" id="navbar">
+    <div class="nb-inner">
+      <button class="nb-hamburger" id="nbHamburger" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <a class="nb-logo" href="/">Nutri<span>Fell</span></a>
+      <div class="nb-right" id="navRight"></div>
+    </div>
+  </header>
+
+  <main class="app-page">
+    <div class="mesh-gradient" aria-hidden="true"></div>
+
+    <div class="feat-head">
+      <h1>👨‍🍳 Community <em>Recipes</em></h1>
+      <p>Share your healthy recipes with the NutriFell community.</p>
+      <a class="btn-primary" href="/recipe-upload.html" style="margin-top:16px;display:inline-flex">+ Share Recipe</a>
+    </div>
+
+    <div class="feat-wrap">
+      <div class="rcp-toolbar">
+        <div class="rcp-search"><input class="form-input" id="searchInput" type="text" placeholder="Search recipes, ingredients, tags…" /></div>
+        <div class="rcp-sort">
+          <select class="form-select" id="sortSelect">
+            <option value="reacted">Most Reacted</option>
+            <option value="newest">Newest</option>
+            <option value="top">Top Rated</option>
+            <option value="comments">Most Commented</option>
+          </select>
+        </div>
+      </div>
+      <div class="rcp-tabs" id="catTabs"></div>
+
+      <div id="grid" class="rcp-grid" style="margin-top:22px"></div>
+      <div id="emptyState" class="feat-empty" style="display:none">
+        <div class="big">🍳</div>No recipes yet. Be the first to <a href="/recipe-upload.html" style="color:var(--green)">share one</a>!
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/recipes.js"></script>
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}</script>
+</body>
+</html>

@@ -88,6 +88,11 @@ async function sendVerificationEmail(to, code) {
   return true;
 }
 
+// ─── File uploads (Multer + optional Sharp resize) ──────────────────────
+let multer = null, sharp = null;
+try { multer = require('multer'); } catch (e) { /* uploads disabled until installed */ }
+try { sharp = require('sharp'); } catch (e) { /* resize skipped if unavailable */ }
+
 // ─── Data storage (server-side JSON files) ──────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET || 'nutrifell-georgia-secret-key-2035';
 const DATA_DIR = path.join(__dirname, 'data');
@@ -95,9 +100,19 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const FRIDGES_FILE = path.join(DATA_DIR, 'fridges.json');
 const MEALPLANS_FILE = path.join(DATA_DIR, 'mealplans.json');
 const LOGS_FILE = path.join(DATA_DIR, 'logs.json');
+const WATER_FILE = path.join(DATA_DIR, 'water.json');
+const SMOKING_FILE = path.join(DATA_DIR, 'smoking.json');
+const RECIPES_FILE = path.join(DATA_DIR, 'recipes.json');
+const COMMENTS_FILE = path.join(DATA_DIR, 'comments.json');
+const REACTIONS_FILE = path.join(DATA_DIR, 'reactions.json');
+const BOOKMARKS_FILE = path.join(DATA_DIR, 'bookmarks.json');
+const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
+const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads', 'recipes');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE, LOGS_FILE]) {
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE, LOGS_FILE, WATER_FILE,
+  SMOKING_FILE, RECIPES_FILE, COMMENTS_FILE, REACTIONS_FILE, BOOKMARKS_FILE, REPORTS_FILE]) {
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf8');
 }
 const readJSON = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8') || '[]'); } catch { return []; } };
@@ -2238,6 +2253,640 @@ app.get('/api/subscription/status', auth, (req, res) => {
     validUntil: user.planValidUntil || null,
     cancelAtPeriodEnd: !!user.cancelAtPeriodEnd,
   });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  WATER TRACKER
+// ═══════════════════════════════════════════════════════════════════════
+const GLASS_ML = 250;
+const today = () => new Date().toISOString().slice(0, 10);
+
+// Recommended daily water = weight(kg) × 0.033 L → ml. Falls back to 2000ml.
+function waterGoalFor(user) {
+  if (user && user.waterGoalMl) return Math.round(user.waterGoalMl);          // manual override
+  if (user && user.weight) return Math.round(Number(user.weight) * 33);        // 0.033 L per kg
+  return 2000;
+}
+
+function waterSummary(userId) {
+  const user = readJSON(USERS_FILE).find(u => u.id === userId);
+  const goalMl = waterGoalFor(user);
+  const all = readJSON(WATER_FILE).filter(w => w.userId === userId);
+  const t = today();
+  const todays = all.filter(w => w.date === t).sort((a, b) => a.at.localeCompare(b.at));
+  const consumedMl = todays.reduce((s, w) => s + w.ml, 0);
+  return {
+    goalMl, goalL: +(goalMl / 1000).toFixed(2), glassSize: GLASS_ML,
+    goalGlasses: Math.round(goalMl / GLASS_ML),
+    consumedMl, consumedL: +(consumedMl / 1000).toFixed(2),
+    glassesDone: +(consumedMl / GLASS_ML).toFixed(1),
+    glassesRemaining: Math.max(0, Math.ceil((goalMl - consumedMl) / GLASS_ML)),
+    percent: goalMl ? Math.round((consumedMl / goalMl) * 100) : 0,
+    entries: todays,
+    autoGoal: !(user && user.waterGoalMl),
+    weight: user ? user.weight : null,
+  };
+}
+
+app.get('/api/water/today', auth, (req, res) => res.json(waterSummary(req.userId)));
+
+app.post('/api/water/add', auth, (req, res) => {
+  const ml = Math.round(Number(req.body && req.body.ml));
+  if (!ml || ml <= 0 || ml > 5000) return res.status(400).json({ error: 'Enter a valid amount (1–5000 ml)' });
+  const all = readJSON(WATER_FILE);
+  const now = new Date();
+  const entry = { id: uuidv4(), userId: req.userId, ml, date: today(), at: now.toISOString() };
+  all.push(entry);
+  writeJSON(WATER_FILE, all);
+  res.status(201).json({ entry, summary: waterSummary(req.userId) });
+});
+
+app.delete('/api/water/:id', auth, (req, res) => {
+  let all = readJSON(WATER_FILE);
+  const before = all.length;
+  all = all.filter(w => !(w.id === req.params.id && w.userId === req.userId));
+  if (all.length === before) return res.status(404).json({ error: 'Entry not found' });
+  writeJSON(WATER_FILE, all);
+  res.json({ success: true, summary: waterSummary(req.userId) });
+});
+
+// Override the daily goal (manual). Pass goalMl=0/null to revert to auto.
+app.post('/api/water/goal', auth, (req, res) => {
+  const users = readJSON(USERS_FILE);
+  const idx = users.findIndex(u => u.id === req.userId);
+  if (idx === -1) return res.status(404).json({ error: 'User not found' });
+  const raw = req.body && req.body.goalMl;
+  const goalMl = raw == null || raw === '' || Number(raw) <= 0 ? null : Math.round(Number(raw));
+  if (goalMl != null && (goalMl < 500 || goalMl > 8000)) return res.status(400).json({ error: 'Goal must be 0.5–8 L' });
+  users[idx].waterGoalMl = goalMl;
+  writeJSON(USERS_FILE, users);
+  res.json(waterSummary(req.userId));
+});
+
+app.get('/api/water/history', auth, (req, res) => {
+  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+  const goalMl = waterGoalFor(user);
+  const all = readJSON(WATER_FILE).filter(w => w.userId === req.userId);
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    const totalMl = all.filter(w => w.date === d).reduce((s, w) => s + w.ml, 0);
+    days.push({
+      date: d, totalMl, goalMl,
+      percent: goalMl ? Math.round((totalMl / goalMl) * 100) : 0,
+      onTrack: totalMl >= goalMl,
+    });
+  }
+  res.json({ goalMl, days });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  QUIT SMOKING TRACKER
+// ═══════════════════════════════════════════════════════════════════════
+// Health recovery milestones (minutes after the quit moment)
+const SMOKING_MILESTONES = [
+  { key: '20min', minutes: 20,            title: '20 Minutes',  desc: 'Heart rate and blood pressure drop.' },
+  { key: '12hr',  minutes: 12 * 60,       title: '12 Hours',    desc: 'Carbon monoxide levels normalize.' },
+  { key: '24hr',  minutes: 24 * 60,       title: '24 Hours',    desc: 'Heart attack risk begins to decrease.' },
+  { key: '48hr',  minutes: 48 * 60,       title: '48 Hours',    desc: 'Nerve endings regrow; smell and taste improve.' },
+  { key: '2wk',   minutes: 14 * 1440,     title: '2 Weeks',     desc: 'Circulation improves; lung function increases.' },
+  { key: '1mo',   minutes: 30 * 1440,     title: '1 Month',     desc: 'Coughing and shortness of breath decrease.' },
+  { key: '3mo',   minutes: 90 * 1440,     title: '3 Months',    desc: 'Lung function improves up to 30%.' },
+  { key: '6mo',   minutes: 180 * 1440,    title: '6 Months',    desc: 'Stress levels lower than when smoking.' },
+  { key: '1yr',   minutes: 365 * 1440,    title: '1 Year',      desc: 'Heart disease risk cut in half.' },
+  { key: '5yr',   minutes: 5 * 365 * 1440,  title: '5 Years',   desc: 'Stroke risk same as a non-smoker.' },
+  { key: '10yr',  minutes: 10 * 365 * 1440, title: '10 Years',  desc: 'Lung cancer risk cut in half.' },
+  { key: '15yr',  minutes: 15 * 365 * 1440, title: '15 Years',  desc: 'Heart disease risk same as a non-smoker.' },
+];
+// Achievement badges (days smoke-free)
+const SMOKING_BADGES = [
+  { key: 'day1',  days: 1,   icon: '🥉', title: 'First 24 Hours', desc: 'Survived one full day.' },
+  { key: 'week1', days: 7,   icon: '🥈', title: 'One Week Warrior', desc: '7 days smoke-free.' },
+  { key: 'month', days: 30,  icon: '🥇', title: 'Month Master', desc: '30 days smoke-free.' },
+  { key: 'q',     days: 90,  icon: '💎', title: 'Quarter Champion', desc: '90 days smoke-free.' },
+  { key: 'half',  days: 180, icon: '👑', title: 'Half Year Hero', desc: '180 days smoke-free.' },
+  { key: 'year',  days: 365, icon: '🏆', title: 'Year Legend', desc: '365 days smoke-free.' },
+];
+
+const getSmokingRec = (userId) => readJSON(SMOKING_FILE).find(s => s.userId === userId) || null;
+
+function smokingStats(rec) {
+  if (!rec) return null;
+  const quitMs = new Date(rec.quitDate).getTime();
+  const now = Date.now();
+  const elapsedMin = Math.max(0, (now - quitMs) / 60000);
+  const days = elapsedMin / 1440;
+  const cigsNotSmoked = Math.floor(days * rec.cigsPerDay);
+  const moneySaved = +((cigsNotSmoked / rec.cigsPerPack) * rec.pricePerPack).toFixed(2);
+  const lifeMinutes = cigsNotSmoked * 11; // ~11 min of life per cigarette
+  const healthScore = Math.min(100, Math.round(100 * (1 - Math.exp(-days / 30))));
+  const milestones = SMOKING_MILESTONES.map(m => {
+    const reachedAt = new Date(quitMs + m.minutes * 60000);
+    return { ...m, reached: elapsedMin >= m.minutes, reachedAt: reachedAt.toISOString(), current: false };
+  });
+  // mark the first not-yet-reached milestone as the "current" one being worked toward
+  const nextIdx = milestones.findIndex(m => !m.reached);
+  if (nextIdx !== -1) milestones[nextIdx].current = true;
+  const cravingsSurvived = (rec.cravings || []).length;
+  const badges = SMOKING_BADGES.map(b => ({ ...b, unlocked: days >= b.days,
+    unlockAt: new Date(quitMs + b.days * 1440 * 60000).toISOString() }));
+  return {
+    quitDate: rec.quitDate, cigsPerDay: rec.cigsPerDay, cigsPerPack: rec.cigsPerPack,
+    pricePerPack: rec.pricePerPack, currency: rec.currency || '$', brand: rec.brand || '',
+    motivation: rec.motivation || '',
+    daysQuit: +days.toFixed(2), cigsNotSmoked, moneySaved,
+    lifeMinutes, lifeHours: +(lifeMinutes / 60).toFixed(1),
+    healthScore, milestones, badges, cravingsSurvived,
+  };
+}
+
+app.get('/api/smoking/stats', auth, (req, res) => {
+  const rec = getSmokingRec(req.userId);
+  if (!rec) return res.json({ setup: false });
+  res.json({ setup: true, ...smokingStats(rec) });
+});
+
+app.post('/api/smoking/setup', auth, (req, res) => {
+  const b = req.body || {};
+  const quitDate = b.quitDate ? new Date(b.quitDate) : null;
+  const cigsPerDay = Number(b.cigsPerDay);
+  const pricePerPack = Number(b.pricePerPack);
+  const cigsPerPack = Number(b.cigsPerPack) || 20;
+  if (!quitDate || isNaN(quitDate.getTime())) return res.status(400).json({ error: 'A valid quit date is required' });
+  if (!cigsPerDay || cigsPerDay <= 0) return res.status(400).json({ error: 'Enter cigarettes per day' });
+  if (!pricePerPack || pricePerPack <= 0) return res.status(400).json({ error: 'Enter the price per pack' });
+
+  const all = readJSON(SMOKING_FILE);
+  const idx = all.findIndex(s => s.userId === req.userId);
+  const existing = idx !== -1 ? all[idx] : null;
+  const rec = {
+    userId: req.userId,
+    quitDate: quitDate.toISOString(),
+    cigsPerDay, pricePerPack, cigsPerPack,
+    brand: b.brand ? String(b.brand).trim() : '',
+    currency: b.currency ? String(b.currency).trim().slice(0, 4) : '$',
+    motivation: b.motivation ? String(b.motivation).trim() : '',
+    cravings: existing ? existing.cravings || [] : [],
+    createdAt: existing ? existing.createdAt : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  if (idx === -1) all.push(rec); else all[idx] = rec;
+  writeJSON(SMOKING_FILE, all);
+  res.json({ setup: true, ...smokingStats(rec) });
+});
+
+app.post('/api/smoking/craving', auth, (req, res) => {
+  const all = readJSON(SMOKING_FILE);
+  const idx = all.findIndex(s => s.userId === req.userId);
+  if (idx === -1) return res.status(400).json({ error: 'Set up your quit plan first' });
+  all[idx].cravings = all[idx].cravings || [];
+  all[idx].cravings.push({ id: uuidv4(), at: new Date().toISOString(), note: (req.body && req.body.note) || '' });
+  writeJSON(SMOKING_FILE, all);
+  res.status(201).json({ cravingsSurvived: all[idx].cravings.length });
+});
+
+app.get('/api/smoking/cravings', auth, (req, res) => {
+  const rec = getSmokingRec(req.userId);
+  res.json(rec && rec.cravings ? rec.cravings.slice().reverse() : []);
+});
+
+// AI quit-smoking support chat (Gemini with CBT-flavoured context, rule-based fallback)
+function smokingFallback(message, st) {
+  const m = String(message).toLowerCase();
+  if (/craving|urge|want.*smoke|need.*cig/.test(m)) {
+    return `This craving will pass in 3–5 minutes — it always does. Right now: sip a glass of water slowly, take 5 deep breaths, and step outside or do 10 pushups. You've already avoided ${st ? st.cigsNotSmoked : 'many'} cigarettes — don't hand one back. You've got this. 💪`;
+  }
+  if (/money|saved|cost/.test(m)) {
+    return st ? `You've saved ${st.currency}${st.moneySaved} so far by not buying ${st.cigsNotSmoked} cigarettes. That money is yours now — picture what you'll do with it.` : `Set up your plan and I'll show you exactly how much you've saved.`;
+  }
+  if (/give up|relapse|slip|failed|weak/.test(m)) {
+    return `One slip doesn't erase your progress${st ? ` — you've been mostly smoke-free for ${Math.floor(st.daysQuit)} days` : ''}. Be kind to yourself, identify the trigger, and recommit right now. Quitting is a skill you're learning, not a pass/fail test.`;
+  }
+  return st
+    ? `You've been smoke-free and avoided ${st.cigsNotSmoked} cigarettes — that's real progress. Remember why you started${st.motivation ? `: "${st.motivation}"` : ''}. What's on your mind right now?`
+    : `I'm here to support your quit journey. Tell me what you're feeling, or tap the craving button if you need help right now.`;
+}
+
+app.post('/api/smoking/chat', auth, async (req, res) => {
+  const { message, history } = req.body || {};
+  if (!message || !String(message).trim()) return res.status(400).json({ error: 'Message is required' });
+  const rec = getSmokingRec(req.userId);
+  const st = rec ? smokingStats(rec) : null;
+  if (!genAI) return res.json({ reply: smokingFallback(message, st), fallback: true });
+  try {
+    const ctx = st ? `The user quit smoking. Days smoke-free: ${Math.floor(st.daysQuit)}. Cigarettes avoided: ${st.cigsNotSmoked}. Money saved: ${st.currency}${st.moneySaved}. Cravings they've already beaten: ${st.cravingsSurvived}. Their motivation for quitting: "${st.motivation || 'not stated'}".` : 'The user has not set up their quit plan yet.';
+    const model = genAI.getGenerativeModel({
+      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+      systemInstruction: `You are a warm, encouraging quit-smoking coach for NutriFell. Use Cognitive Behavioral Therapy (CBT) techniques and practical craving-management strategies. Be supportive, never judgmental. Keep replies short, concrete and actionable. Celebrate progress. If the user mentions a craving, give an immediate 3–5 minute coping plan. Never give medical diagnoses; suggest a doctor for medication questions.\n\n${ctx}`,
+    });
+    const prior = Array.isArray(history) ? history.slice(-10) : [];
+    const convo = prior.map(h => `${h.role === 'assistant' ? 'Coach' : 'User'}: ${String(h.content)}`).join('\n');
+    const prompt = (convo ? convo + '\n' : '') + 'User: ' + String(message);
+    const result = await model.generateContent(prompt);
+    const reply = (result.response.text() || '').trim();
+    res.json({ reply: reply || smokingFallback(message, st) });
+  } catch (err) {
+    res.json({ reply: smokingFallback(message, st), fallback: true });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  COMMUNITY RECIPES
+// ═══════════════════════════════════════════════════════════════════════
+const REACTION_EMOJIS = ['❤️', '😍', '🔥', '👏', '😋', '🤩'];
+const RECIPE_CATEGORIES = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Drinks', 'Desserts'];
+
+// Multer: in-memory, 5MB/file, images only
+const recipeUpload = multer
+  ? multer({
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024, files: 5 },
+      fileFilter: (req, file, cb) => {
+        cb(/^image\/(jpe?g|png|webp)$/.test(file.mimetype) ? null : new Error('Only JPG, PNG or WebP images allowed'), true);
+      },
+    })
+  : { array: () => (req, res, next) => next() }; // no-op if multer missing
+
+// Persist uploaded buffers → /uploads/recipes/*.webp (resized to ≤1200px when sharp is available)
+async function saveRecipePhotos(files) {
+  const urls = [];
+  for (const file of files || []) {
+    const base = `${Date.now()}-${uuidv4().slice(0, 8)}`;
+    if (sharp) {
+      const name = `${base}.webp`;
+      await sharp(file.buffer).rotate().resize({ width: 1200, withoutEnlargement: true })
+        .webp({ quality: 82 }).toFile(path.join(UPLOADS_DIR, name));
+      urls.push(`/uploads/recipes/${name}`);
+    } else {
+      const ext = (file.mimetype.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+      const name = `${base}.${ext}`;
+      fs.writeFileSync(path.join(UPLOADS_DIR, name), file.buffer);
+      urls.push(`/uploads/recipes/${name}`);
+    }
+  }
+  return urls;
+}
+
+// Compute total + per-serving nutrition by matching ingredients to the food DB
+function computeRecipeNutrition(ingredients, servings) {
+  const tot = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+  let matched = 0;
+  for (const ing of ingredients || []) {
+    const food = foods.find(f => f.id === ing.foodId) || (ing.name ? foods.find(f => f.id === matchFoodId(ing.name)) : null);
+    const grams = Number(ing.grams) || 0;
+    if (!food || !grams) continue;
+    matched++;
+    const factor = grams / 100;
+    tot.calories += (food.calories || 0) * factor;
+    tot.protein += (food.nutrition.protein || 0) * factor;
+    tot.carbs += (food.nutrition.carbs || 0) * factor;
+    tot.fat += (food.nutrition.fat || 0) * factor;
+    tot.fiber += (food.nutrition.fiber || 0) * factor;
+  }
+  const s = Math.max(1, Number(servings) || 1);
+  const per = (v) => +(v / s).toFixed(1);
+  return {
+    matched,
+    total: { calories: Math.round(tot.calories), protein: +tot.protein.toFixed(1), carbs: +tot.carbs.toFixed(1), fat: +tot.fat.toFixed(1), fiber: +tot.fiber.toFixed(1) },
+    perServing: { calories: Math.round(tot.calories / s), protein: per(tot.protein), carbs: per(tot.carbs), fat: per(tot.fat), fiber: per(tot.fiber) },
+  };
+}
+
+// Aggregate reactions/ratings/comments + compute the ranking score for a recipe
+function decorateRecipe(r, allReactions, allComments, allRatings) {
+  const reactions = allReactions.filter(x => x.recipeId === r.id);
+  const counts = {};
+  for (const e of REACTION_EMOJIS) counts[e] = 0;
+  reactions.forEach(x => { if (counts[x.emoji] != null) counts[x.emoji]++; });
+  const totalReactions = reactions.length;
+  const ratings = (r.ratings || []);
+  const avgRating = ratings.length ? +(ratings.reduce((s, x) => s + x.value, 0) / ratings.length).toFixed(1) : 0;
+  const commentCount = allComments.filter(c => c.recipeId === r.id).length;
+  const daysSince = (Date.now() - new Date(r.createdAt).getTime()) / 86400000;
+  const recencyScore = Math.max(0, 30 - daysSince);
+  const score = totalReactions * 1 + avgRating * 20 + commentCount * 2 + recencyScore;
+  const topReactions = Object.entries(counts).filter(([, c]) => c > 0)
+    .sort((a, b) => b[1] - a[1]).slice(0, 3).map(([emoji, count]) => ({ emoji, count }));
+  const quick = (Number(r.prepTime) || 0) + (Number(r.cookTime) || 0) <= 30;
+  const healthy = (r.aiAnalysis && r.aiAnalysis.score >= 7) || false;
+  return {
+    ...r,
+    reactionCounts: counts, totalReactions, topReactions,
+    avgRating, ratingCount: ratings.length, commentCount,
+    score, badges: { quick, healthy },
+  };
+}
+
+app.get('/api/recipes', (req, res) => {
+  const recipes = readJSON(RECIPES_FILE);
+  const reactions = readJSON(REACTIONS_FILE);
+  const comments = readJSON(COMMENTS_FILE);
+  let list = recipes.map(r => decorateRecipe(r, reactions, comments));
+  const { category, q, sort } = req.query;
+  if (category && category !== 'All') list = list.filter(r => r.category === category);
+  if (q) {
+    const needle = String(q).toLowerCase();
+    list = list.filter(r =>
+      r.name.toLowerCase().includes(needle) ||
+      (r.tags || []).some(t => String(t).toLowerCase().includes(needle)) ||
+      (r.ingredients || []).some(i => String(i.name).toLowerCase().includes(needle)) ||
+      r.category.toLowerCase().includes(needle));
+  }
+  switch (sort) {
+    case 'newest': list.sort((a, b) => b.createdAt.localeCompare(a.createdAt)); break;
+    case 'top': list.sort((a, b) => b.avgRating - a.avgRating || b.totalReactions - a.totalReactions); break;
+    case 'comments': list.sort((a, b) => b.commentCount - a.commentCount); break;
+    default: list.sort((a, b) => b.score - a.score); // "Most Reacted" / overall ranking
+  }
+  // Strip heavy fields for the grid
+  res.json(list.map(r => ({
+    id: r.id, name: r.name, category: r.category, description: r.description,
+    cover: (r.photos || [])[0] || null, authorName: r.authorName, userId: r.userId,
+    prepTime: r.prepTime, cookTime: r.cookTime, servings: r.servings, difficulty: r.difficulty,
+    calories: r.nutrition ? r.nutrition.perServing.calories : null,
+    avgRating: r.avgRating, ratingCount: r.ratingCount, commentCount: r.commentCount,
+    totalReactions: r.totalReactions, topReactions: r.topReactions, badges: r.badges,
+    tags: r.tags || [], createdAt: r.createdAt,
+  })));
+});
+
+app.get('/api/recipes/meta', (req, res) => {
+  res.json({ categories: RECIPE_CATEGORIES, reactions: REACTION_EMOJIS,
+    foods: foods.map(f => ({ id: f.id, name: f.name, emoji: f.emoji, calories: f.calories })) });
+});
+
+app.get('/api/recipes/:id', (req, res) => {
+  const recipes = readJSON(RECIPES_FILE);
+  const r = recipes.find(x => x.id === req.params.id);
+  if (!r) return res.status(404).json({ error: 'Recipe not found' });
+  const decorated = decorateRecipe(r, readJSON(REACTIONS_FILE), readJSON(COMMENTS_FILE));
+  // who reacted with what (for current user highlight) handled client-side via token-less GET → skip
+  res.json(decorated);
+});
+
+// Parse the multipart body into a normalized recipe payload
+function parseRecipeBody(body) {
+  const parseJSON = (v, fb) => { try { return v ? JSON.parse(v) : fb; } catch { return fb; } };
+  const ingredients = (parseJSON(body.ingredients, []) || []).map(i => ({
+    name: String(i.name || '').trim(), foodId: i.foodId || matchFoodId(i.name || ''),
+    quantity: i.quantity != null ? String(i.quantity) : '', unit: i.unit || 'g',
+    grams: Number(i.grams) || 0,
+  })).filter(i => i.name);
+  const steps = (parseJSON(body.steps, []) || []).map(s =>
+    (typeof s === 'string' ? { text: s } : { text: String(s.text || '').trim(), photo: s.photo || null })
+  ).filter(s => s.text);
+  const tags = (body.tags ? String(body.tags).split(',') : []).map(t => t.trim()).filter(Boolean).slice(0, 12);
+  return { ingredients, steps, tags };
+}
+
+app.post('/api/recipes', auth, (req, res) => {
+  recipeUpload.array('photos', 5)(req, res, async (uErr) => {
+    if (uErr) return res.status(400).json({ error: uErr.message });
+    try {
+      const b = req.body || {};
+      if (!b.name || !String(b.name).trim()) return res.status(400).json({ error: 'Recipe name is required' });
+      const category = RECIPE_CATEGORIES.includes(b.category) ? b.category : 'Dinner';
+      const { ingredients, steps, tags } = parseRecipeBody(b);
+      const servings = Math.max(1, Number(b.servings) || 1);
+      const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+      const photos = await saveRecipePhotos(req.files);
+      const recipe = {
+        id: uuidv4(), userId: req.userId, authorName: (user && user.name) || 'NutriFell Chef',
+        name: String(b.name).trim(), category,
+        description: b.description ? String(b.description).trim() : '',
+        prepTime: Number(b.prepTime) || 0, cookTime: Number(b.cookTime) || 0,
+        servings, difficulty: ['Easy', 'Medium', 'Hard'].includes(b.difficulty) ? b.difficulty : 'Easy',
+        photos, ingredients, steps,
+        opinion: b.opinion ? String(b.opinion).trim() : '',
+        tips: b.tips ? String(b.tips).trim() : '',
+        tags,
+        nutrition: computeRecipeNutrition(ingredients, servings),
+        ratings: [], aiAnalysis: null,
+        createdAt: new Date().toISOString(),
+      };
+      const all = readJSON(RECIPES_FILE);
+      all.push(recipe);
+      writeJSON(RECIPES_FILE, all);
+      res.status(201).json(recipe);
+    } catch (err) {
+      console.error('Recipe create error:', err.message);
+      res.status(500).json({ error: 'Could not save recipe. Please try again.' });
+    }
+  });
+});
+
+app.put('/api/recipes/:id', auth, (req, res) => {
+  const all = readJSON(RECIPES_FILE);
+  const idx = all.findIndex(r => r.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Recipe not found' });
+  if (all[idx].userId !== req.userId) return res.status(403).json({ error: 'Not your recipe' });
+  const b = req.body || {};
+  const r = all[idx];
+  if (b.name != null) r.name = String(b.name).trim();
+  if (b.category && RECIPE_CATEGORIES.includes(b.category)) r.category = b.category;
+  if (b.description != null) r.description = String(b.description).trim();
+  if (b.opinion != null) r.opinion = String(b.opinion).trim();
+  if (b.tips != null) r.tips = String(b.tips).trim();
+  if (b.prepTime != null) r.prepTime = Number(b.prepTime) || 0;
+  if (b.cookTime != null) r.cookTime = Number(b.cookTime) || 0;
+  if (b.servings != null) r.servings = Math.max(1, Number(b.servings) || 1);
+  if (Array.isArray(b.ingredients)) r.ingredients = b.ingredients;
+  if (Array.isArray(b.steps)) r.steps = b.steps;
+  if (Array.isArray(b.tags)) r.tags = b.tags;
+  r.nutrition = computeRecipeNutrition(r.ingredients, r.servings);
+  r.aiAnalysis = null; // invalidate stale analysis after edits
+  writeJSON(RECIPES_FILE, all);
+  res.json(r);
+});
+
+app.delete('/api/recipes/:id', auth, (req, res) => {
+  const all = readJSON(RECIPES_FILE);
+  const r = all.find(x => x.id === req.params.id);
+  if (!r) return res.status(404).json({ error: 'Recipe not found' });
+  if (r.userId !== req.userId) return res.status(403).json({ error: 'Not your recipe' });
+  writeJSON(RECIPES_FILE, all.filter(x => x.id !== req.params.id));
+  writeJSON(COMMENTS_FILE, readJSON(COMMENTS_FILE).filter(c => c.recipeId !== req.params.id));
+  writeJSON(REACTIONS_FILE, readJSON(REACTIONS_FILE).filter(x => x.recipeId !== req.params.id));
+  writeJSON(BOOKMARKS_FILE, readJSON(BOOKMARKS_FILE).filter(x => x.recipeId !== req.params.id));
+  // remove this recipe's photo files (best-effort)
+  (r.photos || []).forEach(p => { try { fs.unlinkSync(path.join(__dirname, 'public', p)); } catch {} });
+  res.json({ success: true });
+});
+
+// Toggle a reaction (one emoji per user per recipe; re-posting the same emoji removes it)
+app.post('/api/recipes/:id/react', auth, (req, res) => {
+  const emoji = (req.body && req.body.emoji) || '';
+  if (!REACTION_EMOJIS.includes(emoji)) return res.status(400).json({ error: 'Invalid reaction' });
+  const all = readJSON(REACTIONS_FILE);
+  const mine = all.find(x => x.recipeId === req.params.id && x.userId === req.userId);
+  let next = all;
+  if (mine && mine.emoji === emoji) {
+    next = all.filter(x => x !== mine); // toggle off
+  } else if (mine) {
+    mine.emoji = emoji; mine.at = new Date().toISOString(); // switch reaction
+  } else {
+    next.push({ id: uuidv4(), recipeId: req.params.id, userId: req.userId, emoji, at: new Date().toISOString() });
+  }
+  writeJSON(REACTIONS_FILE, next);
+  const counts = {}; REACTION_EMOJIS.forEach(e => counts[e] = 0);
+  next.filter(x => x.recipeId === req.params.id).forEach(x => { if (counts[x.emoji] != null) counts[x.emoji]++; });
+  const myReaction = next.find(x => x.recipeId === req.params.id && x.userId === req.userId);
+  res.json({ counts, total: Object.values(counts).reduce((a, c) => a + c, 0), mine: myReaction ? myReaction.emoji : null });
+});
+
+app.post('/api/recipes/:id/rate', auth, (req, res) => {
+  const value = Math.round(Number(req.body && req.body.value));
+  if (!(value >= 1 && value <= 5)) return res.status(400).json({ error: 'Rating must be 1–5' });
+  const all = readJSON(RECIPES_FILE);
+  const r = all.find(x => x.id === req.params.id);
+  if (!r) return res.status(404).json({ error: 'Recipe not found' });
+  r.ratings = r.ratings || [];
+  const mine = r.ratings.find(x => x.userId === req.userId);
+  if (mine) mine.value = value; else r.ratings.push({ userId: req.userId, value });
+  writeJSON(RECIPES_FILE, all);
+  const avg = +(r.ratings.reduce((s, x) => s + x.value, 0) / r.ratings.length).toFixed(1);
+  res.json({ avgRating: avg, ratingCount: r.ratings.length, mine: value });
+});
+
+app.post('/api/recipes/:id/bookmark', auth, (req, res) => {
+  const all = readJSON(BOOKMARKS_FILE);
+  const mine = all.find(x => x.recipeId === req.params.id && x.userId === req.userId);
+  let next = all, bookmarked;
+  if (mine) { next = all.filter(x => x !== mine); bookmarked = false; }
+  else { next.push({ userId: req.userId, recipeId: req.params.id, at: new Date().toISOString() }); bookmarked = true; }
+  writeJSON(BOOKMARKS_FILE, next);
+  res.json({ bookmarked });
+});
+
+app.get('/api/bookmarks', auth, (req, res) => {
+  const ids = readJSON(BOOKMARKS_FILE).filter(b => b.userId === req.userId).map(b => b.recipeId);
+  res.json(ids);
+});
+
+app.post('/api/recipes/:id/report', auth, (req, res) => {
+  const all = readJSON(REPORTS_FILE);
+  all.push({ id: uuidv4(), recipeId: req.params.id, userId: req.userId,
+    reason: (req.body && String(req.body.reason || '').slice(0, 500)) || 'Unspecified', at: new Date().toISOString() });
+  writeJSON(REPORTS_FILE, all);
+  res.json({ success: true, message: 'Thanks — our team will review this recipe.' });
+});
+
+// ── Comments (threaded one level) ──
+function shapeComments(recipeId) {
+  const all = readJSON(COMMENTS_FILE).filter(c => c.recipeId === recipeId);
+  const roots = all.filter(c => !c.parentId).sort((a, b) => b.at.localeCompare(a.at));
+  return roots.map(c => ({
+    ...c, likeCount: (c.likes || []).length,
+    replies: all.filter(r => r.parentId === c.id).sort((a, b) => a.at.localeCompare(b.at))
+      .map(r => ({ ...r, likeCount: (r.likes || []).length })),
+  }));
+}
+
+app.get('/api/recipes/:id/comments', (req, res) => res.json(shapeComments(req.params.id)));
+
+app.post('/api/recipes/:id/comments', auth, (req, res) => {
+  const text = req.body && String(req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'Comment cannot be empty' });
+  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+  const all = readJSON(COMMENTS_FILE);
+  const comment = { id: uuidv4(), recipeId: req.params.id, userId: req.userId,
+    authorName: (user && user.name) || 'NutriFell User', text: text.slice(0, 2000),
+    parentId: null, likes: [], at: new Date().toISOString() };
+  all.push(comment);
+  writeJSON(COMMENTS_FILE, all);
+  res.status(201).json(comment);
+});
+
+app.post('/api/recipes/:id/comments/:cid/reply', auth, (req, res) => {
+  const text = req.body && String(req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'Reply cannot be empty' });
+  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+  const all = readJSON(COMMENTS_FILE);
+  const parent = all.find(c => c.id === req.params.cid);
+  if (!parent) return res.status(404).json({ error: 'Comment not found' });
+  const reply = { id: uuidv4(), recipeId: req.params.id, userId: req.userId,
+    authorName: (user && user.name) || 'NutriFell User', text: text.slice(0, 2000),
+    parentId: parent.parentId || parent.id, likes: [], at: new Date().toISOString() };
+  all.push(reply);
+  writeJSON(COMMENTS_FILE, all);
+  res.status(201).json(reply);
+});
+
+app.post('/api/recipes/:id/comments/:cid/like', auth, (req, res) => {
+  const all = readJSON(COMMENTS_FILE);
+  const c = all.find(x => x.id === req.params.cid);
+  if (!c) return res.status(404).json({ error: 'Comment not found' });
+  c.likes = c.likes || [];
+  const i = c.likes.indexOf(req.userId);
+  let liked;
+  if (i === -1) { c.likes.push(req.userId); liked = true; } else { c.likes.splice(i, 1); liked = false; }
+  writeJSON(COMMENTS_FILE, all);
+  res.json({ liked, likeCount: c.likes.length });
+});
+
+// ── AI recipe analysis (Gemini, cached on the recipe) ──
+function recipeAnalysisFallback(r) {
+  const n = r.nutrition ? r.nutrition.perServing : null;
+  const score = n ? Math.max(1, Math.min(10, Math.round(
+    7 + (n.protein >= 20 ? 1 : 0) + (n.fiber >= 5 ? 1 : 0) - (n.calories > 800 ? 2 : 0)
+  ))) : 6;
+  return {
+    score,
+    pros: [
+      n && n.protein >= 15 ? `Good protein per serving (~${n.protein}g)` : 'Made with whole-food ingredients',
+      n && n.fiber >= 4 ? `Solid fiber content (~${n.fiber}g)` : 'Reasonable portion size',
+    ],
+    cons: [
+      n && n.calories > 700 ? 'Calorie-dense — watch portion sizes' : 'Nutrition is estimated from matched ingredients',
+      'Sodium and added sugar aren\'t tracked here',
+    ],
+    suggestions: [
+      'Add a non-starchy vegetable to boost fiber and volume',
+      n && n.protein < 15 ? 'Increase the protein source for better satiety' : 'Pair with water instead of a sugary drink',
+    ],
+    bestTime: n && n.protein >= 25 ? 'Post-workout or lunch' : (r.category === 'Breakfast' ? 'Breakfast' : 'Lunch or dinner'),
+    fallback: true,
+  };
+}
+
+app.post('/api/recipes/:id/ai-analysis', async (req, res) => {
+  const all = readJSON(RECIPES_FILE);
+  const r = all.find(x => x.id === req.params.id);
+  if (!r) return res.status(404).json({ error: 'Recipe not found' });
+  if (r.aiAnalysis) return res.json(r.aiAnalysis); // cached
+
+  const persist = (analysis) => {
+    r.aiAnalysis = analysis;
+    const fresh = readJSON(RECIPES_FILE);
+    const i = fresh.findIndex(x => x.id === r.id);
+    if (i !== -1) { fresh[i].aiAnalysis = analysis; writeJSON(RECIPES_FILE, fresh); }
+  };
+
+  if (!genAI) { const a = recipeAnalysisFallback(r); persist(a); return res.json(a); }
+  try {
+    const ingList = (r.ingredients || []).map(i => `${i.name} ${i.quantity || ''}${i.unit || ''}`).join(', ');
+    const n = r.nutrition ? r.nutrition.perServing : {};
+    const model = genAI.getGenerativeModel({
+      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+      systemInstruction: 'You are a registered-dietitian-style recipe analyst. Respond ONLY with strict minified JSON: {"score":<1-10 integer>,"pros":[3 short strings],"cons":[2-3 short strings],"suggestions":[2-3 short strings],"bestTime":"<short>"}. No markdown, no prose.',
+    });
+    const prompt = `Recipe: ${r.name} (${r.category}). Ingredients: ${ingList}. Per-serving nutrition: ${JSON.stringify(n)}. Servings: ${r.servings}. Analyze its healthiness.`;
+    const result = await model.generateContent(prompt);
+    let txt = (result.response.text() || '').trim().replace(/^```json\s*|\s*```$/g, '');
+    let parsed;
+    try { parsed = JSON.parse(txt); } catch { parsed = null; }
+    const analysis = parsed && parsed.score
+      ? { score: Math.max(1, Math.min(10, Math.round(parsed.score))),
+          pros: parsed.pros || [], cons: parsed.cons || [], suggestions: parsed.suggestions || [],
+          bestTime: parsed.bestTime || 'Anytime' }
+      : recipeAnalysisFallback(r);
+    persist(analysis);
+    res.json(analysis);
+  } catch (err) {
+    const a = recipeAnalysisFallback(r);
+    persist(a);
+    res.json(a);
+  }
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));

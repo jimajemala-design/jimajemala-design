@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Water Tracker — NutriFell</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
+  <link rel="stylesheet" href="/css/features.css" />
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#3b82f6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="NutriFell">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+</head>
+<body>
+  <header class="navbar" id="navbar">
+    <div class="nb-inner">
+      <button class="nb-hamburger" id="nbHamburger" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <a class="nb-logo" href="/">Nutri<span>Fell</span></a>
+      <div class="nb-right" id="navRight"></div>
+    </div>
+  </header>
+
+  <main class="app-page">
+    <div class="mesh-gradient" aria-hidden="true"></div>
+
+    <div class="feat-head">
+      <h1>💧 Water <em class="blue">Tracker</em></h1>
+      <p>Stay hydrated. Your goal is calculated from your body weight — sip your way there.</p>
+    </div>
+
+    <div class="feat-wrap water-layout">
+      <!-- LEFT: ring + quick add -->
+      <section class="feat-card water-ring-card">
+        <div class="water-ring-wrap" id="ringWrap">
+          <svg class="water-ring" viewBox="0 0 240 240" aria-hidden="true">
+            <defs><linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#2563eb"/>
+            </linearGradient></defs>
+            <circle class="track" cx="120" cy="120" r="104" fill="none" stroke-width="18"/>
+            <circle class="fill" id="ringFill" cx="120" cy="120" r="104" fill="none" stroke-width="18"
+                    stroke-linecap="round" stroke-dasharray="653.45" stroke-dashoffset="653.45"/>
+          </svg>
+          <div class="water-ring-center">
+            <div class="now" id="ringNow">0<span style="font-size:18px;color:var(--text-3)">ml</span></div>
+            <div class="goal" id="ringGoal">/ 0 ml</div>
+            <div class="pct" id="ringPct">0%</div>
+          </div>
+        </div>
+        <div class="water-remaining" id="remaining">Loading…</div>
+
+        <div class="water-quick">
+          <button class="water-add-btn" data-ml="250">💧 +250ml</button>
+          <button class="water-add-btn" data-ml="500">💧 +500ml</button>
+          <button class="water-add-btn" data-ml="750">💧 +750ml</button>
+          <button class="water-add-btn" data-ml="1000">🪣 +1L</button>
+        </div>
+        <div class="water-custom">
+          <input class="form-input" id="customMl" type="number" placeholder="Custom ml" min="1" max="5000" />
+          <button class="water-btn-blue" id="customAdd">Add</button>
+        </div>
+
+        <div class="water-goal-row">
+          <span class="water-goal-note">Daily goal</span>
+          <input class="form-input" id="goalInput" type="number" placeholder="ml" min="500" max="8000" />
+          <button class="chip-btn" id="goalSave">Set</button>
+          <button class="chip-btn" id="goalAuto">Auto</button>
+        </div>
+
+        <div class="water-tip" id="tip"><span class="emoji">💧</span><span id="tipText">Let's get hydrated!</span></div>
+      </section>
+
+      <!-- RIGHT: today log + week -->
+      <div style="display:flex;flex-direction:column;gap:22px">
+        <section class="feat-card">
+          <div class="feat-card-title">🕒 Today's Log</div>
+          <div class="water-log" id="todayLog"><div class="feat-empty">No water logged yet today.</div></div>
+        </section>
+        <section class="feat-card">
+          <div class="feat-card-title">📊 Last 7 Days</div>
+          <div class="water-week" id="weekStrip"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/water.js"></script>
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}</script>
+</body>
+</html>

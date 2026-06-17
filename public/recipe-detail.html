@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Recipe — NutriFell</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
+  <link rel="stylesheet" href="/css/features.css" />
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#22c55e">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+</head>
+<body>
+  <header class="navbar" id="navbar">
+    <div class="nb-inner">
+      <button class="nb-hamburger" id="nbHamburger" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <a class="nb-logo" href="/">Nutri<span>Fell</span></a>
+      <div class="nb-right" id="navRight"></div>
+    </div>
+  </header>
+
+  <main class="app-page">
+    <div class="mesh-gradient" aria-hidden="true"></div>
+    <div class="feat-wrap">
+      <a class="chip-btn" href="/recipes.html" style="margin-bottom:18px;display:inline-flex">← All recipes</a>
+      <div id="loading" class="feat-empty"><div class="loading-ring"></div>Loading recipe…</div>
+      <div id="detail" class="rcp-detail" style="display:none">
+        <!-- LEFT -->
+        <div class="rcp-gallery">
+          <img class="main-photo" id="mainPhoto" alt="" />
+          <div class="rcp-thumbs" id="thumbs"></div>
+          <div class="react-bar" id="reactBar"></div>
+          <div class="rcp-actions-row">
+            <button class="chip-btn" id="bookmarkBtn">🏷️ Bookmark</button>
+            <button class="chip-btn" id="shareBtn">🔗 Share</button>
+            <button class="chip-btn" id="reportBtn">🚩 Report</button>
+          </div>
+        </div>
+        <!-- RIGHT -->
+        <div class="rcp-info">
+          <div class="rcp-cat-badge" style="position:static;display:inline-block;margin-bottom:10px" id="catBadge"></div>
+          <h1 class="rcp-title" id="title"></h1>
+          <div class="rcp-byline">
+            <span class="rcp-avatar" id="authorAvatar"></span>
+            <span class="nm" id="authorName"></span>
+            <button class="follow-btn" id="followBtn">Follow</button>
+          </div>
+          <div>
+            <span class="star-rate" id="starRate"></span>
+            <span class="rate-meta" id="rateMeta"></span>
+          </div>
+          <div class="rcp-statrow" id="statRow"></div>
+          <div id="tagRow" class="rcp-tagrow"></div>
+
+          <div class="rcp-tabbar" id="tabBar">
+            <button class="rcp-tabbtn active" data-tab="recipe">Recipe</button>
+            <button class="rcp-tabbtn" data-tab="nutrition">Nutrition</button>
+            <button class="rcp-tabbtn" data-tab="ai">AI Analysis</button>
+            <button class="rcp-tabbtn" data-tab="comments">Comments</button>
+          </div>
+
+          <div class="rcp-tabpane active" id="pane-recipe"></div>
+          <div class="rcp-tabpane" id="pane-nutrition"></div>
+          <div class="rcp-tabpane" id="pane-ai"></div>
+          <div class="rcp-tabpane" id="pane-comments"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/recipe-detail.js"></script>
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}</script>
+</body>
+</html>

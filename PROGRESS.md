@@ -1,6 +1,6 @@
 # NutriFell — Progress & Roadmap
 
-> Last updated: 2026-06-16
+> Last updated: 2026-06-17
 > Formerly "NutriBase Georgia" — rebranded to **NutriFell** on 2026-06-16.
 
 An interactive 3D nutrition explorer + installable PWA. Browse 74 foods with
@@ -40,12 +40,34 @@ assistant.
 - **Daily log** — `/api/logs` calorie/macro tracker CRUD.
 - **AI chat (NutriAI)** — `/api/ai/chat`, Gemini with context-rich system prompt
   (profile + fridge + food DB) and a smart rule-based fallback.
+- **Water tracker** — goal from weight (×0.033 L/day, manual override stored on
+  user), `POST /api/water/add`, `GET /api/water/today` (summary + today's entries),
+  `GET /api/water/history` (7-day), `DELETE /api/water/:id`, `POST /api/water/goal`.
+  Data in `data/water.json`.
+- **Quit smoking** — `POST /api/smoking/setup`, `GET /api/smoking/stats` (live time
+  free, money saved, cigs avoided, life regained, health-score curve, 12 recovery
+  milestones with reached/expected dates, 6 achievement badges), `POST/GET
+  /api/smoking/craving(s)`, `POST /api/smoking/chat` (Gemini CBT quit-coach +
+  fallback). Data in `data/smoking.json`.
+- **Community recipes** — full CRUD (`/api/recipes`), multipart photo upload via
+  **multer** (memory) + **sharp** resize to ≤1200px WebP into
+  `public/uploads/recipes/` (gracefully skips resize if sharp missing). Reactions
+  (`/react`, 6 emojis, one per user, toggle), ratings (`/rate` 1–5), bookmarks,
+  reports, threaded comments (`/comments`, `/reply`, `/like`), AI analysis
+  (`/ai-analysis`, Gemini → cached on recipe, scored fallback), and
+  `GET /api/recipes/meta`. Auto-calculates per-serving nutrition from ingredients
+  matched to the food DB. Ranking score = reactions×1 + avgRating×20 + comments×2 +
+  recency. Data in `recipes/comments/reactions/bookmarks/reports.json`.
 
 ### Frontend (`public/`)
 - `index.html` — hero + searchable/filterable bento food gallery + 3D detail view.
-- Pages: `login`, `register`, `profile`, `profile-view`, `fridge`.
+- Pages: `login`, `register`, `profile`, `profile-view`, `fridge`, `pricing`.
+- Feature pages: `water.html`, `quit-smoking.html`, `recipes.html`,
+  `recipe-detail.html`, `recipe-upload.html` (all linked from the sidebar nav).
 - `js/scene.js` (~3,770 lines) — the 3D rendering engine.
-- `js/app.js`, `js/auth.js`, `js/fridge.js`.
+- `js/app.js`, `js/auth.js`, `js/fridge.js`, `js/pricing.js`.
+- Feature JS: `js/water.js`, `js/quit-smoking.js`, `js/recipes.js`,
+  `js/recipe-detail.js`, `js/recipe-upload.js`. Shared styles in `css/features.css`.
 - PWA install flow + offline service worker.
 
 ### 3D models (`public/models/`)

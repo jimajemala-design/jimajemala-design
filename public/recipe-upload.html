@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Share a Recipe — NutriFell</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
+  <link rel="stylesheet" href="/css/features.css" />
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#22c55e">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+</head>
+<body>
+  <header class="navbar" id="navbar">
+    <div class="nb-inner">
+      <button class="nb-hamburger" id="nbHamburger" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <a class="nb-logo" href="/">Nutri<span>Fell</span></a>
+      <div class="nb-right" id="navRight"></div>
+    </div>
+  </header>
+
+  <main class="app-page">
+    <div class="mesh-gradient" aria-hidden="true"></div>
+    <div class="feat-head"><h1>Share a <em>Recipe</em></h1><p>Inspire the community with your healthy creation.</p></div>
+
+    <div class="feat-wrap" style="max-width:680px">
+      <div class="up-steps" id="upSteps"></div>
+      <section class="feat-card">
+        <!-- Step 1: Basics -->
+        <div class="up-pane active" data-step="0">
+          <div class="feat-card-title">📝 Basic Info</div>
+          <div class="field-stack"><label>Recipe name *</label><input class="form-input" id="fName" placeholder="e.g. High-Protein Overnight Oats" /></div>
+          <div class="form-row">
+            <div class="field-stack"><label>Category</label>
+              <select class="form-select" id="fCategory">
+                <option>Breakfast</option><option>Lunch</option><option selected>Dinner</option>
+                <option>Snacks</option><option>Drinks</option><option>Desserts</option>
+              </select></div>
+            <div class="field-stack"><label>Difficulty</label>
+              <select class="form-select" id="fDifficulty"><option>Easy</option><option>Medium</option><option>Hard</option></select></div>
+          </div>
+          <div class="field-stack"><label>Short description</label><textarea class="form-input" id="fDesc" placeholder="A quick line about your dish…"></textarea></div>
+          <div class="form-row">
+            <div class="field-stack"><label>Prep time (min)</label><input class="form-input" id="fPrep" type="number" min="0" value="10" /></div>
+            <div class="field-stack"><label>Cook time (min)</label><input class="form-input" id="fCook" type="number" min="0" value="15" /></div>
+          </div>
+          <div class="field-stack"><label>Servings</label><input class="form-input" id="fServings" type="number" min="1" value="2" /></div>
+        </div>
+
+        <!-- Step 2: Photos -->
+        <div class="up-pane" data-step="1">
+          <div class="feat-card-title">📷 Photos</div>
+          <div class="dropzone" id="dropzone"><div class="big">📷</div>Drag &amp; drop photos here, or <b>click to browse</b><br><span style="font-size:12px">Up to 5 · JPG/PNG/WebP · first photo is the cover</span></div>
+          <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" multiple hidden />
+          <div class="photo-previews" id="previews"></div>
+        </div>
+
+        <!-- Step 3: Ingredients -->
+        <div class="up-pane" data-step="2">
+          <div class="feat-card-title">🧺 Ingredients</div>
+          <div id="ingList"></div>
+          <button class="chip-btn" id="addIng">+ Add ingredient</button>
+          <div class="ing-nutri-preview" id="nutriPreview"><span>Add ingredients to preview nutrition →</span></div>
+        </div>
+
+        <!-- Step 4: Instructions -->
+        <div class="up-pane" data-step="3">
+          <div class="feat-card-title">👩‍🍳 Instructions</div>
+          <div id="stepList"></div>
+          <button class="chip-btn" id="addStep">+ Add step</button>
+        </div>
+
+        <!-- Step 5: Opinion -->
+        <div class="up-pane" data-step="4">
+          <div class="feat-card-title">💚 Your Opinion</div>
+          <div class="field-stack"><label>Why is this recipe healthy / good?</label><textarea class="form-input" id="fOpinion" placeholder="Your take on what makes it great…"></textarea></div>
+          <div class="field-stack"><label>Special tips or notes</label><textarea class="form-input" id="fTips" placeholder="Any pro tips?"></textarea></div>
+          <div class="field-stack"><label>Tags (comma separated)</label><input class="form-input" id="fTags" placeholder="high-protein, vegan, quick" /></div>
+        </div>
+
+        <div class="up-nav">
+          <button class="chip-btn" id="prevBtn" style="visibility:hidden">← Back</button>
+          <button class="btn-primary" id="nextBtn">Next →</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/recipe-upload.js"></script>
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}</script>
+</body>
+</html>
