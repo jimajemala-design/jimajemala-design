@@ -151,6 +151,11 @@
       display: inline-flex; align-items: center; gap: 8px;
     }
 
+    /* ── Streak ── */
+    .pv-streak-now { font-size: 14px; color: var(--text-2); margin-bottom: 16px; }
+    .pv-streak-big { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--gold); }
+    .pv-streak-best { color: var(--text-3); font-size: 12px; }
+
     /* ── Error state ── */
     .pv-error {
       text-align: center; padding: 48px 20px;
@@ -201,6 +206,13 @@
           <div class="pv-since" id="pvSince"></div>
           <div class="pv-goal-badge" id="pvGoalBadge"></div>
         </div>
+      </div>
+
+      <!-- Streak + badges -->
+      <div class="pv-body-stats" id="pvStreak" style="display:none">
+        <h3 class="pv-section-title">Daily Streak</h3>
+        <div class="pv-streak-now" id="pvStreakNow"></div>
+        <div class="streak-badges" id="pvBadges"></div>
       </div>
 
       <!-- 2×2 Stats cards -->
@@ -300,7 +312,26 @@
       if (!requireAuth()) return;
 
       const loading  = document.getElementById('pvLoading');
-      const sections = ['pvHeader','pvStatsGrid','pvProgressRow','pvMacros','pvBodyStats','pvActions'];
+      const sections = ['pvHeader','pvStreak','pvStatsGrid','pvProgressRow','pvMacros','pvBodyStats','pvActions'];
+
+      // Streak + badges (local, independent of the profile API)
+      (function renderStreak() {
+        const st = (window.Streak && window.Streak.get()) || { count: 0, best: 0 };
+        const cur = st.count || 0, best = st.best || 0;
+        document.getElementById('pvStreakNow').innerHTML =
+          `<span class="pv-streak-big">🔥 ${cur}</span> day${cur === 1 ? '' : 's'} in a row` +
+          (best > cur ? ` <span class="pv-streak-best">· best ${best}</span>` : '');
+        const tiers = [
+          { i: '🔥', n: 'On Fire', d: 3 },
+          { i: '⚡', n: 'Week Warrior', d: 7 },
+          { i: '💪', n: 'Monthly Master', d: 30 },
+          { i: '👑', n: 'Legend', d: 100 },
+        ];
+        document.getElementById('pvBadges').innerHTML = tiers.map(t => {
+          const on = best >= t.d;
+          return `<div class="sb-badge ${on ? 'on' : 'off'}"><div class="sb-ico">${t.i}</div><div class="sb-name">${t.n}</div><div class="sb-days">${t.d} days</div></div>`;
+        }).join('');
+      })();
       function showAll() { loading.style.display = 'none'; sections.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; }); }
 
       try {

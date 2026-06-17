@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>My Fridge & Meal Planner — NutriFell</title>
+  <meta name="description" content="Track today's calories and macros, stock your virtual fridge, and let NutriAI build meal plans around your goals." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -40,6 +41,12 @@
       <span class="assure"><span class="dot"></span>Macros from <b>74 verified foods</b></span>
       <span class="assure"><span class="dot"></span>Plans built around <b>your targets</b></span>
       <span class="assure"><span class="dot"></span>Synced &amp; <b>private to you</b></span>
+    </div>
+
+    <div class="tip-banner" id="tipBanner" hidden>
+      <span class="tip-ico" aria-hidden="true">💡</span>
+      <div class="tip-text"><b>Tip of the day</b> <span id="tipText"></span></div>
+      <button class="tip-close" id="tipClose" aria-label="Dismiss tip for today">✕</button>
     </div>
 
     <!-- TODAY TRACKER -->
@@ -157,6 +164,55 @@
   <script src="/js/auth.js"></script>
   <script src="/js/fridge.js"></script>
   <script>
+    // Tip of the Day — 30 honest nutrition tips, rotates daily, dismissible.
+    (function () {
+      var TIPS = [
+        "Protein at breakfast blunts cravings for the rest of the day.",
+        "Fiber feeds your gut bacteria. Aim for 25 to 30g a day.",
+        "Pair iron-rich foods with vitamin C to absorb more of the iron.",
+        "Eating slowly gives your gut about 20 minutes to signal that you're full.",
+        "Frozen vegetables often keep more nutrients than produce that travelled for days.",
+        "Whole fruit beats juice. The fiber slows the sugar down.",
+        "A handful of nuts is a snack. The whole bag is a meal.",
+        "Most of your salt hides in packaged food, not your shaker.",
+        "Greek yogurt has roughly twice the protein of regular yogurt.",
+        "Cooking tomatoes raises their lycopene, which your body absorbs better warm.",
+        "Dark leafy greens give you vitamin K, folate, and fiber for very few calories.",
+        "Thirst often shows up disguised as a snack craving. Drink first, then decide.",
+        "Eggs are one of the few foods with naturally occurring vitamin D.",
+        "Oats contain beta-glucan, a fiber linked to lower cholesterol.",
+        "Spread protein across the day rather than loading it all at dinner.",
+        "Berries are among the lowest-sugar fruits and the highest in antioxidants.",
+        "Sardines give you omega-3s plus calcium from the soft, edible bones.",
+        "Cooling cooked rice or potatoes forms resistant starch that feeds gut bacteria.",
+        "More colour on the plate usually means a wider range of micronutrients.",
+        "Magnesium supports sleep and muscle function. Nuts, seeds, and greens are rich in it.",
+        "Chew more. Digestion starts in your mouth, not your stomach.",
+        "A food being 'natural' says nothing about its calories. Honey and sugar are close.",
+        "Vitamin C isn't stored, so spread citrus, peppers, and broccoli across the week.",
+        "Legumes give you protein and fiber together, which keeps you full longer.",
+        "Avocado's fat helps you absorb fat-soluble vitamins from the rest of the meal.",
+        "Total daily calories matter more than the clock. Late eating isn't inherently fattening.",
+        "Read the serving size first. Label numbers are per serving, not per pack.",
+        "A bad night's sleep shifts appetite hormones and usually means a hungrier day.",
+        "Swapping refined grains for whole grains keeps you full on the same calories.",
+        "Cook once, eat twice. A planned leftover is the easiest healthy meal you'll make.",
+      ];
+      var d = new Date();
+      var dayKey = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+      try { if (localStorage.getItem('nf_tip_dismiss') === dayKey) return; } catch (e) {}
+      var start = new Date(d.getFullYear(), 0, 0);
+      var doy = Math.floor((d - start) / 86400000);
+      var banner = document.getElementById('tipBanner');
+      if (!banner) return;
+      document.getElementById('tipText').textContent = TIPS[doy % TIPS.length];
+      banner.hidden = false;
+      document.getElementById('tipClose').addEventListener('click', function () {
+        banner.hidden = true;
+        try { localStorage.setItem('nf_tip_dismiss', dayKey); } catch (e) {}
+      });
+    })();
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')

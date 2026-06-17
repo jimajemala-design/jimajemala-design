@@ -382,7 +382,7 @@
     $('chatSuggest').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { $('chatInput').value = b.textContent; sendChat(); }));
     if (!chatHistory.length) {
       const name = (Auth.user() && Auth.user().name) ? Auth.user().name.split(' ')[0] : 'there';
-      chatHistory.push({ role: 'assistant', content: `Hi ${name}! 🌿 I'm NutriAI. Ask me for a meal plan, nutrition advice, or what to cook with your fridge.`, time: now() });
+      chatHistory.push({ role: 'assistant', content: `Hi ${name} 🌿 I'm NutriAI. I read your targets and what's in your fridge, so I can plan a day, size a meal, or settle a nutrition question. What are we working on?`, time: now() });
     }
     renderChat();
   }

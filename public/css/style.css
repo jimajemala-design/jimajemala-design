@@ -1883,3 +1883,67 @@ body {
 @media (max-width: 640px) {
   .promo { padding: 46px 16px 4px; }
 }
+
+/* ── 32. STREAK CHIP + BADGES ─────────────────────────────────────────── */
+.nb-streak {
+  display: flex; align-items: center; gap: 9px;
+  margin: 2px 18px 12px; padding: 11px 14px;
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, rgba(245,158,11,0.13), rgba(34,197,94,0.08));
+  border: 1px solid rgba(245,158,11,0.28);
+}
+.nb-streak-ico { font-size: 18px; line-height: 1; }
+.nb-streak-n { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--text-1); }
+.nb-streak-name {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--gold); margin-left: auto;
+}
+
+.streak-badges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.sb-badge {
+  text-align: center; padding: 16px 8px; border-radius: var(--r-md);
+  border: 1px solid var(--border-subtle); background: rgba(255,255,255,0.02);
+  transition: var(--t);
+}
+.sb-badge.on { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.07); }
+.sb-badge.off { opacity: 0.38; filter: grayscale(1); }
+.sb-ico { font-size: 28px; line-height: 1; }
+.sb-name { font-family: var(--font-display); font-weight: 600; font-size: 12px; color: var(--text-1); margin-top: 7px; }
+.sb-days { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); margin-top: 2px; }
+@media (max-width: 480px) { .streak-badges { grid-template-columns: repeat(2, 1fr); } }
+
+/* ── 33. FOOD FACT CALLOUT + TRENDING RANK ────────────────────────────── */
+.food-fact {
+  display: flex; align-items: center; gap: 10px;
+  margin: 16px 0 4px; padding: 13px 16px;
+  border-radius: var(--r-md);
+  background: rgba(245,158,11,0.07);
+  border: 1px solid rgba(245,158,11,0.22);
+  font-size: 13.5px; line-height: 1.5; color: var(--text-2);
+}
+.food-fact b { color: var(--text-1); }
+.food-fact-ico { font-size: 18px; line-height: 1; flex-shrink: 0; }
+
+.trend-rank {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  color: var(--gold); background: rgba(245,158,11,0.12);
+  border: 1px solid rgba(245,158,11,0.3);
+}
+
+/* ── 34. TIP OF THE DAY BANNER ────────────────────────────────────────── */
+.tip-banner {
+  display: flex; align-items: center; gap: 12px;
+  max-width: 1180px; margin: 0 auto 22px; padding: 14px 18px;
+  border-radius: var(--r-lg);
+  background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.22);
+}
+.tip-banner .tip-ico { font-size: 22px; line-height: 1; flex-shrink: 0; }
+.tip-banner .tip-text { font-size: 14px; color: var(--text-2); line-height: 1.5; flex: 1; }
+.tip-banner .tip-text b { color: var(--green); font-family: var(--font-display); font-weight: 600; }
+.tip-banner .tip-close {
+  color: var(--text-3); font-size: 15px; padding: 6px 8px; border-radius: 6px;
+  transition: var(--t-fast); flex-shrink: 0;
+}
+.tip-banner .tip-close:hover { color: var(--text-1); background: rgba(255,255,255,0.06); }

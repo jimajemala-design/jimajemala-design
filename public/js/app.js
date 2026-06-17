@@ -261,6 +261,7 @@ const App = (() => {
     if (!food) return;
 
     pushRecent(id);
+    trackView(id);
 
     transition(() => {
       $('gridView').style.display = 'none';
@@ -384,6 +385,23 @@ const App = (() => {
         </div>`;
     }).join('');
 
+    // Standout-nutrient "did you know" — derived from real data, honest by construction
+    let factHtml = '';
+    const factSkip = new Set(['protein', 'carbs', 'fat', 'sugar', 'sodium']);
+    let bestKey = null, bestPct = 0;
+    Object.entries(n).forEach(([k, v]) => {
+      if (factSkip.has(k) || !maxVals[k]) return;
+      const pct = (v / maxVals[k]) * 100;
+      if (pct > bestPct) { bestPct = pct; bestKey = k; }
+    });
+    if (bestKey && bestPct >= 25) {
+      factHtml = `
+        <div class="food-fact">
+          <span class="food-fact-ico" aria-hidden="true">💡</span>
+          <span><b>${food.name}</b> covers <b>${Math.round(bestPct)}%</b> of your daily ${labels[bestKey] || bestKey} in a ${food.serving}.</span>
+        </div>`;
+    }
+
     const benefits = food.benefits.map(b => `
       <li class="bl-item benefit">
         <span class="bl-icon plus" aria-hidden="true">→</span>
@@ -423,6 +441,8 @@ const App = (() => {
           <div class="energy-bar-fill" data-target="${calPct}"></div>
         </div>
       </div>
+
+      ${factHtml}
 
       <div class="panel-divider"></div>
 
@@ -535,6 +555,54 @@ const App = (() => {
     wrap.hidden = false;
   }
 
+  // ── Trending foods (7-day rolling view counts) ───────────────────────
+  const VIEWS_KEY = 'nf_views_v1';
+
+  function getViews() {
+    try { return JSON.parse(localStorage.getItem(VIEWS_KEY)) || []; }
+    catch { return []; }
+  }
+
+  function trackView(id) {
+    const views = getViews();
+    views.push({ id, ts: Date.now() });
+    try { localStorage.setItem(VIEWS_KEY, JSON.stringify(views.slice(-600))); } catch {}
+    renderTrending();
+  }
+
+  function renderTrending() {
+    const wrap = $('trending');
+    const row = $('trendingRow');
+    if (!wrap || !row || !foods.length) return;
+
+    const cutoff = Date.now() - 7 * 86400000;
+    const counts = {};
+    getViews().forEach(v => { if (v.ts >= cutoff) counts[v.id] = (counts[v.id] || 0) + 1; });
+
+    const ranked = Object.entries(counts)
+      .map(([id, c]) => ({ food: foods.find(f => f.id === id), c }))
+      .filter(x => x.food)
+      .sort((a, b) => b.c - a.c)
+      .slice(0, 5);
+
+    if (ranked.length < 2) { wrap.hidden = true; return; }
+
+    row.innerHTML = ranked.map((x, i) => `
+      <button class="recent-chip trend-chip" type="button" role="listitem"
+              style="--glow:${hexToGlow(x.food.color)}"
+              data-id="${x.food.id}" aria-label="Open ${x.food.name}, ${x.c} views this week">
+        <span class="trend-rank">${i + 1}</span>
+        <span class="recent-emoji" aria-hidden="true">${x.food.emoji}</span>
+        <span class="recent-name">${x.food.name}</span>
+        <span class="recent-cal">${x.c} view${x.c === 1 ? '' : 's'}</span>
+      </button>`).join('');
+
+    row.querySelectorAll('.recent-chip').forEach(chip => {
+      chip.addEventListener('click', () => openDetail(chip.dataset.id));
+    });
+    wrap.hidden = false;
+  }
+
   // ── FAQ accordion ─────────────────────────────────────────────────────
   function initFaq() {
     const list = $('faqList');
@@ -592,6 +660,7 @@ const App = (() => {
     initTicker();
     initFotd();
     renderRecent();
+    renderTrending();
     renderGrid();
     initFilter();
     initFaq();

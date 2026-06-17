@@ -204,6 +204,64 @@ function markValid(input) { input.classList.add('valid'); clearError(input); }
 const validEmail = (v) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
 
 // ── Navbar auth state ─────────────────────────────────────────────────────
+// ── Daily streak (consecutive days the app is opened) ────────────────────
+const Streak = {
+  KEY: 'nf_streak_v1',
+  MILES: [3, 7, 30, 100],
+  _today() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+  _daysBetween(a, b) { return Math.round((Date.parse(b) - Date.parse(a)) / 86400000); },
+  get() {
+    try { return JSON.parse(localStorage.getItem(Streak.KEY)) || { count: 0, best: 0, last: null, seen: [] }; }
+    catch { return { count: 0, best: 0, last: null, seen: [] }; }
+  },
+  // Record today's visit; returns the state + any newly-hit milestone.
+  tick() {
+    const s = Streak.get();
+    const today = Streak._today();
+    let milestone = null;
+    if (s.last === today) {
+      // already counted today — no change
+    } else if (s.last && Streak._daysBetween(s.last, today) === 1) {
+      s.count += 1;            // consecutive day
+    } else {
+      s.count = 1;             // first visit or a missed day resets
+    }
+    s.last = today;
+    s.best = Math.max(s.best || 0, s.count);
+    s.seen = s.seen || [];
+    if (Streak.MILES.includes(s.count) && !s.seen.includes(s.count)) {
+      s.seen.push(s.count);
+      milestone = s.count;
+    }
+    try { localStorage.setItem(Streak.KEY, JSON.stringify(s)); } catch {}
+    return { s, milestone };
+  },
+  // Badge tier for a given day count.
+  badge(count) {
+    if (count >= 100) return { icon: '👑', name: 'Legend', days: 100 };
+    if (count >= 30)  return { icon: '💪', name: 'Monthly Master', days: 30 };
+    if (count >= 7)   return { icon: '⚡', name: 'Week Warrior', days: 7 };
+    if (count >= 3)   return { icon: '🔥', name: 'On Fire', days: 3 };
+    return { icon: '🔥', name: '', days: 0 };
+  },
+};
+window.Streak = Streak;
+
+function renderStreakChip(s) {
+  const el = document.getElementById('nbStreak');
+  if (!el) return;
+  if (!s || s.count < 1) { el.hidden = true; return; }
+  const b = Streak.badge(s.count);
+  el.innerHTML =
+    `<span class="nb-streak-ico">${b.icon}</span>` +
+    `<span class="nb-streak-n">${s.count} day streak</span>` +
+    (b.name ? `<span class="nb-streak-name">${b.name}</span>` : '');
+  el.hidden = false;
+}
+
 function renderNav() {
   const navRight = document.getElementById('navRight');
   if (!navRight) return;
@@ -232,6 +290,7 @@ function _buildSidebar(user) {
     overlay.innerHTML = `
       <aside class="nb-sidebar" id="nbSidebar" role="dialog" aria-modal="true" aria-label="Navigation">
         <div class="nb-sidebar-head" id="nbSidebarHead"></div>
+        <div class="nb-streak" id="nbStreak" hidden aria-live="polite"></div>
         <nav class="nb-sidebar-nav">
           <a class="nb-nav-item" href="/">🏠 Home</a>
           <a class="nb-nav-item" href="/#gallery">🥗 Food Database</a>
@@ -578,4 +637,12 @@ document.addEventListener('DOMContentLoaded', () => {
   initLogin();
   initProfile();
   initReveal();
+
+  // Streak: record today's visit, show the chip, celebrate milestones.
+  const { s, milestone } = Streak.tick();
+  renderStreakChip(s);
+  if (milestone) {
+    const b = Streak.badge(milestone);
+    setTimeout(() => toast(`${b.icon} ${milestone}-day streak: ${b.name}`, 'success', 4500), 900);
+  }
 });

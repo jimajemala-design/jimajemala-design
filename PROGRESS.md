@@ -188,12 +188,37 @@ aspect ratios from ONE component (`remotion/src/compositions/PromoVideo.tsx`):
   `.promo` styles in `style.css` §31) — lazy `<video controls preload="none">`
   with the poster.
 
-### Backlog — remaining "major upgrade" waves (requested, not yet done)
-- Marketing: hero/CTA copy, pricing copy, onboarding text.
-- Taste: richer food descriptions, appetising-but-honest nutrient copy.
-- Remotion: feature-highlight / per-feature short clips (promo done).
-- Perf: JS/bundle/caching review; error handling.
-- Micro-features: streak counter, "popular this week", tip of the day, more facts.
+### Micro-features + marketing + SEO — Wave 5 (done 2026-06-18)
+Via copywriting + taste-skill + ui-ux-pro-max. Honest urgency only (taste-skill
+bans fake scarcity); zero em-dashes.
+- **Streak counter** — `Streak` module in `auth.js` (`nf_streak_v1`): consecutive
+  days the app is opened, resets on a missed day, tracks best. Chip in the sidebar
+  ("🔥 N day streak"); milestone toast at 3/7/30/100. Exposed as `window.Streak`.
+- **Streak badges** — `profile-view.html` shows current/best streak + 4 tiers
+  (On Fire 3 / Week Warrior 7 / Monthly Master 30 / Legend 100), locked until earned.
+- **Trending this week** — `app.js` logs views (`nf_views_v1`) and renders a top-5
+  "🔥 Trending this week" strip on the homepage from a 7-day rolling window (hidden
+  until ≥2 foods have views).
+- **Food facts** — detail view shows a data-derived standout-nutrient line
+  (e.g. "Spinach covers 460% of your daily Vitamin K in a 100g serving"). Computed
+  from each food's real %DV, so it's honest by construction and scales to all 74.
+- **Tip of the Day** — `fridge.html`: 30 honest tips, rotates daily by day-of-year,
+  dismissible per day (`nf_tip_dismiss`).
+- **Marketing copy** — sharper hero subheading + concrete CTA ("EXPLORE 74 FOODS"),
+  rewritten NutriAI chat welcome (`fridge.js`), pricing honest-urgency line
+  ("Start free in under a minute. No card required, cancel anytime.").
+- **SEO** — homepage gets OG + Twitter cards + `WebApplication` JSON-LD (share image
+  = the branded promo poster); OG/Twitter on pricing + recipes; meta descriptions
+  added to fridge/water/quit-smoking. Verified JSON-LD parses; all pages 200.
+- CSS for all of the above in `style.css` §32–34. New shared primitives reused.
+
+### Backlog — remaining
+- Taste: bulk rewrite of all 74 food `description`s to be more appetising
+  (deferred — too many entries to safely verify in one pass; food-facts feature
+  partially covers "interesting facts").
+- Remotion: feature-highlight / per-feature short clips (30s promo done).
+- Perf: JS/bundle/caching review; error handling hardening.
+- Onboarding: dedicated welcome flow copy on register/profile.
 
 ### Later / backlog
 - Add GLB models for the remaining foods.

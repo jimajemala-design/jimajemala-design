@@ -19,6 +19,33 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="NutriFell">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+  <!-- Open Graph / social sharing -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="NutriFell" />
+  <meta property="og:title" content="NutriFell — Fuel Your Best Self" />
+  <meta property="og:description" content="74 whole foods in real-time 3D, every nutrient profiled and every drawback listed. Free calorie planning, AI meal help, and wellness trackers." />
+  <meta property="og:url" content="https://lightslategrey-spoonbill-532459.hostingersite.com/" />
+  <meta property="og:image" content="https://lightslategrey-spoonbill-532459.hostingersite.com/videos/promo-poster.jpg" />
+  <meta property="og:image:width" content="1920" />
+  <meta property="og:image:height" content="1080" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="NutriFell — Fuel Your Best Self" />
+  <meta name="twitter:description" content="74 foods in real-time 3D. Honest nutrition intelligence, free to start." />
+  <meta name="twitter:image" content="https://lightslategrey-spoonbill-532459.hostingersite.com/videos/promo-poster.jpg" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "NutriFell",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "Web, iOS, Android (PWA)",
+    "url": "https://lightslategrey-spoonbill-532459.hostingersite.com/",
+    "description": "Interactive 3D nutrition explorer with 74 whole foods, complete nutrient profiles, honest drawbacks, calorie planning, AI meal help, and wellness trackers.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
 </head>
 <body>
 
@@ -60,8 +87,8 @@
           </h1>
 
           <p class="hero-sub">
-            Seventy-four foods rendered in real-time 3D.
-            Complete nutritional profiles. Honest drawbacks. Zero marketing.
+            See exactly what's in your food. 74 whole foods in real-time 3D,
+            every nutrient profiled and every drawback listed. No hype, no fluff.
           </p>
 
           <div class="hero-stats" role="list">
@@ -82,7 +109,7 @@
           </div>
 
           <a class="hero-cta" href="#gallery" data-hover>
-            ENTER DATABASE
+            EXPLORE 74 FOODS
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M3 8h10M8.5 3.5L13 8l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -125,6 +152,14 @@
             <span class="label-text" id="recent-heading">RECENTLY VIEWED</span>
           </div>
           <div class="recent-row" id="recentRow" role="list" aria-label="Recently viewed foods"></div>
+        </div>
+
+        <div class="trending" id="trending" hidden>
+          <div class="strip-label">
+            <span class="label-line"></span>
+            <span class="label-text">🔥 TRENDING THIS WEEK</span>
+          </div>
+          <div class="recent-row" id="trendingRow" role="list" aria-label="Trending foods this week"></div>
         </div>
       </section>
 
