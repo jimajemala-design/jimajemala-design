@@ -166,10 +166,32 @@ to homepage quality with shared, reusable primitives instead of per-page rewrite
 - **profile-view.html** — bare spinner replaced with a layout-matched skeleton
   scaffold (progressive-loading). Verified: all 6 pages return 200.
 
+### Promo video — Wave 4 (done 2026-06-18)
+Built via remotion-video skill. 30 s @ 30fps (900 frames), 6 scenes, in two
+aspect ratios from ONE component (`remotion/src/compositions/PromoVideo.tsx`):
+- Scenes: logo reveal → 74-foods showcase → AI chat → wellness features →
+  community recipes → "Start Free Today" CTA. Spring entrances, drifting green
+  particle field, brand tokens (#080c14 / #22c55e / #f59e0b), Space Grotesk via
+  `@remotion/google-fonts`. No `@remotion/three` — "3D" food is CSS-transform
+  rotated emoji (render-safe; skill warns WebGL crashes during render).
+- Sizing in `vmin` units so the single component serves both formats cleanly
+  (both share a 1080px min dimension). Registered in `Root.tsx` as
+  `PromoVertical` (1080x1920) and `PromoHorizontal` (1920x1080).
+- Rendered both + a poster to `public/videos/`
+  (`nutrifell-promo-horizontal.mp4`, `nutrifell-promo-vertical.mp4` ~4 MB each,
+  `promo-poster.jpg`). npm scripts: `render:promo`, `render:promo:h/v`.
+- **Render note:** Remotion's bundled Chrome download failed to extract in this
+  env; rendered with `--browser-executable` pointing at local Chrome. The npm
+  scripts assume the bundled browser; pass `--browser-executable=<chrome>` if the
+  download fails.
+- Embedded on the homepage as a "See it in motion" section (`index.html`,
+  `.promo` styles in `style.css` §31) — lazy `<video controls preload="none">`
+  with the poster.
+
 ### Backlog — remaining "major upgrade" waves (requested, not yet done)
 - Marketing: hero/CTA copy, pricing copy, onboarding text.
 - Taste: richer food descriptions, appetising-but-honest nutrient copy.
-- Remotion: promo + feature-highlight videos.
+- Remotion: feature-highlight / per-feature short clips (promo done).
 - Perf: JS/bundle/caching review; error handling.
 - Micro-features: streak counter, "popular this week", tip of the day, more facts.
 
