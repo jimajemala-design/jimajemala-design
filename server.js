@@ -2015,32 +2015,83 @@ app.delete('/api/logs/:id', auth, (req, res) => {
 });
 
 // ─── AI CHAT (NutriAI) ─────────────────────────────────────────────────────
+
+// Match a fridge ingredient back to the food DB to recover real per-100g nutrition.
+function matchFood(name) {
+  if (!name) return null;
+  const q = String(name).toLowerCase().trim();
+  return foods.find(f => f.name.toLowerCase() === q)
+      || foods.find(f => f.name.toLowerCase().includes(q) || q.includes(f.name.toLowerCase()))
+      || null;
+}
+
+// Context-engineered system prompt: critical rules + targets are bookended at the
+// top AND bottom (combats lost-in-middle); fridge gets real macros (high signal);
+// the full catalog is demoted to reference (signal-to-noise); guardrails block
+// invented numbers (anti-hallucination).
 function buildSystemPrompt(user, fridge, cal) {
-  const profile = user ? {
-    name: user.name, age: user.age, gender: user.gender,
-    currentWeight: user.weight, targetWeight: user.targetWeight, height: user.height,
-    activityLevel: user.activityLevel, timelineWeeks: user.timeline, goal: user.goal,
-  } : {};
-  const fridgeList = fridge.map(i => ({ name: i.name, quantity: i.quantity, category: i.category }));
-  const foodDb = foods.map(f => `${f.name} (${f.calories}kcal P${f.nutrition.protein} C${f.nutrition.carbs} F${f.nutrition.fat})`).join('; ');
-  const target = cal ? `${cal.target} kcal/day` : 'not set (profile incomplete)';
-  const macros = cal ? `Protein ${cal.protein}g, Carbs ${cal.carbs}g, Fats ${cal.fats}g` : 'not set';
-  return `You are NutriAI, an expert nutrition and fitness assistant for NutriFell. You have access to the user's profile and fridge contents. Always be encouraging, scientific, and practical.
+  // Profile with explicit missing-field detection so the model asks instead of guessing.
+  const fields = [
+    ['name', user && user.name], ['age', user && user.age], ['gender', user && user.gender],
+    ['height_cm', user && user.height], ['current_weight_kg', user && user.weight],
+    ['target_weight_kg', user && user.targetWeight], ['activity', user && user.activityLevel],
+    ['goal', user && user.goal], ['timeline_weeks', user && user.timeline],
+  ];
+  const filled = v => v !== undefined && v !== null && v !== '';
+  const known = fields.filter(([, v]) => filled(v));
+  const missing = fields.filter(([, v]) => !filled(v)).map(([k]) => k);
+  const profileLines = known.length ? known.map(([k, v]) => `  - ${k}: ${v}`).join('\n') : '  - (no profile saved yet)';
 
-User Profile: ${JSON.stringify(profile)}
-Fridge Contents: ${JSON.stringify(fridgeList)}
-Daily Calorie Target: ${target}
-Macro Targets: ${macros}
-Available Foods Database (per 100g): ${foodDb}
+  // Highest-signal block: personalised targets, including the rich planning data.
+  const targetBlock = cal ? [
+    `  - daily_calorie_target: ${cal.target} kcal`,
+    `  - macros: ${cal.protein}g protein / ${cal.carbs}g carbs / ${cal.fats}g fat`,
+    `  - tdee: ${cal.tdee} kcal · direction: ${cal.direction} (${cal.dailyAdjust >= 0 ? '+' : ''}${cal.dailyAdjust} kcal/day vs TDEE)`,
+    cal.goalKg ? `  - goal: ${cal.direction} ${cal.goalKg}kg over ~${cal.effWeeks} weeks (~${Math.abs(cal.weeklyChange)}kg/week)` : null,
+    cal.completionDate ? `  - projected_completion: ${cal.completionDate}` : null,
+  ].filter(Boolean).join('\n') : '  - not calculated yet (profile incomplete)';
 
-Rules:
-- Always base advice on the user's specific calorie and macro targets
-- When suggesting meals, only use ingredients from their fridge
-- Always show calories and macros for suggested meals
-- Be encouraging but realistic about goals
-- Keep responses concise and actionable
-- Format meal suggestions clearly with quantities
-- If asked about medical conditions, recommend doctor consultation`;
+  // Fridge with REAL per-100g nutrition recovered from the DB (what the user can cook now).
+  const fridgeBlock = fridge.length ? fridge.map(i => {
+    const f = matchFood(i.name);
+    const macros = f ? ` [${f.calories}kcal · P${f.nutrition.protein} C${f.nutrition.carbs} F${f.nutrition.fat} /100g]` : ' [not in DB — no verified macros]';
+    const qty = i.quantity ? ` x${i.quantity}` : '';
+    return `  - ${i.name}${qty}${macros}`;
+  }).join('\n') : '  - (fridge is empty)';
+
+  // Reference catalog: compact, explicitly lower priority than the fridge.
+  const catalog = foods
+    .map(f => `${f.name} (${f.calories}kcal P${f.nutrition.protein}/C${f.nutrition.carbs}/F${f.nutrition.fat})`)
+    .join(', ');
+
+  const targetRecap = cal
+    ? `${cal.target} kcal/day (${cal.protein}g P / ${cal.carbs}g C / ${cal.fats}g F)`
+    : "the user's targets once their profile is complete";
+
+  return `You are NutriAI, the nutrition and fitness assistant inside NutriFell.
+Give specific, accurate, encouraging guidance grounded ONLY in the data below.
+
+NON-NEGOTIABLE RULES:
+1. Use ONLY the numbers provided here. NEVER invent or estimate calories, macros, or nutrient values you were not given. If a food's data is not below, say you don't have verified data for it.
+2. If a profile field you need is missing, ask the user for it instead of guessing. Currently missing: ${missing.length ? missing.join(', ') : 'none'}.
+3. Suggest meals FRIDGE-FIRST. You may add 1-2 catalog items to complete a meal, but label them "to buy".
+4. Attach calories and macros (and gram portions) to every meal you suggest, and keep the day within the calorie target.
+5. No medical diagnosis. For conditions or medication, recommend seeing a doctor.
+6. Be concise and practical: short paragraphs or tight bullet lists.
+
+USER PROFILE:
+${profileLines}
+
+DAILY TARGETS (base every recommendation on these):
+${targetBlock}
+
+FRIDGE (cook with these first; macros are per 100g):
+${fridgeBlock}
+
+FOOD CATALOG (reference only, per 100g — use when the fridge lacks something):
+${catalog}
+
+REMEMBER: keep advice within ${targetRecap}. Use real numbers from above, go fridge-first, attach macros to meals, and stay encouraging.`;
 }
 
 // Smart rule-based assistant used when no Gemini API key is configured (or the API errors)
@@ -2064,7 +2115,11 @@ function fallbackReply(message, user, fridge, cal) {
   }
   if (/meal plan|plan for (today|the day)|day plan|1\d{3}\s*cal/.test(m)) {
     if (!fridge.length) return `Your fridge is empty, ${name}! Add a few ingredients and I'll build a full day around your ${t || 'daily'} kcal target. Use the **Generate Meal Plan** button once stocked.${noKey}`;
-    return `From your fridge (${has}) for a ${t || ''} kcal day:\n• **Breakfast** — ${names[0] || 'eggs'}\n• **Lunch** — ${names[1] || names[0]}\n• **Dinner** — ${names[2] || names[0]}\n• **Snack** — ${names[3] || names[0]}\nHit **Generate Meal Plan** for exact portions and macros!${noKey}`;
+    const line = (label, nm) => {
+      const f = matchFood(nm);
+      return `• **${label}** — ${nm || 'your items'}${f ? ` (${f.calories} kcal/100g · ${f.nutrition.protein}g P)` : ''}`;
+    };
+    return `From your fridge (${has}) for a ${t || ''} kcal day:\n${line('Breakfast', names[0] || 'eggs')}\n${line('Lunch', names[1] || names[0])}\n${line('Dinner', names[2] || names[0])}\n${line('Snack', names[3] || names[0])}\nHit **Generate Meal Plan** for exact portions and macros!${noKey}`;
   }
   if (/cook|make with|recipe|what can i (eat|make|cook)|20 min|quick/.test(m)) {
     return fridge.length
@@ -2084,6 +2139,10 @@ function fallbackReply(message, user, fridge, cal) {
   }
   if (/rice|carb|sugar|bread|good for/.test(m)) {
     return `Carbs aren't the enemy — they fuel training and recovery. For ${cal && cal.direction === 'lose' ? 'fat loss' : 'your goal'}, keep portions aligned to your ${cal ? cal.carbs + 'g' : 'daily'} carb target and favor whole sources (rice, oats, sweet potato) over refined ones.${noKey}`;
+  }
+  if (/water|hydrat|drink|thirsty/.test(m)) {
+    const goal = user && user.weight ? `${Math.round(user.weight * 0.033 * 10) / 10} L` : '2–3 L';
+    return `Hydration counts as much as food, ${name}. A simple daily target is about **${goal}**, more on training days or in the heat. Track it on the **Water** page.${noKey}`;
   }
   return `Hi ${name}! I'm **NutriAI**. I can suggest meals from your fridge (${has}), explain your ${t ? t + ' kcal' : ''} targets, and answer nutrition questions. Try: "make me a meal plan", "how much protein do I need?", or "what can I cook?"${noKey}`;
 }

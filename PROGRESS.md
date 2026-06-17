@@ -129,12 +129,30 @@ em-dashes, no fake testimonials, honest copy). All on `index.html` +
   food cards; `[data-reveal]` IntersectionObserver reveal that collapses under
   `prefers-reduced-motion`; focus-visible rings; mobile breakpoints at 860/640px.
 
+### AI + context — Wave 2 (done 2026-06-18)
+Applied via context-engineering skill (fundamentals + degradation). All in
+`server.js`, `buildSystemPrompt` / `fallbackReply`:
+- **Bookended critical info** — non-negotiable rules + targets at the TOP, and a
+  "REMEMBER" recap restating the calorie/macro target at the BOTTOM (combats the
+  lost-in-middle / U-shaped-attention degradation pattern).
+- **Real fridge macros** — new `matchFood()` recovers each fridge item's verified
+  per-100g kcal/P/C/F from the food DB and injects it (high signal); the full
+  74-food catalog is demoted to a clearly-labelled "reference only" block.
+- **Anti-hallucination guardrails** — explicit "use ONLY the numbers provided,
+  never invent values"; missing profile fields are detected and listed so the
+  model asks for them instead of guessing. Verified end-to-end: with no profile,
+  NutriAI now asks for the data rather than fabricating a target.
+- **Personalisation** — the rich `cal` planning data (tdee, direction, daily
+  adjust, goal kg, weekly change, projected completion) is now injected; it was
+  previously computed but never sent to the model.
+- **Fallback** — meal-plan suggestions now show matched real macros; added a
+  hydration intent that points to the Water page.
+
 ### Backlog — remaining "major upgrade" waves (requested, not yet done)
 - Other pages (profile, fridge, pricing, water, quit-smoking, recipes): same
   polish pass, empty/loading states, copy.
 - Marketing: hero/CTA copy, pricing copy, onboarding text.
 - Taste: richer food descriptions, appetising-but-honest nutrient copy.
-- Context-engineering: AI system prompts, Gemini context injection, meal-plan accuracy.
 - Remotion: promo + feature-highlight videos.
 - Perf: JS/bundle/caching review; error handling.
 - Micro-features: streak counter, "popular this week", tip of the day, more facts.
