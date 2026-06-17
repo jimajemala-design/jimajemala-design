@@ -113,6 +113,32 @@ assistant.
      server parses webhooks UNVERIFIED (dev only) and logs a warning.
 4. **Social media assets** — promo imagery/video (leverage `remotion/`). ← next
 
+### Homepage upgrade — Wave 1 (done 2026-06-18)
+Applied via ui-ux-pro-max + taste-skill (redesign-preserve: kept the
+"specimen/database · EST. 2035" voice; honoured anti-slop rules — zero
+em-dashes, no fake testimonials, honest copy). All on `index.html` +
+`css/style.css` (§24–29) + `app.js`:
+- **Food of the Day** — deterministic by UTC day-of-year, note falls back
+  `description → benefits[0]`, click opens detail. (`initFotd`)
+- **Recently viewed** — localStorage `nf_recent_v1`, max 8, horizontal chip
+  row, hidden when empty. Tracked in `openDetail` via `pushRecent`. (`renderRecent`)
+- **How it works** — 3-step protocol grid with staggered scroll-reveal.
+- **Trust strip** — 4 factual badges (offline PWA, no trackers, per-100g, honest).
+- **FAQ** — accessible single-open accordion (`aria-expanded`, max-height). (`initFaq`)
+- **A11y/UX** — fixed invalid `role="listitem button"` → `role="button"` on
+  food cards; `[data-reveal]` IntersectionObserver reveal that collapses under
+  `prefers-reduced-motion`; focus-visible rings; mobile breakpoints at 860/640px.
+
+### Backlog — remaining "major upgrade" waves (requested, not yet done)
+- Other pages (profile, fridge, pricing, water, quit-smoking, recipes): same
+  polish pass, empty/loading states, copy.
+- Marketing: hero/CTA copy, pricing copy, onboarding text.
+- Taste: richer food descriptions, appetising-but-honest nutrient copy.
+- Context-engineering: AI system prompts, Gemini context injection, meal-plan accuracy.
+- Remotion: promo + feature-highlight videos.
+- Perf: JS/bundle/caching review; error handling.
+- Micro-features: streak counter, "popular this week", tip of the day, more facts.
+
 ### Later / backlog
 - Add GLB models for the remaining foods.
 

@@ -205,7 +205,7 @@ const App = (() => {
       return `
         <div class="bento-item"
              style="--glow:${hexToGlow(f.color)}"
-             role="listitem button"
+             role="button"
              tabindex="0"
              data-id="${f.id}"
              aria-label="Explore ${f.name} — ${f.calories} kcal">
@@ -259,6 +259,8 @@ const App = (() => {
   function openDetail(id) {
     const food = foods.find(f => f.id === id);
     if (!food) return;
+
+    pushRecent(id);
 
     transition(() => {
       $('gridView').style.display = 'none';
@@ -468,6 +470,108 @@ const App = (() => {
     });
   }
 
+  // ── Food of the Day (deterministic by date) ──────────────────────────
+  function dayOfYear(d) {
+    const start = Date.UTC(d.getUTCFullYear(), 0, 0);
+    return Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - start) / 86400000);
+  }
+
+  function initFotd() {
+    const wrap = $('fotd');
+    if (!wrap || !foods.length) return;
+    const food = foods[dayOfYear(new Date()) % foods.length];
+    if (!food) return;
+
+    const note = (food.description || food.benefits?.[0] || '').toString();
+    $('fotdEmoji').textContent = food.emoji;
+    $('fotd-heading').textContent = food.name;
+    $('fotdNote').textContent = note;
+    $('fotdCal').textContent = `${food.calories} KCAL / 100G`;
+    $('fotdCard').style.setProperty('--glow', hexToGlow(food.color));
+    $('fotdCard').addEventListener('click', () => openDetail(food.id));
+    wrap.hidden = false;
+  }
+
+  // ── Recently viewed (localStorage) ────────────────────────────────────
+  const RECENT_KEY = 'nf_recent_v1';
+
+  function getRecent() {
+    try { return JSON.parse(localStorage.getItem(RECENT_KEY)) || []; }
+    catch { return []; }
+  }
+
+  function pushRecent(id) {
+    let ids = getRecent().filter(x => x !== id);
+    ids.unshift(id);
+    ids = ids.slice(0, 8);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(ids)); } catch {}
+    renderRecent();
+  }
+
+  function renderRecent() {
+    const wrap = $('recent');
+    const row = $('recentRow');
+    if (!wrap || !row || !foods.length) return;
+
+    const items = getRecent()
+      .map(id => foods.find(f => f.id === id))
+      .filter(Boolean)
+      .slice(0, 8);
+
+    if (!items.length) { wrap.hidden = true; return; }
+
+    row.innerHTML = items.map(f => `
+      <button class="recent-chip" type="button" role="listitem"
+              style="--glow:${hexToGlow(f.color)}"
+              data-id="${f.id}" aria-label="Open ${f.name}">
+        <span class="recent-emoji" aria-hidden="true">${f.emoji}</span>
+        <span class="recent-name">${f.name}</span>
+        <span class="recent-cal">${f.calories}</span>
+      </button>`).join('');
+
+    row.querySelectorAll('.recent-chip').forEach(chip => {
+      chip.addEventListener('click', () => openDetail(chip.dataset.id));
+    });
+    wrap.hidden = false;
+  }
+
+  // ── FAQ accordion ─────────────────────────────────────────────────────
+  function initFaq() {
+    const list = $('faqList');
+    if (!list) return;
+    list.querySelectorAll('.faq-q').forEach(btn => {
+      const item = btn.closest('.faq-item');
+      const answer = item.querySelector('.faq-a');
+      btn.addEventListener('click', () => {
+        const open = btn.getAttribute('aria-expanded') === 'true';
+        // close siblings for a clean single-open accordion
+        list.querySelectorAll('.faq-q[aria-expanded="true"]').forEach(other => {
+          if (other !== btn) {
+            other.setAttribute('aria-expanded', 'false');
+            other.closest('.faq-item').classList.remove('open');
+            other.closest('.faq-item').querySelector('.faq-a').style.maxHeight = null;
+          }
+        });
+        btn.setAttribute('aria-expanded', String(!open));
+        item.classList.toggle('open', !open);
+        answer.style.maxHeight = open ? null : answer.scrollHeight + 'px';
+      });
+    });
+  }
+
+  // ── Scroll reveal for static sections ─────────────────────────────────
+  function initReveal() {
+    const els = document.querySelectorAll('[data-reveal]');
+    if (!els.length) return;
+    if (reducedMotion) { els.forEach(el => el.classList.add('is-in')); return; }
+    const io = new IntersectionObserver((entries, obs) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('is-in'); obs.unobserve(e.target); }
+      });
+    }, { threshold: 0.15 });
+    els.forEach(el => io.observe(el));
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────
   async function init() {
     initCursor();
@@ -486,8 +590,12 @@ const App = (() => {
     }
 
     initTicker();
+    initFotd();
+    renderRecent();
     renderGrid();
     initFilter();
+    initFaq();
+    initReveal();
     $('backBtn').addEventListener('click', showGrid);
   }
 

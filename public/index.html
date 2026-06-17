@@ -95,6 +95,39 @@
         </div>
       </div>
 
+      <!-- Food of the Day + Recently viewed -->
+      <section class="home-strips" aria-label="Highlights">
+        <div class="fotd" id="fotd" hidden>
+          <div class="strip-label">
+            <span class="label-line"></span>
+            <span class="label-text">SPECIMEN OF THE DAY</span>
+          </div>
+          <button class="fotd-card" id="fotdCard" type="button" data-hover aria-labelledby="fotd-heading">
+            <span class="fotd-emoji" id="fotdEmoji" aria-hidden="true"></span>
+            <div class="fotd-body">
+              <h2 class="fotd-name" id="fotd-heading"></h2>
+              <p class="fotd-note" id="fotdNote"></p>
+              <div class="fotd-meta">
+                <span class="fotd-cal" id="fotdCal"></span>
+                <span class="fotd-cta">Inspect specimen
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M3 8h10M8.5 3.5L13 8l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <div class="recent" id="recent" hidden>
+          <div class="strip-label">
+            <span class="label-line"></span>
+            <span class="label-text" id="recent-heading">RECENTLY VIEWED</span>
+          </div>
+          <div class="recent-row" id="recentRow" role="list" aria-label="Recently viewed foods"></div>
+        </div>
+      </section>
+
       <!-- Gallery -->
       <section class="gallery" id="gallery" aria-labelledby="gallery-heading">
         <div class="gallery-header">
@@ -131,6 +164,112 @@
           <div class="bento-loading" aria-live="polite">
             <div class="loading-ring" aria-hidden="true"></div>
             <span>INITIALIZING DATABASE…</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- How it works -->
+      <section class="howto" aria-labelledby="howto-heading">
+        <div class="strip-label center">
+          <span class="label-line"></span>
+          <span class="label-text">PROTOCOL</span>
+          <span class="label-line"></span>
+        </div>
+        <h2 class="section-title" id="howto-heading">How it <em>works</em></h2>
+        <ol class="howto-grid">
+          <li class="howto-step" data-reveal>
+            <span class="howto-num">01</span>
+            <h3 class="howto-step-title">Browse the database</h3>
+            <p class="howto-step-desc">Search or filter 74 whole foods by category. Every entry carries a full macro and micronutrient profile, normalised per 100g.</p>
+          </li>
+          <li class="howto-step" data-reveal>
+            <span class="howto-num">02</span>
+            <h3 class="howto-step-title">Inspect in 3D</h3>
+            <p class="howto-step-desc">Open any specimen to rotate a real-time model and read its benefits beside its honest drawbacks. No cherry-picking.</p>
+          </li>
+          <li class="howto-step" data-reveal>
+            <span class="howto-num">03</span>
+            <h3 class="howto-step-title">Plan and track</h3>
+            <p class="howto-step-desc">Set a calorie target, stock your fridge, generate meals, and log the day. NutriAI fills the gaps when you ask.</p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- Trust strip (factual, no hype) -->
+      <section class="trust" aria-label="What you get">
+        <ul class="trust-row">
+          <li class="trust-item">
+            <span class="trust-key">OFFLINE</span>
+            <span class="trust-val">Installs as a PWA and runs without a connection</span>
+          </li>
+          <li class="trust-item">
+            <span class="trust-key">NO TRACKERS</span>
+            <span class="trust-val">No third-party pixels or ad scripts</span>
+          </li>
+          <li class="trust-item">
+            <span class="trust-key">PER 100G</span>
+            <span class="trust-val">Values normalised so foods compare directly</span>
+          </li>
+          <li class="trust-item">
+            <span class="trust-key">HONEST</span>
+            <span class="trust-val">Drawbacks listed beside every benefit</span>
+          </li>
+        </ul>
+      </section>
+
+      <!-- FAQ -->
+      <section class="faq" aria-labelledby="faq-heading">
+        <div class="strip-label center">
+          <span class="label-line"></span>
+          <span class="label-text">QUERIES</span>
+          <span class="label-line"></span>
+        </div>
+        <h2 class="section-title" id="faq-heading">Frequently <em>asked</em></h2>
+        <div class="faq-list" id="faqList">
+          <div class="faq-item" data-reveal>
+            <button class="faq-q" type="button" aria-expanded="false">
+              <span>Where does the nutrition data come from?</span>
+              <span class="faq-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="faq-a" role="region">
+              <p>Values are compiled from public nutrition databases and normalised to a per-100g (or standard serving) basis, so any two foods can be compared on the same scale.</p>
+            </div>
+          </div>
+          <div class="faq-item" data-reveal>
+            <button class="faq-q" type="button" aria-expanded="false">
+              <span>Is NutriFell free to use?</span>
+              <span class="faq-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="faq-a" role="region">
+              <p>The full food database and 3D viewer are free. Pro and Elite plans add deeper AI meal planning, history, and higher request limits. See the pricing page for the breakdown.</p>
+            </div>
+          </div>
+          <div class="faq-item" data-reveal>
+            <button class="faq-q" type="button" aria-expanded="false">
+              <span>Do I need an account?</span>
+              <span class="faq-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="faq-a" role="region">
+              <p>No account is needed to browse foods. You only register to save a profile, stock a fridge, track water, or sync your daily log across devices.</p>
+            </div>
+          </div>
+          <div class="faq-item" data-reveal>
+            <button class="faq-q" type="button" aria-expanded="false">
+              <span>What is NutriAI?</span>
+              <span class="faq-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="faq-a" role="region">
+              <p>NutriAI is the built-in assistant. It reads your profile, fridge, and the food database to answer questions and suggest meals. When no AI key is configured it falls back to a rule-based engine.</p>
+            </div>
+          </div>
+          <div class="faq-item" data-reveal>
+            <button class="faq-q" type="button" aria-expanded="false">
+              <span>Why show drawbacks instead of only benefits?</span>
+              <span class="faq-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="faq-a" role="region">
+              <p>Because every food has trade-offs. Listing sugar load, sodium, oxalates, or allergens beside the upside lets you decide in context instead of being sold to.</p>
+            </div>
           </div>
         </div>
       </section>
