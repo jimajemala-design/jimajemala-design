@@ -557,9 +557,25 @@ function initProfile() {
   });
 }
 
+// ── Universal scroll-reveal (works on every page that loads auth.js) ──────
+// Homepage app.js has its own; a guard keeps double-observing harmless.
+function initReveal() {
+  const els = document.querySelectorAll('[data-reveal]:not(.is-in)');
+  if (!els.length) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) { els.forEach(el => el.classList.add('is-in')); return; }
+  const io = new IntersectionObserver((entries, obs) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('is-in'); obs.unobserve(e.target); }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  els.forEach(el => io.observe(el));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   renderNav();
   initRegister();
   initLogin();
   initProfile();
+  initReveal();
 });

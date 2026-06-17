@@ -36,6 +36,12 @@
       <p>Track today, get smart suggestions, and let NutriAI plan around your goals.</p>
     </div>
 
+    <div class="assure-row">
+      <span class="assure"><span class="dot"></span>Macros from <b>74 verified foods</b></span>
+      <span class="assure"><span class="dot"></span>Plans built around <b>your targets</b></span>
+      <span class="assure"><span class="dot"></span>Synced &amp; <b>private to you</b></span>
+    </div>
+
     <!-- TODAY TRACKER -->
     <section class="tracker-section" aria-label="Today's calorie tracker">
       <div class="tracker-card">
@@ -91,7 +97,7 @@
 
     <div class="fridge-layout">
       <!-- LEFT: Fridge -->
-      <section class="panel" aria-label="My fridge">
+      <section class="panel" aria-label="My fridge" data-reveal>
         <div class="panel-title">
           <h2>🧊 My Fridge</h2>
           <span class="count" id="fridgeCount">0 items</span>
@@ -107,13 +113,13 @@
       </section>
 
       <!-- RIGHT: Meal plan -->
-      <section class="panel" aria-label="Daily meal plan">
+      <section class="panel" aria-label="Daily meal plan" data-reveal>
         <div class="panel-title"><h2>📋 My Daily Meal Plan</h2></div>
         <div class="plan-targets" id="planTargets"></div>
         <div id="mealPlan">
           <div class="plan-empty">
             <div class="big">🍳</div>
-            No meal plan yet.<br>Stock your fridge and hit <b>Generate Meal Plan</b>.
+            <b>No meal plan yet.</b><br>Add a few ingredients on the left, then hit <b>Generate Meal Plan</b> and NutriAI will build your day around your calorie target.
           </div>
         </div>
       </section>

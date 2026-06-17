@@ -148,9 +148,25 @@ Applied via context-engineering skill (fundamentals + degradation). All in
 - **Fallback** — meal-plan suggestions now show matched real macros; added a
   hydration intent that points to the Water page.
 
+### Page polish — Wave 3 (done 2026-06-18)
+Applied via ui-ux-pro-max (21st.dev MCP was NOT exposing component tools in the
+env, so drove it with the skill + existing system). Lifted all 6 secondary pages
+to homepage quality with shared, reusable primitives instead of per-page rewrites:
+- **Universal scroll-reveal** — added `initReveal()` to `auth.js` (loads on every
+  page) so `[data-reveal]` works app-wide, reduced-motion aware. NB: homepage's
+  observer is in `app.js` which only loads there; this fixes the other pages.
+- **Shared primitives in `style.css` §30** — `.skeleton` shimmer loader,
+  `.assure-row`/`.assure` factual trust microbar, `.empty-cta` + `.empty-hint`.
+- **pricing.html** — reveal on the 3 plan cards; stronger trust row (Stripe-secured,
+  no-card-for-free); added a cancel/refund FAQ.
+- **fridge.html** — assurance microbar; reveal on both panels; warmer meal-plan empty state.
+- **water.html** — assurance bar; reveal; skeleton replaces "Loading…"; richer empty log.
+- **quit-smoking.html** — supportive assurance bar; reveal on the stats grid.
+- **recipes.html** — assurance bar; empty state upgraded to a CTA button.
+- **profile-view.html** — bare spinner replaced with a layout-matched skeleton
+  scaffold (progressive-loading). Verified: all 6 pages return 200.
+
 ### Backlog — remaining "major upgrade" waves (requested, not yet done)
-- Other pages (profile, fridge, pricing, water, quit-smoking, recipes): same
-  polish pass, empty/loading states, copy.
 - Marketing: hero/CTA copy, pricing copy, onboarding text.
 - Taste: richer food descriptions, appetising-but-honest nutrient copy.
 - Remotion: promo + feature-highlight videos.

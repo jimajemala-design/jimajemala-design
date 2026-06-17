@@ -33,9 +33,15 @@
       <p>Stay hydrated. Your goal is calculated from your body weight — sip your way there.</p>
     </div>
 
+    <div class="assure-row">
+      <span class="assure"><span class="dot"></span>Goal set from <b>your body weight</b></span>
+      <span class="assure"><span class="dot"></span><b>7-day</b> history at a glance</span>
+      <span class="assure"><span class="dot"></span>Works <b>offline</b></span>
+    </div>
+
     <div class="feat-wrap water-layout">
       <!-- LEFT: ring + quick add -->
-      <section class="feat-card water-ring-card">
+      <section class="feat-card water-ring-card" data-reveal>
         <div class="water-ring-wrap" id="ringWrap">
           <svg class="water-ring" viewBox="0 0 240 240" aria-hidden="true">
             <defs><linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
@@ -51,7 +57,7 @@
             <div class="pct" id="ringPct">0%</div>
           </div>
         </div>
-        <div class="water-remaining" id="remaining">Loading…</div>
+        <div class="water-remaining" id="remaining"><span class="skeleton skeleton-line" style="display:inline-block;width:150px;height:13px;vertical-align:middle"></span></div>
 
         <div class="water-quick">
           <button class="water-add-btn" data-ml="250">💧 +250ml</button>
@@ -75,10 +81,10 @@
       </section>
 
       <!-- RIGHT: today log + week -->
-      <div style="display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;flex-direction:column;gap:22px" data-reveal>
         <section class="feat-card">
           <div class="feat-card-title">🕒 Today's Log</div>
-          <div class="water-log" id="todayLog"><div class="feat-empty">No water logged yet today.</div></div>
+          <div class="water-log" id="todayLog"><div class="feat-empty"><div class="big">🫗</div>No water logged yet today.<span class="empty-hint">Tap a +250ml button to log your first glass.</span></div></div>
         </section>
         <section class="feat-card">
           <div class="feat-card-title">📊 Last 7 Days</div>

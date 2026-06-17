@@ -180,9 +180,17 @@
   <main class="app-page pv-page">
     <div class="mesh-gradient" aria-hidden="true"></div>
     <div class="pv-wrap" id="pvWrap">
-      <div class="pv-loading" id="pvLoading">
-        <div class="loading-ring" aria-hidden="true"></div>
-        Loading your profile…
+      <div class="pv-loading" id="pvLoading" style="padding:0;display:block" aria-live="polite" aria-busy="true">
+        <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Loading your profile…</span>
+        <div class="skeleton" style="height:128px;border-radius:20px;margin-bottom:20px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+          <div class="skeleton" style="height:104px;border-radius:16px;margin:0"></div>
+          <div class="skeleton" style="height:104px;border-radius:16px;margin:0"></div>
+          <div class="skeleton" style="height:104px;border-radius:16px;margin:0"></div>
+          <div class="skeleton" style="height:104px;border-radius:16px;margin:0"></div>
+        </div>
+        <div class="skeleton" style="height:168px;border-radius:20px;margin-bottom:20px"></div>
+        <div class="skeleton" style="height:150px;border-radius:20px"></div>
       </div>
 
       <!-- Profile header -->
