@@ -7,8 +7,92 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const app = express();
 const PORT = process.env.PORT || 3000;
+app.set('etag', 'strong'); // strong ETags on dynamic responses for conditional GETs
 
-app.use(express.static(path.join(__dirname, 'public')));
+// ─── Security, compression & resilience middleware ───────────────────────
+// Loaded defensively so a missing dep never takes the whole server down.
+let compression = null, helmet = null, rateLimit = null;
+try { compression = require('compression'); } catch (e) { /* gzip disabled */ }
+try { helmet = require('helmet'); } catch (e) { /* security headers disabled */ }
+try { rateLimit = require('express-rate-limit'); } catch (e) { /* rate limiting disabled */ }
+
+if (helmet) {
+  // CSP is left off: the app loads Three.js/Stripe from CDNs and uses inline
+  // bootstrap scripts. The remaining helmet protections (HSTS, noSniff, frame
+  // guards, referrer policy, etc.) all still apply. COEP off so CDN/3D assets load.
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
+}
+if (compression) app.use(compression()); // gzip all eligible responses
+
+// Lightweight request logger: METHOD /path → status (Nms)
+app.use((req, res, next) => {
+  const started = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - started;
+    if (req.originalUrl !== '/favicon.ico') {
+      console.log(`${req.method} ${req.originalUrl} → ${res.statusCode} (${ms}ms)`);
+    }
+  });
+  next();
+});
+
+// CORS — permissive for the JSON API (same-origin app, but explicit + safe)
+app.use('/api', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Vary', 'Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+// Cache-Control policy:
+//   • GET /api/foods, /api/foods/:id → 1 hour (static catalog)
+//   • other GET /api → 5 minutes, private
+//   • mutations + everything else → no-store
+app.use('/api', (req, res, next) => {
+  if (req.method === 'GET') {
+    if (req.path === '/foods' || /^\/foods\//.test(req.path)) {
+      res.set('Cache-Control', 'public, max-age=3600');
+    } else {
+      res.set('Cache-Control', 'private, max-age=300');
+    }
+  } else {
+    res.set('Cache-Control', 'no-store');
+  }
+  next();
+});
+
+// Rate limiting — generous global cap, tighter on auth/AI to deter abuse.
+if (rateLimit) {
+  const std = { standardHeaders: true, legacyHeaders: false };
+  app.use('/api', rateLimit({ windowMs: 60 * 1000, max: 300, ...std,
+    message: { error: 'Too many requests — slow down and try again shortly.' } }));
+  const tight = rateLimit({ windowMs: 15 * 60 * 1000, max: 40, ...std,
+    message: { error: 'Too many attempts. Please wait a few minutes and retry.' } });
+  app.use(['/api/login', '/api/register', '/api/auth'], tight);
+  app.use(['/api/ai', '/api/recipes'], rateLimit({ windowMs: 60 * 1000, max: 60, ...std,
+    message: { error: 'Too many requests — please pause a moment.' } }));
+}
+
+// Static assets — long-lived immutable cache, except HTML which must revalidate.
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
+  lastModified: true,
+  setHeaders(res, filePath) {
+    if (/\.html$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache');
+    } else if (/\.(?:js|css|png|jpg|jpeg|webp|svg|gif|woff2?|glb|mp4|ico)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  },
+}));
+
 // The Stripe webhook needs the raw request body for signature verification,
 // so JSON parsing is skipped for that one route (it uses express.raw instead).
 app.use((req, res, next) => {
@@ -115,8 +199,26 @@ for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE, LOGS_FILE, WATER_FILE
   SMOKING_FILE, RECIPES_FILE, COMMENTS_FILE, REACTIONS_FILE, BOOKMARKS_FILE, REPORTS_FILE]) {
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf8');
 }
-const readJSON = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8') || '[]'); } catch { return []; } };
-const writeJSON = (f, data) => fs.writeFileSync(f, JSON.stringify(data, null, 2), 'utf8');
+// In-memory JSON cache keyed by file path + last-modified time. Reads skip the
+// disk parse when the file is unchanged; writes refresh the cache immediately,
+// and an external edit busts it automatically via the mtime check.
+const _jsonCache = new Map();
+const readJSON = (f) => {
+  try {
+    const mtime = fs.statSync(f).mtimeMs;
+    const hit = _jsonCache.get(f);
+    // Return a clone so callers that mutate the result before (or without)
+    // writing can never corrupt the shared cache entry.
+    if (hit && hit.mtime === mtime) return structuredClone(hit.data);
+    const data = JSON.parse(fs.readFileSync(f, 'utf8') || '[]');
+    _jsonCache.set(f, { mtime, data });
+    return structuredClone(data);
+  } catch { return []; }
+};
+const writeJSON = (f, data) => {
+  fs.writeFileSync(f, JSON.stringify(data, null, 2), 'utf8');
+  try { _jsonCache.set(f, { mtime: fs.statSync(f).mtimeMs, data }); } catch {}
+};
 const publicUser = (u) => { const { password, ...rest } = u; return rest; };
 
 // JWT auth middleware
@@ -2948,6 +3050,77 @@ app.post('/api/recipes/:id/ai-analysis', async (req, res) => {
   }
 });
 
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// ─── Styled error pages (404 / 500) ──────────────────────────────────────
+function errorPage({ code, title, message }) {
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${code} · NutriFell</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; text-align:center;
+    background:#080c14; color:#f8fafc; font-family:'Space Grotesk','Segoe UI',Helvetica,Arial,sans-serif;
+    background-image:radial-gradient(60% 50% at 50% 0%, rgba(34,197,94,0.10), transparent 70%); padding:24px; }
+  .err { max-width:480px; }
+  .err-logo { font-size:22px; font-weight:700; letter-spacing:-0.02em; margin-bottom:36px; }
+  .err-logo span { color:#22c55e; }
+  .err-code { font-size:clamp(72px,18vw,140px); line-height:1; font-weight:800;
+    background:linear-gradient(180deg,#22c55e,#0f766e); -webkit-background-clip:text;
+    background-clip:text; color:transparent; margin:0; }
+  .err-title { font-size:22px; margin:10px 0 8px; }
+  .err-msg { color:#94a3b8; font-size:15px; line-height:1.6; margin:0 0 30px; }
+  .err-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .err-btn { display:inline-flex; align-items:center; gap:8px; padding:12px 22px; border-radius:12px;
+    font-weight:600; font-size:14px; text-decoration:none; transition:transform .15s ease, background .15s ease; }
+  .err-btn:hover { transform:translateY(-2px); }
+  .err-btn.primary { background:#22c55e; color:#04130a; }
+  .err-btn.ghost { background:rgba(255,255,255,0.06); color:#f8fafc; border:1px solid rgba(255,255,255,0.12); }
+</style></head>
+<body><div class="err">
+  <div class="err-logo">Nutri<span>Fell</span></div>
+  <p class="err-code">${code}</p>
+  <h1 class="err-title">${title}</h1>
+  <p class="err-msg">${message}</p>
+  <div class="err-actions">
+    <a class="err-btn primary" href="/">← Back to home</a>
+    <a class="err-btn ghost" href="/fridge.html">Open dashboard</a>
+  </div>
+</div></body></html>`;
+}
 
-app.listen(PORT, () => console.log(`Healthy Food DB running at http://localhost:${PORT}`));
+// Unknown API route → JSON 404; unknown page → SPA shell (client routes) ...
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not found', path: req.originalUrl });
+});
+
+// ... but a request that explicitly wants HTML for a missing .html file → styled 404
+app.get('*', (req, res) => {
+  if (/\.html$/.test(req.path) && req.path !== '/index.html') {
+    return res.status(404).send(errorPage({
+      code: 404, title: 'Page not found',
+      message: "That page doesn't exist or has moved. Let's get you back on track.",
+    }));
+  }
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Global error handler — last line of defence for uncaught route errors.
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err && err.stack ? err.stack : err);
+  if (res.headersSent) return next(err);
+  const wantsJSON = req.path.startsWith('/api') || (req.headers.accept || '').includes('application/json');
+  if (wantsJSON) {
+    return res.status(500).json({ error: 'Something went wrong on our end. Please try again.' });
+  }
+  res.status(500).send(errorPage({
+    code: 500, title: 'Something went wrong',
+    message: 'An unexpected error occurred on our end. Please try again in a moment.',
+  }));
+});
+
+// Crash guards — log instead of letting the process die silently.
+process.on('unhandledRejection', (reason) => console.error('Unhandled rejection:', reason));
+process.on('uncaughtException', (err) => console.error('Uncaught exception:', err));
+
+app.listen(PORT, () => console.log(`NutriFell running at http://localhost:${PORT}`));

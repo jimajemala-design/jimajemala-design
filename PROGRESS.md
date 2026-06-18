@@ -1,6 +1,6 @@
 # NutriFell — Progress & Roadmap
 
-> Last updated: 2026-06-17
+> Last updated: 2026-06-18
 > Formerly "NutriBase Georgia" — rebranded to **NutriFell** on 2026-06-16.
 
 An interactive 3D nutrition explorer + installable PWA. Browse 74 foods with
@@ -10,7 +10,8 @@ assistant.
 
 ## Tech stack
 
-- **Backend:** Node.js + Express 4 (`server.js`, single file)
+- **Backend:** Node.js + Express 4 (`server.js`, single file), hardened with
+  `compression` (gzip), `helmet`, and `express-rate-limit`
 - **Auth:** JWT (7-day expiry) + bcrypt password hashing
 - **Storage:** File-based JSON in `data/` (no database) — `users`, `fridges`,
   `mealplans`, `logs`. Auto-created on boot; gitignored.
@@ -211,6 +212,59 @@ bans fake scarcity); zero em-dashes.
   = the branded promo poster); OG/Twitter on pricing + recipes; meta descriptions
   added to fridge/water/quit-smoking. Verified JSON-LD parses; all pages 200.
 - CSS for all of the above in `style.css` §32–34. New shared primitives reused.
+
+### Performance + Onboarding — Wave 6 (done 2026-06-18)
+Via ui-ux-pro-max + context-engineering + marketing. Two parts.
+
+**Part 1 · Performance pass**
+- **Server hardening (`server.js`)** — added `compression` (gzip), `helmet`
+  (CSP/COEP off so the CDN 3D + Stripe still load; all other headers on),
+  `express-rate-limit` (global 300/min on `/api`, tight 40/15min on
+  auth/register, 60/min on AI/recipes). Explicit CORS on `/api` (+OPTIONS 204),
+  strong ETags, request logger (`METHOD url → status (Nms)`), and a
+  **Cache-Control policy**: static assets `max-age=31536000, immutable`, HTML
+  `no-cache`, `/api/foods` 1h, other GET `/api` 5min private, mutations
+  `no-store`. All verified via curl.
+- **In-memory JSON cache** — `readJSON` now caches parsed data keyed by file
+  path + mtime (returns a `structuredClone` so callers can't corrupt the cache);
+  `writeJSON` refreshes it; external edits bust it via the mtime check.
+- **Styled 404/500** — unknown `.html` → branded 404 page; unknown `/api` →
+  JSON 404; global error handler (HTML or JSON by `Accept`); `unhandledRejection`
+  / `uncaughtException` guards.
+- **Service worker (`sw.js` v3)** — cache-first-within-TTL for API GETs (foods
+  1h, profile 30m, default 5m, stamped with a `sw-cached-at` header), network-first
+  for navigations, stale-while-revalidate for static + CDN assets, versioned
+  cache cleanup, `SKIP_WAITING` message hook.
+- **Lazy 3D + video** — Three.js, its post-processing passes, loaders and
+  `scene.js` (~1MB) are now injected on demand the first time a food detail opens
+  (`ensure3D()` in `app.js`, memoised); homepage no longer ships any of it.
+  Promo video uses `data-src` + IntersectionObserver (loads near viewport, plays
+  muted only while ≥60% visible). Resource hints: preconnect cdnjs, dns-prefetch
+  jsdelivr/Stripe/Gemini. Mobile: `scene.js` drops AA + shadows and caps pixel
+  ratio at 1.5 on small/touch screens. `loading="lazy"` on recipe images.
+- **Resilience** — `Auth.api` retries transient failures (network drop, 502/503/504)
+  3× with backoff; 4xx never retried. Offline/online banner + "Back online" toast.
+
+**Part 2 · Onboarding**
+- **Unified toasts** — replaced the single-slot toast with a stacked, typed,
+  top-right system (`success`/`error`/`info`/`warning`, icon, dismiss, auto-expire,
+  slide in/out, reduced-motion aware). `toast()` signature kept for back-compat;
+  exposed as `window.Toast`. (No `alert()` calls existed.)
+- **Welcome overlay** (`onboarding.js`, homepage only) — first-visit full-screen
+  overlay with animated logo, "Get Started" (→ register, queues the tour) /
+  "Explore First" (→ starts the tour) / Skip. `localStorage` flag.
+- **5-step spotlight feature tour** — dark mask via a box-shadow cutout with an
+  animated green border, tooltip with title/body, progress dots (Step N of 5),
+  Skip/Next, Esc/Enter support, resize/scroll reposition, mobile bottom-pinned
+  tooltip. Opens the sidebar for nav-anchored steps. Runs after registration
+  (pending flag) or from the welcome overlay; completion stored.
+- **Profile wizard** (`profile.html` + `initProfile`) — 3 steps (Basics / Body
+  stats / Goals) with a progress bar + label, per-step validation, Enter advances,
+  encouraging messages between steps, live calorie preview on step 3, and a
+  **celebration screen** (confetti + count-up daily target + "Go to My Dashboard").
+- **Tooltips** — `.nf-tip` component (hover on desktop, tap-to-toggle on touch,
+  keyboard-accessible) on BMR / Mifflin-St Jeor / TDEE / macro-split terms.
+- CSS for all of the above in `style.css` §35–40.
 
 ### Backlog — remaining
 - Taste: bulk rewrite of all 74 food `description`s to be more appetising

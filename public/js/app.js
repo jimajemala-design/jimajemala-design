@@ -255,8 +255,42 @@ const App = (() => {
     return `rgba(${r},${g},${b},0.16)`;
   }
 
+  // ── On-demand Three.js loader ─────────────────────────────────────────
+  // Three.js, its post-processing passes, loaders and scene.js (~1MB total)
+  // are kept off the homepage critical path and injected the first time a user
+  // opens a food detail. The promise is memoised so it only ever loads once.
+  let _threePromise = null;
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src; s.async = false; // preserve execution order
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Failed to load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+  function ensure3D() {
+    if (window.FoodScene && window.THREE) return Promise.resolve();
+    if (_threePromise) return _threePromise;
+    const CDN = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js';
+    _threePromise = (async () => {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js');
+      // Post-processing + loaders attach onto the THREE namespace, in order.
+      await loadScript(`${CDN}/shaders/CopyShader.js`);
+      await loadScript(`${CDN}/shaders/LuminosityHighPassShader.js`);
+      await loadScript(`${CDN}/postprocessing/EffectComposer.js`);
+      await loadScript(`${CDN}/postprocessing/RenderPass.js`);
+      await loadScript(`${CDN}/postprocessing/ShaderPass.js`);
+      await loadScript(`${CDN}/postprocessing/UnrealBloomPass.js`);
+      await loadScript(`${CDN}/loaders/GLTFLoader.js`);
+      await loadScript(`${CDN}/loaders/DRACOLoader.js`);
+      await loadScript('/js/scene.js');
+    })();
+    return _threePromise;
+  }
+
   // ── Detail view ───────────────────────────────────────────────────────
-  function openDetail(id) {
+  async function openDetail(id) {
     const food = foods.find(f => f.id === id);
     if (!food) return;
 
@@ -272,14 +306,22 @@ const App = (() => {
 
       renderMacros(food);
       renderInfo(food);
-
-      if (!sceneReady) {
-        FoodScene.init($('threeCanvas'));
-        sceneReady = true;
-      }
-      FoodScene.loadFood(food.id);
       window.scrollTo({ top: 0, behavior: 'instant' });
     });
+
+    // Boot the 3D engine on first open; show the spinner while it streams in.
+    const spinner = $('glbLoadSpinner');
+    if (spinner && !window.FoodScene) spinner.style.display = 'flex';
+    try {
+      await ensure3D();
+      if (!sceneReady) { FoodScene.init($('threeCanvas')); sceneReady = true; }
+      FoodScene.loadFood(food.id);
+    } catch (err) {
+      console.error(err);
+      if (typeof toast === 'function') toast('Could not load the 3D viewer. Check your connection.', 'error');
+    } finally {
+      if (spinner && !sceneReady) spinner.style.display = 'none';
+    }
   }
 
   function renderMacros(food) {
@@ -627,6 +669,31 @@ const App = (() => {
     });
   }
 
+  // ── Promo video: lazy-attach source + play muted only while in view ───
+  function initPromoVideo() {
+    const video = $('promoVideo');
+    if (!video || !('IntersectionObserver' in window)) {
+      if (video && video.dataset.src && !video.src) video.src = video.dataset.src;
+      return;
+    }
+    let loaded = false;
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        // Attach the source as the section approaches the viewport.
+        if (e.isIntersecting && !loaded) {
+          video.src = video.dataset.src;
+          loaded = true;
+        }
+        // Autoplay muted while mostly visible; pause when scrolled away.
+        if (loaded && !reducedMotion) {
+          if (e.intersectionRatio >= 0.6) { video.play().catch(() => {}); }
+          else if (!video.paused) { video.pause(); }
+        }
+      });
+    }, { threshold: [0, 0.6], rootMargin: '200px 0px' });
+    io.observe(video);
+  }
+
   // ── Scroll reveal for static sections ─────────────────────────────────
   function initReveal() {
     const els = document.querySelectorAll('[data-reveal]');
@@ -665,6 +732,7 @@ const App = (() => {
     initFilter();
     initFaq();
     initReveal();
+    initPromoVideo();
     $('backBtn').addEventListener('click', showGrid);
   }
 

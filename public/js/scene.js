@@ -3572,14 +3572,18 @@ const FoodScene = (() => {
   // ─── Public API ────────────────────────────────────────────────────────────
 
   function init(canvas) {
+    // Lower-end / mobile devices: drop antialiasing and cap the pixel ratio so
+    // the WebGL viewer stays smooth instead of shading 2× the pixels.
+    const isMobile = window.matchMedia('(max-width: 760px)').matches
+      || window.matchMedia('(hover: none)').matches;
     renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: true,
+      antialias: !isMobile,
       alpha: false,
       powerPreference: 'high-performance',
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
+    renderer.shadowMap.enabled = !isMobile;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.10;

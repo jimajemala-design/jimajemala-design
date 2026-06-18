@@ -67,7 +67,7 @@ function renderGallery() {
     main.classList.remove('fallback'); main.style.display = '';
     selectPhoto(photoList[0]);
     $('thumbs').innerHTML = photoList.length > 1
-      ? photoList.map((p, i) => `<img src="${p}" class="${i===0?'active':''}" alt="" />`).join('') : '';
+      ? photoList.map((p, i) => `<img src="${p}" class="${i===0?'active':''}" alt="" loading="lazy" decoding="async" />`).join('') : '';
     $('thumbs').querySelectorAll('img').forEach(img => img.addEventListener('click', () => selectPhoto(img.getAttribute('src'))));
   } else {
     main.outerHTML = `<div class="main-photo fallback" id="mainPhoto">${catEmoji[recipe.category] || '🍽️'}</div>`;
@@ -82,7 +82,7 @@ function renderRecipeTab() {
       ${i.foodId ? '<span class="matched">✓ matched</span>' : ''}
     </div>`).join('') || '<div class="feat-empty">No ingredients listed.</div>';
   const steps = (recipe.steps || []).map(s => `
-    <div class="step-item"><div class="num"></div><div class="txt">${esc(s.text)}${s.photo ? `<img src="${s.photo}" alt="" />` : ''}</div></div>`).join('')
+    <div class="step-item"><div class="num"></div><div class="txt">${esc(s.text)}${s.photo ? `<img src="${s.photo}" alt="" loading="lazy" decoding="async" />` : ''}</div></div>`).join('')
     || '<div class="feat-empty">No instructions listed.</div>';
   $('pane-recipe').innerHTML = `
     ${recipe.description ? `<p style="color:var(--text-2);margin-bottom:18px">${esc(recipe.description)}</p>` : ''}

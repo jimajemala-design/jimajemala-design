@@ -10,6 +10,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
 
+  <!-- Resource hints: warm up the CDNs we only hit on demand (3D viewer, Stripe) -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+  <link rel="dns-prefetch" href="https://js.stripe.com" />
+  <link rel="dns-prefetch" href="https://generativelanguage.googleapis.com" />
+
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="stylesheet" href="/css/auth.css" />
 
@@ -239,10 +245,11 @@
         </div>
         <h2 class="section-title" id="promo-heading">See it in <em>motion</em></h2>
         <div class="promo-frame" data-reveal>
-          <video class="promo-video" controls preload="none" playsinline
+          <video class="promo-video" id="promoVideo" controls muted playsinline preload="none"
+                 width="1920" height="1080"
                  poster="/videos/promo-poster.jpg"
+                 data-src="/videos/nutrifell-promo-horizontal.mp4"
                  aria-label="NutriFell 30-second promotional video">
-            <source src="/videos/nutrifell-promo-horizontal.mp4" type="video/mp4" />
             Your browser does not support the video tag.
           </video>
         </div>
@@ -400,19 +407,12 @@
   <!-- Page transition overlay -->
   <div class="page-overlay" id="pageOverlay" aria-hidden="true"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- Post-processing (UnrealBloom) — loaded after core, attaches to THREE namespace -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
-  <script src="/js/scene.js"></script>
+  <!-- Three.js, post-processing, loaders and scene.js are now loaded on demand
+       the first time a food detail opens (see ensure3D() in app.js). This keeps
+       ~1MB of WebGL code off the critical path for the homepage. -->
   <script src="/js/auth.js"></script>
-  <script src="/js/app.js"></script>
+  <script src="/js/app.js" defer></script>
+  <script src="/js/onboarding.js" defer></script>
 
   <!-- Floating install popup -->
   <div class="install-popup" id="installPopup" role="dialog" aria-label="Install NutriFell">

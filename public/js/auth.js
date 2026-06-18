@@ -33,28 +33,108 @@ const Auth = {
     const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
     const t = Auth.token();
     if (t) headers.Authorization = 'Bearer ' + t;
-    const res = await fetch(path, { ...opts, headers });
-    if (res.status === 401) { Auth.logout(); throw new Error('Session expired — please log in again'); }
-    const data = await res.json().catch(() => null);
-    if (!res.ok) throw new Error((data && data.error) || 'Request failed');
-    return data;
+
+    // Retry transient failures (network drop, 502/503/504) up to 3 attempts
+    // with exponential backoff. Auth/validation errors (4xx) are NOT retried.
+    const MAX = 3;
+    let lastErr = null;
+    for (let attempt = 1; attempt <= MAX; attempt++) {
+      try {
+        const res = await fetch(path, { ...opts, headers });
+        if (res.status === 401) { Auth.logout(); throw new Error('Session expired — please log in again'); }
+        if ([502, 503, 504].includes(res.status) && attempt < MAX) {
+          await Auth._backoff(attempt); continue;
+        }
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error((data && data.error) || 'Request failed');
+        return data;
+      } catch (err) {
+        // Only network/fetch failures are retryable; thrown app errors are not.
+        const retryable = err instanceof TypeError || /Failed to fetch|NetworkError|load failed/i.test(err.message || '');
+        if (retryable && attempt < MAX) { lastErr = err; await Auth._backoff(attempt); continue; }
+        throw retryable ? new Error('Network error — please check your connection and try again.') : err;
+      }
+    }
+    throw lastErr || new Error('Request failed');
   },
+  _backoff(attempt) { return new Promise(r => setTimeout(r, attempt * 400)); },
 };
 
-// ── Toast ───────────────────────────────────────────────────────────────
-function toast(message, type = 'success', ms = 3200) {
-  let el = document.getElementById('nbToast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'nbToast';
-    el.className = 'toast';
-    document.body.appendChild(el);
-  }
-  el.textContent = message;
-  el.className = `toast ${type} show`;
-  clearTimeout(el._t);
-  el._t = setTimeout(() => { el.className = `toast ${type}`; }, ms);
+// ── Unified toast system (stacked, typed, top-right) ─────────────────────
+const Toast = {
+  ICONS: { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' },
+  _wrap() {
+    let w = document.getElementById('nfToasts');
+    if (!w) {
+      w = document.createElement('div');
+      w.id = 'nfToasts';
+      w.className = 'nf-toasts';
+      w.setAttribute('aria-live', 'polite');
+      w.setAttribute('aria-atomic', 'false');
+      document.body.appendChild(w);
+    }
+    return w;
+  },
+  show(message, type = 'success', ms = 4000) {
+    const t = ['success', 'error', 'info', 'warning'].includes(type) ? type : 'success';
+    const el = document.createElement('div');
+    el.className = `nf-toast ${t}`;
+    el.setAttribute('role', t === 'error' ? 'alert' : 'status');
+    el.innerHTML =
+      `<span class="nf-toast-ico" aria-hidden="true">${Toast.ICONS[t]}</span>` +
+      `<span class="nf-toast-msg"></span>` +
+      `<button class="nf-toast-x" aria-label="Dismiss">✕</button>`;
+    el.querySelector('.nf-toast-msg').textContent = message;
+    const dismiss = () => {
+      if (el._gone) return; el._gone = true;
+      clearTimeout(el._t);
+      el.classList.remove('in');
+      el.classList.add('out');
+      el.addEventListener('transitionend', () => el.remove(), { once: true });
+      setTimeout(() => el.remove(), 400); // safety net
+    };
+    el.querySelector('.nf-toast-x').addEventListener('click', dismiss);
+    Toast._wrap().appendChild(el);
+    requestAnimationFrame(() => el.classList.add('in'));
+    if (ms > 0) el._t = setTimeout(dismiss, ms);
+    return { dismiss };
+  },
+};
+// Back-compat helper used across the app; errors linger a little longer.
+function toast(message, type = 'success', ms) {
+  if (ms == null) ms = type === 'error' ? 5000 : 4000;
+  return Toast.show(message, type, ms);
 }
+window.Toast = Toast;
+
+// ── Offline / online detection ───────────────────────────────────────────
+const NetStatus = {
+  _banner() {
+    let b = document.getElementById('nfOffline');
+    if (!b) {
+      b = document.createElement('div');
+      b.id = 'nfOffline';
+      b.className = 'nf-offline';
+      b.setAttribute('role', 'status');
+      b.innerHTML = '<span class="nf-offline-dot" aria-hidden="true"></span> You are offline — changes may not save until you reconnect.';
+      document.body.appendChild(b);
+    }
+    return b;
+  },
+  update(online) {
+    const b = NetStatus._banner();
+    b.classList.toggle('show', !online);
+    if (online && NetStatus._wasOffline) {
+      Toast.show('Back online', 'success', 2200);
+    }
+    NetStatus._wasOffline = !online;
+  },
+  init() {
+    window.addEventListener('online', () => NetStatus.update(true));
+    window.addEventListener('offline', () => NetStatus.update(false));
+    if (!navigator.onLine) NetStatus.update(false);
+  },
+};
 
 // ── Client-side calorie calculator (mirrors server advanced engine) ──────
 const ACTIVITY = { sedentary: 1.2, light: 1.375, moderate: 1.55, very: 1.725, extreme: 1.9 };
@@ -494,6 +574,7 @@ function initRegister() {
       });
       clearInterval(resendTimer);
       Auth.setSession(data.token, data.user);
+      try { localStorage.setItem('nf_tour_pending', '1'); } catch {} // run the feature tour on first homepage visit
       toast('Email verified! Setting up your profile…', 'success');
       setTimeout(() => location.href = '/profile.html', 700);
     } catch (err) {
@@ -583,6 +664,95 @@ function initProfile() {
     el.addEventListener('change', updateCalc);
   });
 
+  // ── Wizard step navigation ──────────────────────────────────────────────
+  const steps = Array.from(form.querySelectorAll('.wizard-step'));
+  const TOTAL = steps.length || 3;
+  const STEP_NAMES = ['Basics', 'Body stats', 'Your goals'];
+  const ENCOURAGE = [null, 'Great! Now the numbers behind your plan.', 'Almost there! One last step.'];
+  const wizBar = document.getElementById('wizBar');
+  const wizLabel = document.getElementById('wizLabel');
+  const wizBack = document.getElementById('wizBack');
+  const wizNext = document.getElementById('wizNext');
+  const wizSave = document.getElementById('wizSave');
+  let step = 1;
+
+  function showStep(n) {
+    step = Math.min(Math.max(n, 1), TOTAL);
+    steps.forEach(s => { s.hidden = Number(s.dataset.step) !== step; });
+    if (wizBar) wizBar.style.width = (step / TOTAL * 100) + '%';
+    if (wizLabel) wizLabel.textContent = `Step ${step} of ${TOTAL} · ${STEP_NAMES[step - 1] || ''}`;
+    const bar = form.closest('.auth-card')?.querySelector('.wizard-bar');
+    if (bar) bar.setAttribute('aria-valuenow', String(step));
+    if (wizBack) wizBack.hidden = step === 1;
+    if (wizNext) wizNext.hidden = step === TOTAL;
+    if (wizSave) wizSave.hidden = step !== TOTAL;
+    const first = steps[step - 1] && steps[step - 1].querySelector('input, select');
+    if (first) setTimeout(() => { try { first.focus(); } catch {} }, 60);
+  }
+
+  function validateStep(n) {
+    let ok = true;
+    if (n === 1) {
+      if (!F.name.value.trim()) { setError(F.name, 'Name is required'); ok = false; } else markValid(F.name);
+    } else if (n === 2) {
+      const age = Number(F.age.value), weight = Number(F.currentWeight.value), height = Number(F.height.value);
+      if (!age || age < 13 || age > 100) { setError(F.age, 'Age must be between 13 and 100'); ok = false; } else markValid(F.age);
+      if (!weight || weight < 25 || weight > 400) { setError(F.currentWeight, 'Enter a valid current weight'); ok = false; } else markValid(F.currentWeight);
+      if (!height || height < 90 || height > 250) { setError(F.height, 'Enter a valid height in cm'); ok = false; } else markValid(F.height);
+    }
+    return ok;
+  }
+
+  if (wizNext) wizNext.addEventListener('click', () => {
+    if (!validateStep(step)) return;
+    const target = step + 1;
+    showStep(target);
+    if (ENCOURAGE[target - 1]) toast(ENCOURAGE[target - 1], 'info', 2600);
+  });
+  if (wizBack) wizBack.addEventListener('click', () => showStep(step - 1));
+  if (steps.length) showStep(1);
+
+  // Enter on an early step advances instead of submitting the whole form.
+  if (steps.length) form.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && step < TOTAL) {
+      e.preventDefault();
+      if (wizNext) wizNext.click();
+    }
+  });
+
+  // ── Celebration screen + confetti ───────────────────────────────────────
+  function confetti() {
+    const host = document.getElementById('celebrateConfetti');
+    if (!host || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const colors = ['#22c55e', '#f59e0b', '#3b82f6', '#ef4444', '#a855f7', '#ffffff'];
+    let html = '';
+    for (let i = 0; i < 90; i++) {
+      const c = colors[i % colors.length];
+      const left = Math.random() * 100, delay = Math.random() * 0.6, dur = 2.4 + Math.random() * 1.8;
+      const size = 6 + Math.random() * 8, rot = Math.random() * 360;
+      html += `<span class="confetti-bit" style="left:${left}%;background:${c};width:${size}px;height:${(size * 0.6).toFixed(1)}px;animation-delay:${delay}s;animation-duration:${dur}s;transform:rotate(${rot}deg)"></span>`;
+    }
+    host.innerHTML = html;
+  }
+  function celebrate(targetCal) {
+    const screen = document.getElementById('profileCelebrate');
+    if (!screen) { location.href = '/fridge.html'; return; }
+    screen.hidden = false;
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => screen.classList.add('in'));
+    const numEl = document.getElementById('celebrateTarget');
+    if (numEl) {
+      const dur = 1200, start = performance.now(), target = Number(targetCal) || 0;
+      const tick = now => {
+        const p = Math.min((now - start) / dur, 1);
+        numEl.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))).toLocaleString();
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+    confetti();
+  }
+
   form.addEventListener('submit', async e => {
     e.preventDefault();
     let ok = true;
@@ -607,13 +777,32 @@ function initProfile() {
         }),
       });
       Auth.updateUser(data.user);
-      toast('Profile saved! Daily target: ' + data.calories.target + ' kcal', 'success');
-      setTimeout(() => location.href = '/fridge.html', 1000);
+      celebrate(data.calories && data.calories.target);
     } catch (err) {
       toast(err.message, 'error');
       btn.disabled = false; btn.innerHTML = label;
     }
   });
+}
+
+// ── Tooltips (hover on desktop, tap-to-toggle on touch) ──────────────────
+function initTooltips() {
+  const tips = document.querySelectorAll('.nf-tip');
+  if (!tips.length) return;
+  tips.forEach(tip => {
+    if (!tip.hasAttribute('tabindex')) tip.setAttribute('tabindex', '0');
+    tip.setAttribute('role', 'button');
+    const label = tip.getAttribute('data-tip') || '';
+    if (label) tip.setAttribute('aria-label', label);
+    const toggle = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      document.querySelectorAll('.nf-tip.show').forEach(t => { if (t !== tip) t.classList.remove('show'); });
+      tip.classList.toggle('show');
+    };
+    tip.addEventListener('click', toggle);
+    tip.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') toggle(e); });
+  });
+  document.addEventListener('click', () => document.querySelectorAll('.nf-tip.show').forEach(t => t.classList.remove('show')));
 }
 
 // ── Universal scroll-reveal (works on every page that loads auth.js) ──────
@@ -633,10 +822,12 @@ function initReveal() {
 
 document.addEventListener('DOMContentLoaded', () => {
   renderNav();
+  NetStatus.init();
   initRegister();
   initLogin();
   initProfile();
   initReveal();
+  initTooltips();
 
   // Streak: record today's visit, show the chip, celebrate milestones.
   const { s, milestone } = Streak.tick();
