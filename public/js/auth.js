@@ -22,8 +22,11 @@ const Auth = {
     const t = localStorage.getItem('nb_token');
     if (!t) return false;
     const payload = Auth._decode(t);
-    // If the token carries an expiry and it has passed, drop the stale session
-    if (payload && payload.exp && Date.now() >= payload.exp * 1000) {
+    // A token we can't decode, or one with no/elapsed expiry, is NOT trusted.
+    // (Previously a malformed token fell through to `true`, so a stale token
+    // from an old JWT secret was trusted client-side and the very next API call
+    // 401'd — surfacing as "session expired" right after login.)
+    if (!payload || !payload.exp || Date.now() >= payload.exp * 1000) {
       Auth.clearSession();
       return false;
     }
@@ -41,7 +44,21 @@ const Auth = {
     for (let attempt = 1; attempt <= MAX; attempt++) {
       try {
         const res = await fetch(path, { ...opts, headers });
-        if (res.status === 401) { Auth.logout(); throw new Error('Session expired — please log in again'); }
+        if (res.status === 401) {
+          // If we SENT a token and it was rejected, the session is genuinely
+          // dead (expired or signed with an old secret): clear it and recover
+          // to the login page once. If we had NO token, this is an ordinary
+          // auth failure (e.g. wrong password) — let the caller show it.
+          if (t) {
+            Auth.clearSession();
+            if (!/\/login\.html$/.test(location.pathname)) {
+              location.href = '/login.html?expired=1';
+            }
+            throw new Error('Your session expired. Please log in again.');
+          }
+          const data401 = await res.json().catch(() => null);
+          throw new Error((data401 && data401.error) || 'Invalid email or password');
+        }
         if ([502, 503, 504].includes(res.status) && attempt < MAX) {
           await Auth._backoff(attempt); continue;
         }
@@ -589,6 +606,12 @@ function initLogin() {
   const form = document.getElementById('loginForm');
   if (!form) return;
   if (Auth.isAuthed()) { location.href = '/fridge.html'; return; }
+
+  // Arrived here because a stale/expired session was cleared — tell them gently.
+  if (/[?&]expired=1/.test(location.search)) {
+    setTimeout(() => toast('Your session expired. Please log in again.', 'info', 3500), 200);
+    history.replaceState(null, '', location.pathname);
+  }
 
   const email = form.querySelector('[name=email]');
   const password = form.querySelector('[name=password]');

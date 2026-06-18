@@ -178,7 +178,9 @@ try { multer = require('multer'); } catch (e) { /* uploads disabled until instal
 try { sharp = require('sharp'); } catch (e) { /* resize skipped if unavailable */ }
 
 // ─── Data storage (server-side JSON files) ──────────────────────────────
-const JWT_SECRET = process.env.JWT_SECRET || 'nutrifell-georgia-secret-key-2035';
+// .trim() guards against a stray trailing space/newline in .env so the secret
+// used to SIGN is byte-for-byte identical to the one used to VERIFY.
+const JWT_SECRET = (process.env.JWT_SECRET || 'nutrifell-georgia-secret-key-2035').trim();
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const FRIDGES_FILE = path.join(DATA_DIR, 'fridges.json');
@@ -1853,13 +1855,18 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body || {};
+  console.log('Login attempt:', email);
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
   const users = readJSON(USERS_FILE);
   const user = users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
-  if (!user || !(await bcrypt.compare(String(password), user.password))) {
+  console.log('User found:', !!user);
+  const passwordMatch = user ? await bcrypt.compare(String(password), user.password) : false;
+  console.log('Password match:', passwordMatch);
+  if (!user || !passwordMatch) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+  console.log('Token generated:', !!token);
   res.json({ token, user: publicUser(user) });
 });
 
