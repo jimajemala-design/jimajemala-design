@@ -3,6 +3,14 @@
    Display: Space Grotesk · Body: Inter · Data: JetBrains Mono
    ══════════════════════════════════════════════════════════════════════ */
 
+/* ── 0. BASE RESET ────────────────────────────────────────────────────── */
+/* The HTML `hidden` attribute must always win. Several component classes set
+   `display:` (e.g. .celebrate uses display:grid, .btn-primary uses
+   inline-flex), which would otherwise override the UA `[hidden]{display:none}`
+   rule and leave a hidden element rendered — including full-screen overlays
+   that silently swallow every click. This guarantees `hidden` means hidden. */
+[hidden] { display: none !important; }
+
 /* ── 1. DESIGN TOKENS ─────────────────────────────────────────────────── */
 :root {
   --bg-primary:    #080c14;

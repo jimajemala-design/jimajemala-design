@@ -190,8 +190,17 @@ const Onboarding = (() => {
 
   // ── Entry point ────────────────────────────────────────────────────────
   function init() {
-    // Only on the homepage.
-    if (location.pathname !== '/' && !/index\.html$/.test(location.pathname)) return;
+    // Safety: never leave the page scroll-locked or an overlay stuck around.
+    document.body.style.overflow = '';
+    document.body.style.pointerEvents = '';
+    document.querySelectorAll('#nfWelcome, #nfTour, .nf-welcome, .nf-tour, .nf-tour-mask')
+      .forEach((el) => el.remove());
+
+    // Hard guard: this module only ever runs on the homepage. (It isn't even
+    // loaded elsewhere, but guard anyway so it can never block another page.)
+    const isHomepage = location.pathname === '/' || /(^|\/)index\.html$/.test(location.pathname);
+    if (!isHomepage) return;
+
     const authed = window.Auth && Auth.isAuthed && Auth.isAuthed();
 
     // Tour queued after registration → run it once the gallery exists.
