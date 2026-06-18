@@ -1,7 +1,7 @@
 'use strict';
 
 // Bump VERSION to roll all caches on deploy.
-const VERSION = 'v3';
+const VERSION = '4.0.0';
 const STATIC_CACHE = `nutrifell-static-${VERSION}`;
 const API_CACHE = `nutrifell-api-${VERSION}`;
 const CDN_CACHE = `nutrifell-cdn-${VERSION}`;
@@ -19,6 +19,26 @@ const PRECACHE = [
   '/js/auth.js',
   '/manifest.json',
 ];
+
+// Private / per-user API routes that must NEVER be cached — caching these on a
+// shared device could leak one account's data to another, or serve stale
+// authed state. Everything here always goes straight to the network.
+const NEVER_CACHE = [
+  '/api/auth',
+  '/api/profile',
+  '/api/fridge',
+  '/api/mealplan',
+  '/api/water',
+  '/api/smoking',
+  '/api/logs',
+  '/api/ai',
+  '/api/checkout',
+  '/api/subscription',
+  '/api/recipes/bookmarks',
+  '/api/recipes/react',
+  '/api/recipes/rate',
+];
+const isPrivateApi = (pathname) => NEVER_CACHE.some((p) => pathname.startsWith(p));
 
 // Per-endpoint freshness windows. Within the window a cached API response is
 // served without touching the network; past it we revalidate. (ms)
@@ -66,7 +86,20 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   const sameOrigin = url.origin === self.location.origin;
 
-  // 1) API — cache-first within a freshness window, then network, then stale.
+  // 1a) Private / authenticated API — network only, never cached or read from
+  //     cache. A graceful offline JSON response keeps the UI from hard-failing.
+  if (sameOrigin && isPrivateApi(url.pathname)) {
+    event.respondWith(
+      fetch(request).catch(() => new Response(
+        JSON.stringify({ error: 'You are offline. Please reconnect to use this feature.' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      ))
+    );
+    return;
+  }
+
+  // 1b) Public API (food database, public recipe reads) — cache-first within a
+  //     freshness window, then network, then stale.
   if (sameOrigin && url.pathname.startsWith('/api/')) {
     event.respondWith(apiStrategy(request, url));
     return;
