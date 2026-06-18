@@ -242,12 +242,24 @@ function auth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'No token provided' });
+  let payload;
   try {
-    req.userId = jwt.verify(token, JWT_SECRET).id;
-    next();
+    payload = jwt.verify(token, JWT_SECRET);
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
+  // A signature-valid token whose user no longer exists is a dead session
+  // (e.g. data reset, or a token from a previous run). Return 401 — NOT 404 —
+  // so the client clears it and routes to login, instead of every endpoint
+  // failing with a confusing "User not found" (notably on profile Save).
+  const user = readJSON(USERS_FILE).find(u => u.id === payload.id);
+  if (!user) {
+    console.warn('Auth: token valid but user missing:', payload.id);
+    return res.status(401).json({ error: 'Session no longer valid — please log in again' });
+  }
+  req.userId = payload.id;
+  req.user = user;
+  next();
 }
 
 // Activity multipliers

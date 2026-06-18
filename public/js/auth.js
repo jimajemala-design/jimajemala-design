@@ -788,6 +788,9 @@ function initProfile() {
     if (!height || height < 90 || height > 250) { setError(F.height, 'Enter a valid height in cm'); ok = false; } else markValid(F.height);
     if (!ok) return;
 
+    // Debug: confirm a session is present before the authed Save request.
+    console.log('Profile save — token present:', !!Auth.token(), '| user:', Auth.user());
+
     const btn = form.querySelector('button[type=submit]');
     const label = btn.innerHTML;
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
