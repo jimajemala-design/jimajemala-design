@@ -2185,3 +2185,49 @@ body {
   .celebrate-card, .celebrate-emoji { animation: none; transition: opacity .2s ease; transform: none; }
   .confetti-bit { display: none; }
 }
+
+/* ── 41. MOBILE HARDENING (loads on every page) ───────────────────────── */
+/* Kill any horizontal scroll without the blunt `*{max-width:100vw}` hammer
+   (which would break the ticker and other intentionally-wide children). */
+html, body { max-width: 100%; overflow-x: hidden; }
+
+/* The short button label is hidden by default; mobile swaps it in. */
+.short-text { display: none; }
+
+@media (max-width: 768px) {
+  /* iOS zooms when a focused input's font is < 16px. Belt-and-suspenders with
+     the viewport flag so a focused field never triggers a zoom jump. */
+  input, select, textarea { font-size: 16px; }
+
+  /* Comfortable, tappable primary actions; block buttons span the column. */
+  .btn-primary, .btn-ghost, .generate-btn, .panic-btn {
+    min-height: 48px; font-size: 15px;
+  }
+  .btn-block, .generate-btn, .panic-btn { width: 100%; }
+
+  /* Shorten the meal-plan button text on narrow screens. */
+  #generateBtn .full-text { display: none; }
+  #generateBtn .short-text { display: inline; }
+
+  /* Touch targets — every interactive control reaches ~44px. */
+  .nb-nav-item, .filter-btn, .rcp-tab, .faq-q { min-height: 44px; }
+  .nb-hamburger, .ip-close, .nb-avatar-btn, .nb-toast-x, .nf-toast-x {
+    min-width: 44px; min-height: 44px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* Water progress ring: smaller so it never overflows the card. */
+  .water-ring-wrap, .water-ring { width: 200px !important; height: 200px !important; }
+
+  /* Feature-page panels stack to one column edge-to-edge. */
+  .health-ring-wrap { flex-direction: column; text-align: center; }
+}
+
+@media (max-width: 480px) {
+  /* Extra-small phones: tighten buttons and ensure 2-up stat grids. */
+  .btn-primary, .btn-ghost, .generate-btn { font-size: 14px; padding: 12px 16px; }
+  .stats-grid, .quit-stats, .plan-targets { grid-template-columns: 1fr 1fr; }
+  /* Keep the food gallery readable at 2 columns rather than cramped 3. */
+  .bento-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  h1 { font-size: clamp(24px, 7vw, 34px); }
+}
