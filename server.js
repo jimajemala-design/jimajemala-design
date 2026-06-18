@@ -1,4 +1,14 @@
 require('dotenv').config();
+
+// ─── Startup environment check ───────────────────────────────────────────
+// Runs before anything else so it's the first thing in the logs. If values
+// show here but email still fails, the problem is SMTP auth, not .env loading.
+console.log('=== ENV CHECK ===');
+console.log('EMAIL_USER:', process.env.EMAIL_USER || 'undefined');
+console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'SET' : 'NOT SET');
+console.log('GEMINI_KEY:', process.env.GEMINI_API_KEY ? 'SET' : 'NOT SET');
+console.log('=================');
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
