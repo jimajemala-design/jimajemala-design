@@ -139,7 +139,9 @@ let mailer = null;
 try {
   const nodemailer = require('nodemailer');
   const u = process.env.EMAIL_USER, p = process.env.EMAIL_PASS;
-  if (u && p && !p.includes('your-') && !u.includes('your-')) {
+  // Real email whenever both creds are present; otherwise the send-code endpoint
+  // uses the dev-code fallback. No placeholder-string matching.
+  if (u && p) {
     mailer = nodemailer.createTransport({ service: 'gmail', auth: { user: u, pass: p } });
   }
 } catch (e) { /* nodemailer not installed — falls back to dev code in response */ }
@@ -173,6 +175,8 @@ function verificationEmailHTML(code) {
 
 async function sendVerificationEmail(to, code) {
   if (!mailer) return false;
+  console.log('Sending real email to:', to);
+  console.log('From:', process.env.EMAIL_USER);
   await mailer.sendMail({
     from: `"NutriFell" <${process.env.EMAIL_USER}>`,
     to,
