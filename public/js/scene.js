@@ -7,6 +7,7 @@ const FoodScene = (() => {
   let foodGroup = null, platformDisc = null, shadowPlane = null, particleSystem = null;
   let rimLight = null;
   let autoRotate = true, autoRotateTimer = null;
+  let lastFoodId = null;   // remembered so we can rebuild after a WebGL context loss
   let isDragging = false, prevMouse = { x: 0, y: 0 };
   let targetRotY = 0.5, currentRotY = 0.5;
   let targetRotX = 0.08, currentRotX = 0.08;
@@ -3610,6 +3611,25 @@ const FoodScene = (() => {
     setupEnvMap();
     setupComposer(sz);
     setupEvents(canvas);
+
+    // WebGL context can be lost (GPU reset, VRAM pressure, driver hiccup, tab
+    // backgrounding). Without handling it the canvas goes permanently blank/white
+    // with no recovery. Pause on loss; on restore, regenerate the env map (its
+    // PMREM render target dies with the context), drop the GLB cache (its textures
+    // referenced the dead context), and rebuild the current food.
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      console.warn('[scene] WebGL context lost — pausing renderer');
+      if (animId) { cancelAnimationFrame(animId); animId = null; }
+    }, false);
+    canvas.addEventListener('webglcontextrestored', () => {
+      console.warn('[scene] WebGL context restored — rebuilding scene');
+      setupEnvMap();
+      Object.keys(GLB_CACHE).forEach(k => delete GLB_CACHE[k]);
+      if (lastFoodId) loadFood(lastFoodId);
+      if (!animId) animate();
+    }, false);
+
     animate();
   }
 
@@ -3751,6 +3771,8 @@ const FoodScene = (() => {
 
   function loadFood(id) {
     const token = ++loadSeq;
+    lastFoodId = id;
+    console.log('[scene] loadFood:', id, '| model:', GLB_OVERRIDES[id] || '(procedural)', '| scene children:', scene.children.length);
     clearScene();
     autoRotate = true;
     targetRotY = 0.50; currentRotY = 0.50;

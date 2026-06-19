@@ -1,7 +1,8 @@
 'use strict';
 
 // Bump VERSION to roll all caches on deploy.
-const VERSION = '4.0.0';
+// 4.1.0 — evict stale scene.js + the pre-optimization (39MB) apple/salmon GLBs.
+const VERSION = '4.1.0';
 const STATIC_CACHE = `nutrifell-static-${VERSION}`;
 const API_CACHE = `nutrifell-api-${VERSION}`;
 const CDN_CACHE = `nutrifell-cdn-${VERSION}`;
