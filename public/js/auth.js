@@ -761,6 +761,7 @@ function initProfile() {
     const screen = document.getElementById('profileCelebrate');
     if (!screen) { location.href = '/fridge.html'; return; }
     screen.hidden = false;
+    screen.classList.add('active');   // drives `display:grid` (see .celebrate in style.css)
     document.body.style.overflow = 'hidden';
     requestAnimationFrame(() => screen.classList.add('in'));
     const numEl = document.getElementById('celebrateTarget');

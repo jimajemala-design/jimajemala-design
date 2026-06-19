@@ -163,10 +163,24 @@ const Onboarding = (() => {
     set(K_TOUR, '1');
     set(K_PENDING, '');
     sidebarOpen(false);
-    if (els) { els.root.classList.remove('in'); setTimeout(() => els.root.remove(), 300); }
     window.removeEventListener('resize', onResize);
     window.removeEventListener('scroll', onResize, true);
+    // Capture the root BEFORE nulling `els`. The delayed remove() must not read
+    // a nulled `els` — that threw a TypeError, the remove() never ran, and the
+    // full-screen z-index:6000 overlay stayed on top blocking every click.
+    const root = els && els.root;
     els = null;
+    if (root) {
+      root.classList.remove('in');
+      setTimeout(() => root.remove(), 300);
+    }
+    // Belt-and-braces: never leave the page scroll-locked, pointer-events
+    // disabled, or any stray tour DOM around.
+    document.body.style.overflow = '';
+    document.body.style.pointerEvents = '';
+    document.querySelectorAll('#nfTour, .nf-tour').forEach((el) => {
+      if (el !== root) el.remove();
+    });
     if (typeof toast === 'function') toast("You're all set. Enjoy exploring NutriFell!", 'success');
   }
 

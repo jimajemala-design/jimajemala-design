@@ -3489,6 +3489,10 @@ const FoodScene = (() => {
 
   function disposeObject(obj) {
     if (!obj) return;
+    // GLB instances are clones that SHARE geometry/materials with the in-memory
+    // cache (so repeat views are instant). Disposing those would corrupt the
+    // cached template and every future clone — just detach it from the scene.
+    if (obj.userData && obj.userData.glbCached) { scene.remove(obj); return; }
     obj.traverse(child => {
       if (!child.isMesh && !child.isPoints) return;
       child.geometry.dispose();
@@ -3611,8 +3615,52 @@ const FoodScene = (() => {
 
   // ─── GLB Loader ───────────────────────────────────────────────────────────
 
+  // Loaded GLBs are kept here (off-scene) so repeat views are instant and we
+  // never re-download a multi-MB file. Each load returns a lightweight clone
+  // that shares the cached geometry/materials (see disposeObject's guard).
+  const GLB_CACHE = {};
+
+  function _processGLBModel(model) {
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const scale = 2.0 / maxDim;
+    model.scale.setScalar(scale);
+    model.position.sub(center.multiplyScalar(scale));
+    model.traverse(child => {
+      if (!child.isMesh) return;
+      child.castShadow = true;
+      child.receiveShadow = true;
+      if (child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach(m => {
+          if (scene.environment) m.envMap = scene.environment;
+          // Subtle reflection — not glowing
+          m.envMapIntensity = 1.2;
+          // Strip any artificial emissive bloom baked into the model
+          if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 0;
+          // Boost clearcoat on smooth/shiny surfaces for sharp highlights
+          if (m.isMeshPhysicalMaterial && m.roughness < 0.4) {
+            m.clearcoat = Math.max(m.clearcoat || 0, 0.9);
+            m.clearcoatRoughness = Math.min(m.clearcoatRoughness || 0.1, 0.12);
+          }
+          m.needsUpdate = true;
+        });
+      }
+    });
+    return model;
+  }
+
   function loadGLBModel(path) {
     return new Promise((resolve, reject) => {
+      // Cache hit — clone (shares geometry/materials) and skip the network.
+      if (GLB_CACHE[path]) {
+        const clone = GLB_CACHE[path].clone();
+        clone.userData.glbCached = true;
+        resolve(clone);
+        return;
+      }
       if (typeof THREE.GLTFLoader === 'undefined') {
         reject(new Error('GLTFLoader not available'));
         return;
@@ -3622,43 +3670,28 @@ const FoodScene = (() => {
         const draco = new THREE.DRACOLoader();
         draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
         loader.setDRACOLoader(draco);
+      } else {
+        console.warn('[scene] DRACOLoader unavailable — Draco-compressed GLB may fail to decode:', path);
       }
       loader.load(
         path,
         (gltf) => {
-          const model = gltf.scene;
-          const box = new THREE.Box3().setFromObject(model);
-          const center = box.getCenter(new THREE.Vector3());
-          const size = box.getSize(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z);
-          const scale = 2.0 / maxDim;
-          model.scale.setScalar(scale);
-          model.position.sub(center.multiplyScalar(scale));
-          model.traverse(child => {
-            if (!child.isMesh) return;
-            child.castShadow = true;
-            child.receiveShadow = true;
-            if (child.material) {
-              const mats = Array.isArray(child.material) ? child.material : [child.material];
-              mats.forEach(m => {
-                if (scene.environment) m.envMap = scene.environment;
-                // Subtle reflection — not glowing
-                m.envMapIntensity = 1.2;
-                // Strip any artificial emissive bloom baked into the model
-                if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 0;
-                // Boost clearcoat on smooth/shiny surfaces for sharp highlights
-                if (m.isMeshPhysicalMaterial && m.roughness < 0.4) {
-                  m.clearcoat = Math.max(m.clearcoat || 0, 0.9);
-                  m.clearcoatRoughness = Math.min(m.clearcoatRoughness || 0.1, 0.12);
-                }
-                m.needsUpdate = true;
-              });
-            }
-          });
-          resolve(model);
+          const model = _processGLBModel(gltf.scene);
+          GLB_CACHE[path] = model;            // canonical template, kept off-scene
+          const clone = model.clone();
+          clone.userData.glbCached = true;
+          resolve(clone);
         },
-        undefined,
-        reject
+        (progress) => {
+          if (progress && progress.total) {
+            const pct = Math.round((progress.loaded / progress.total) * 100);
+            _showGLBSpinner(true, `Loading 3D model… ${pct}%`);
+          }
+        },
+        (err) => {
+          console.error('[scene] GLB load failed:', path, err);
+          reject(err);
+        }
       );
     });
   }
@@ -3687,9 +3720,14 @@ const FoodScene = (() => {
     addParticles(PARTICLE_COLORS[id] || 0x22c55e);
   }
 
-  function _showGLBSpinner(visible) {
+  function _showGLBSpinner(visible, label) {
     const el = document.getElementById('glbLoadSpinner');
-    if (el) el.style.display = visible ? 'flex' : 'none';
+    if (!el) return;
+    el.style.display = visible ? 'flex' : 'none';
+    if (visible && label) {
+      const lbl = el.querySelector('.glb-spinner-label');
+      if (lbl) lbl.textContent = label;
+    }
   }
 
   // GLB_OVERRIDES maps food IDs to model paths. Add entries as models become available.
@@ -3707,7 +3745,12 @@ const FoodScene = (() => {
     carrot:      '/models/carrot.glb',
   };
 
+  // Bumped on every loadFood() call so a slow GLB that resolves after the user
+  // has already switched foods can detect it's stale and bail out.
+  let loadSeq = 0;
+
   function loadFood(id) {
+    const token = ++loadSeq;
     clearScene();
     autoRotate = true;
     targetRotY = 0.50; currentRotY = 0.50;
@@ -3717,18 +3760,25 @@ const FoodScene = (() => {
 
     const glbPath = GLB_OVERRIDES[id];
     if (glbPath) {
-      _showGLBSpinner(true);
+      // Show the procedural model immediately so the viewer is never blank
+      // while a (possibly large) GLB streams in, then swap it for the GLB.
+      _spawnProceduralFood(id);
+      _showGLBSpinner(true, 'Loading 3D model…');
       loadGLBModel(glbPath)
         .then(model => {
+          if (token !== loadSeq) { disposeObject(model); return; }   // user moved on
           _showGLBSpinner(false);
+          clearScene();                       // remove the procedural placeholder
           foodGroup = model;
           scene.add(foodGroup);
           addPlatform();
           addParticles(PARTICLE_COLORS[id] || 0x22c55e);
         })
-        .catch(() => {
+        .catch((err) => {
+          if (token !== loadSeq) return;
           _showGLBSpinner(false);
-          _spawnProceduralFood(id);
+          // Procedural model is already on screen — just keep it.
+          console.warn('[scene] keeping procedural model, GLB failed:', glbPath, err);
         });
       return;
     }
