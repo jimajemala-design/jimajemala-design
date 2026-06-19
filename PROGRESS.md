@@ -75,6 +75,12 @@ assistant.
 - 11 real `.glb` models with Draco compression: apple, banana, chicken, salmon,
   egg, sweet potato, broccoli, avocado, blueberry, greek yogurt, carrot.
 - Remaining foods fall back to procedural meshes in `scene.js`.
+- **Optimized 2026-06-19** via `@gltf-transform/cli optimize`: `apple.glb`
+  39.57 MB → 847 KB (8192² textures downscaled to 1024², recompressed in place);
+  `salmon.glb` 15.38 MB → 6.84 MB (pruned unused UV sets/tangents + Draco
+  re-quantize, no mesh simplification). Both kept Draco + original texture
+  formats (JPEG/PNG) so the r128 GLTFLoader needs no new extensions. Re-run with
+  `--texture-size 1024 --texture-compress auto --compress draco --simplify false`.
 
 ## Auth notes
 - **Registration is two-step with email verification:** `POST /api/auth/send-code`
