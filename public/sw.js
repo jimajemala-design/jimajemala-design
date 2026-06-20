@@ -2,7 +2,9 @@
 
 // Bump VERSION to roll all caches on deploy.
 // 4.1.0 — evict stale scene.js + the pre-optimization (39MB) apple/salmon GLBs.
-const VERSION = '4.1.0';
+// 4.2.0 — fix blank canvas: buffer sized from real client size + ResizeObserver
+//         (rescues the display:none-at-init race) + spinner handoff fix.
+const VERSION = '4.2.0';
 const STATIC_CACHE = `nutrifell-static-${VERSION}`;
 const API_CACHE = `nutrifell-api-${VERSION}`;
 const CDN_CACHE = `nutrifell-cdn-${VERSION}`;

@@ -3,6 +3,7 @@ const FoodScene = (() => {
   'use strict';
 
   let renderer, scene, camera, animId;
+  let _canvas = null, _resizeObs = null;
   let composer = null, bloomPass = null;
   let foodGroup = null, platformDisc = null, shadowPlane = null, particleSystem = null;
   let rimLight = null;
@@ -3466,12 +3467,7 @@ const FoodScene = (() => {
       camera.position.z = clamp(camera.position.z + e.deltaY * 0.005, 2.5, 8.0);
       e.preventDefault();
     }, { passive: false });
-    window.addEventListener('resize', () => {
-      const s = canvas.parentElement ? canvas.parentElement.clientWidth : 400;
-      renderer.setSize(s, s);
-      if (composer) composer.setSize(s, s);
-      camera.updateProjectionMatrix();
-    });
+    window.addEventListener('resize', resizeRenderer);
   }
 
   // ─── Post-Processing (UnrealBloom — graceful fallback if scripts missing) ──
@@ -3576,7 +3572,31 @@ const FoodScene = (() => {
 
   // ─── Public API ────────────────────────────────────────────────────────────
 
+  // Size the WebGL drawing buffer to the canvas's ACTUAL rendered size. The CSS
+  // (`.canvas-frame canvas { width/height:100% !important }`) drives the display
+  // size, so we read clientWidth/Height and only set the buffer resolution.
+  // Critically: if the detail view is still display:none when init runs (the
+  // open-detail transition reveals it ~300ms later, which can lose a race with a
+  // warm-cache ensure3D()), clientWidth is 0 → a 0×0 buffer → a permanently
+  // blank canvas. We fall back to the parent size, then a sane default, and a
+  // ResizeObserver (below) re-runs this the instant the element gets real
+  // dimensions, so the viewer self-heals instead of staying blank.
+  function resizeRenderer() {
+    if (!renderer || !_canvas) return;
+    const parent = _canvas.parentElement;
+    let w = _canvas.clientWidth || (parent && parent.clientWidth) || 0;
+    let h = _canvas.clientHeight || (parent && parent.clientHeight) || 0;
+    // Element not laid out yet — keep a usable square buffer and wait for the
+    // ResizeObserver to fire once it has real dimensions.
+    if (w < 2 || h < 2) { w = h = 400; }
+    renderer.setSize(w, h, false);   // false: don't overwrite the CSS-driven style size
+    if (composer) composer.setSize(w, h);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+
   function init(canvas) {
+    _canvas = canvas;
     // Lower-end / mobile devices: drop antialiasing and cap the pixel ratio so
     // the WebGL viewer stays smooth instead of shading 2× the pixels.
     const isMobile = window.matchMedia('(max-width: 760px)').matches
@@ -3602,15 +3622,27 @@ const FoodScene = (() => {
     scene = new THREE.Scene();
     scene.background = makeSceneBackground();
 
-    const sz = canvas.parentElement ? canvas.parentElement.clientWidth : 400;
+    const sz = (canvas.parentElement && canvas.parentElement.clientWidth) || 400;
     camera = new THREE.PerspectiveCamera(42, 1, 0.05, 120);
     camera.position.set(0, 0.4, 4.9);
-    renderer.setSize(sz, sz);
 
     setupLights();
     setupEnvMap();
     setupComposer(sz);
     setupEvents(canvas);
+
+    // Size the buffer now, then keep it correct as the element gains/changes
+    // dimensions. The observer is what rescues the blank-on-open race: when the
+    // detail view transitions from display:none to visible, the canvas finally
+    // has a real size and this fires, sizing the buffer and clearing the blank.
+    resizeRenderer();
+    if (typeof ResizeObserver !== 'undefined') {
+      _resizeObs = new ResizeObserver(() => resizeRenderer());
+      _resizeObs.observe(canvas.parentElement || canvas);
+    } else {
+      // Legacy fallback: a few delayed re-measures cover the reveal transition.
+      [120, 360, 700].forEach(ms => setTimeout(resizeRenderer, ms));
+    }
 
     // WebGL context can be lost (GPU reset, VRAM pressure, driver hiccup, tab
     // backgrounding). Without handling it the canvas goes permanently blank/white
@@ -3805,7 +3837,10 @@ const FoodScene = (() => {
       return;
     }
 
+    // Procedural-only food: render it and make sure no stale loading overlay
+    // (shown by app.js before the engine booted) is left covering the canvas.
     _spawnProceduralFood(id);
+    _showGLBSpinner(false);
   }
 
   // ─── Animation Loop ────────────────────────────────────────────────────────
@@ -3838,6 +3873,7 @@ const FoodScene = (() => {
 
   function destroy() {
     if (animId) cancelAnimationFrame(animId);
+    if (_resizeObs) { _resizeObs.disconnect(); _resizeObs = null; }
     clearScene();
     if (renderer) renderer.dispose();
   }

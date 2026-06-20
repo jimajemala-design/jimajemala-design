@@ -315,12 +315,13 @@ const App = (() => {
     try {
       await ensure3D();
       if (!sceneReady) { FoodScene.init($('threeCanvas')); sceneReady = true; }
+      // loadFood owns the spinner from here: it keeps it up while a GLB streams
+      // and hides it on success/failure (procedural foods hide it immediately).
       FoodScene.loadFood(food.id);
     } catch (err) {
       console.error(err);
+      if (spinner) spinner.style.display = 'none';
       if (typeof toast === 'function') toast('Could not load the 3D viewer. Check your connection.', 'error');
-    } finally {
-      if (spinner && !sceneReady) spinner.style.display = 'none';
     }
   }
 
