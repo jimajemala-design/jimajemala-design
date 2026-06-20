@@ -207,14 +207,23 @@ const COMMENTS_FILE = path.join(DATA_DIR, 'comments.json');
 const REACTIONS_FILE = path.join(DATA_DIR, 'reactions.json');
 const BOOKMARKS_FILE = path.join(DATA_DIR, 'bookmarks.json');
 const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
+const WAITLIST_FILE = path.join(DATA_DIR, 'waitlist.json');
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads', 'recipes');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE, LOGS_FILE, WATER_FILE,
-  SMOKING_FILE, RECIPES_FILE, COMMENTS_FILE, REACTIONS_FILE, BOOKMARKS_FILE, REPORTS_FILE]) {
+  SMOKING_FILE, RECIPES_FILE, COMMENTS_FILE, REACTIONS_FILE, BOOKMARKS_FILE, REPORTS_FILE,
+  WAITLIST_FILE]) {
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf8');
 }
+
+// ─── FREE LAUNCH (BETA) ──────────────────────────────────────────────────
+// During the beta launch every feature is unlocked for everyone and paid
+// checkout is turned off. Flip FREE_LAUNCH to false (env) to re-enable Stripe
+// subscriptions when paid plans go live. The pricing page reads this via
+// GET /api/launch-status to show the "Free Launch" banner + waitlist.
+const FREE_LAUNCH = process.env.FREE_LAUNCH !== 'false';
 // In-memory JSON cache keyed by file path + last-modified time. Reads skip the
 // disk parse when the file is unchanged; writes refresh the cache immediately,
 // and an external edit busts it automatically via the mtime check.
@@ -2333,6 +2342,7 @@ function findUserByStripe(customerId, subId) {
 
 // Create a Stripe Checkout session for a subscription, return its URL
 app.post('/api/checkout/create-session', auth, async (req, res) => {
+  if (FREE_LAUNCH) return res.status(503).json({ error: 'Paid plans are not available yet — all features are free during beta.', freeLaunch: true });
   if (!stripe) return res.status(503).json({ error: 'Payments are not configured on this server.' });
   const planKey = String((req.body && req.body.plan) || '').toLowerCase();
   const cycle = (req.body && req.body.billing) === 'annual' ? 'annual' : 'monthly';
@@ -2443,10 +2453,39 @@ app.get('/api/subscription/status', auth, (req, res) => {
   const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json({
-    plan: user.plan || 'free',
+    // During the free launch everyone has full access regardless of stored plan.
+    plan: FREE_LAUNCH ? 'free' : (user.plan || 'free'),
+    freeLaunch: FREE_LAUNCH,
     validUntil: user.planValidUntil || null,
     cancelAtPeriodEnd: !!user.cancelAtPeriodEnd,
   });
+});
+
+// Public launch flag — lets the pricing page render the right banner/buttons.
+app.get('/api/launch-status', (req, res) => {
+  res.json({ freeLaunch: FREE_LAUNCH });
+});
+
+// Waitlist signup for paid plans (captured now, contacted when plans launch).
+app.post('/api/waitlist', (req, res) => {
+  const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+  const plan = String((req.body && req.body.plan) || 'pro').toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Please enter a valid email address.' });
+  }
+  const list = readJSON(WAITLIST_FILE);
+  const existing = list.find(w => w.email === email && w.plan === plan);
+  if (existing) {
+    return res.json({ ok: true, alreadyJoined: true, message: "You're already on the waitlist — we'll be in touch!" });
+  }
+  list.push({
+    email,
+    plan: ['pro', 'elite'].includes(plan) ? plan : 'pro',
+    createdAt: new Date().toISOString(),
+    ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress || null,
+  });
+  writeJSON(WAITLIST_FILE, list);
+  res.json({ ok: true, message: "You're on the list! We'll email you when paid plans launch." });
 });
 
 // ═══════════════════════════════════════════════════════════════════════

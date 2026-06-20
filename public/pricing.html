@@ -46,11 +46,20 @@
   <main class="app-page">
     <div class="mesh-gradient" aria-hidden="true"></div>
 
+    <!-- FREE LAUNCH BANNER -->
+    <div class="launch-banner" role="status">
+      <span class="launch-pulse" aria-hidden="true"></span>
+      <div class="launch-copy">
+        <strong>🎉 Free Launch — every feature unlocked</strong>
+        <span>All features free during beta. Subscribe later when paid plans go live.</span>
+      </div>
+    </div>
+
     <!-- HEADER -->
     <div class="pricing-header">
       <div class="pricing-eyebrow"><span class="eyebrow-pulse"></span> Plans &amp; Pricing</div>
       <h1>Fuel your goals with <em>NutriFell</em></h1>
-      <p>Start free and explore 74 foods in 3D. Upgrade anytime for unlimited AI meal planning, progress tracking, and more.</p>
+      <p>Everything is <strong>100% free during our beta</strong> — Explorer, Nutritionist, and Elite features included. The prices below are what plans <em>will</em> cost when we launch them. Join the waitlist and you'll be the first to know.</p>
     </div>
 
     <!-- BILLING TOGGLE -->
@@ -62,7 +71,7 @@
     </div>
 
     <p style="text-align:center;color:var(--text-3);font-size:13px;margin:-6px auto 6px;max-width:520px">
-      Start free in under a minute. No card required, cancel anytime.
+      No card required during beta. Future pricing shown below — toggle to preview annual rates.
     </p>
 
     <!-- PLANS -->
@@ -78,7 +87,7 @@
           <span class="period">/mo</span>
         </div>
         <div class="plan-billed">Free forever</div>
-        <button class="btn-outline plan-cta" data-action="subscribe" data-plan="free">Get Started</button>
+        <button class="btn-primary plan-cta" data-action="subscribe" data-plan="free">Get Started Free</button>
         <div class="plan-features">
           <div class="plan-feat"><span class="ck">✓</span><span>Browse all <b>74 foods</b> in real-time 3D</span></div>
           <div class="plan-feat"><span class="ck">✓</span><span>Calorie &amp; macro calculator</span></div>
@@ -99,7 +108,8 @@
           <span class="period">/mo</span>
         </div>
         <div class="plan-billed" data-annual-total="$84 billed annually">&nbsp;</div>
-        <button class="btn-primary plan-cta" data-action="subscribe" data-plan="pro">Upgrade to Pro</button>
+        <div class="plan-freenow">✓ Free for you during beta</div>
+        <button class="btn-primary plan-cta" data-action="waitlist" data-plan="pro">Join Waitlist</button>
         <div class="plan-features">
           <div class="plan-feat"><span class="ck">✓</span><span>Everything in <b>Explorer</b></span></div>
           <div class="plan-feat"><span class="ck">✓</span><span><b>Unlimited</b> fridge items</span></div>
@@ -120,7 +130,8 @@
           <span class="period">/mo</span>
         </div>
         <div class="plan-billed" data-annual-total="$180 billed annually">&nbsp;</div>
-        <button class="btn-outline plan-cta" data-action="subscribe" data-plan="elite">Go Elite</button>
+        <div class="plan-freenow">✓ Free for you during beta</div>
+        <button class="btn-outline plan-cta" data-action="waitlist" data-plan="elite">Join Waitlist</button>
         <div class="plan-features">
           <div class="plan-feat"><span class="ck">✓</span><span>Everything in <b>Nutritionist</b></span></div>
           <div class="plan-feat"><span class="ck">✓</span><span><b>Priority AI</b> — advanced model, faster replies</span></div>
@@ -136,28 +147,28 @@
     <!-- TRUST + FAQ -->
     <div class="pricing-foot">
       <div class="pricing-trust">
-        <span>🔒 Stripe-secured payments</span>
-        <span>↩️ Cancel anytime</span>
-        <span>💳 No card needed for Free</span>
+        <span>🎉 Everything free in beta</span>
+        <span>💳 No card required</span>
+        <span>🔔 Waitlist for paid plans</span>
         <span>✦ No hidden fees</span>
       </div>
 
       <div class="faq">
         <div class="faq-item">
-          <h3>Can I switch plans later?</h3>
-          <p>Yes — upgrade, downgrade, or cancel at any time. Changes take effect at your next billing cycle and unused time is prorated.</p>
+          <h3>Is everything really free right now?</h3>
+          <p>Yes. During our beta launch, every feature — including everything in Nutritionist and Elite — is unlocked for everyone at no cost. No credit card, no trial timer.</p>
         </div>
         <div class="faq-item">
-          <h3>What happens to my data if I downgrade?</h3>
-          <p>Your fridge, logs, and profile stay intact. You'll simply return to the Explorer plan's limits until you upgrade again.</p>
+          <h3>What is the waitlist for?</h3>
+          <p>When we introduce paid plans after beta, waitlist members get first access and early-bird pricing. Joining costs nothing and you can leave anytime — you keep using everything free in the meantime.</p>
         </div>
         <div class="faq-item">
-          <h3>Is the Free plan really free?</h3>
-          <p>Absolutely. Explorer is free forever — no credit card required. Paid plans just unlock unlimited AI and advanced tracking.</p>
+          <h3>Will I be charged when paid plans launch?</h3>
+          <p>Never automatically. Nothing is billed during beta, and we'll only ever charge you if you actively choose to subscribe once paid plans are live.</p>
         </div>
         <div class="faq-item">
-          <h3>How do I cancel, and what about refunds?</h3>
-          <p>Cancel in two clicks from your account — no email or phone call. You keep paid features until the end of the period you've already paid for, and we don't bill you again after that.</p>
+          <h3>What happens to my data later?</h3>
+          <p>Your fridge, logs, profile, and recipes stay yours and stay intact regardless of which plan you end up on.</p>
         </div>
       </div>
     </div>

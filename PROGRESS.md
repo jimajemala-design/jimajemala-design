@@ -118,7 +118,23 @@ assistant.
    - **Local webhooks:** run `stripe listen --forward-to localhost:3000/api/webhook/stripe`
      and put the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET`. Without it, the
      server parses webhooks UNVERIFIED (dev only) and logs a warning.
-4. **Social media assets** — promo imagery/video (leverage `remotion/`). ← next
+4. ~~**Free beta launch**~~ — ✅ done. All features are unlocked for everyone;
+   paid checkout is turned off and replaced with a waitlist.
+   - `FREE_LAUNCH` flag in `server.js` (env `FREE_LAUNCH=false` to re-enable
+     Stripe). While on: `/api/checkout/create-session` returns 503
+     (`freeLaunch:true`) and `/api/subscription/status` reports `plan:'free'`
+     for everyone. NB: no feature was ever actually gated server-side — the
+     advertised Pro/Elite limits were marketing only — so nothing needed
+     un-gating; this just disables payment and the "current plan" framing.
+   - New endpoints: `GET /api/launch-status` (public flag) and
+     `POST /api/waitlist` (email+plan, validated + de-duped, stored in
+     `data/waitlist.json`).
+   - `pricing.html` — "Free Launch" banner + "All features free during beta,
+     subscribe later" copy; Free button → "Get Started Free"; Pro/Elite buttons
+     → "Join Waitlist" with a "Free for you during beta" tag; trust row + FAQ
+     rewritten for beta. `pricing.js` — checkout flow replaced by a waitlist
+     modal (POST `/api/waitlist`). New CSS appended to `pricing.css`.
+5. **Social media assets** — promo imagery/video (leverage `remotion/`). ← next
 
 ### Homepage upgrade — Wave 1 (done 2026-06-18)
 Applied via ui-ux-pro-max + taste-skill (redesign-preserve: kept the

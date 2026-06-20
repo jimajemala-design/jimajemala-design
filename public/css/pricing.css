@@ -194,3 +194,97 @@
   .plan-grid { grid-template-columns: 1fr; max-width: 440px; }
   .plan-card.featured { order: -1; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   FREE LAUNCH — banner, "free now" tag, waitlist modal
+   ══════════════════════════════════════════════════════════════════════ */
+.launch-banner {
+  display: flex; align-items: center; gap: 14px;
+  max-width: 720px; margin: 0 auto 26px;
+  padding: 14px 20px;
+  background: var(--green-dim);
+  border: 1px solid var(--border-active);
+  border-radius: var(--r-lg);
+  box-shadow: 0 0 30px rgba(34,197,94,0.12);
+}
+.launch-banner .launch-pulse {
+  flex: none; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(34,197,94,0.6);
+  animation: launchPulse 2s infinite;
+}
+@keyframes launchPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+  70%  { box-shadow: 0 0 0 12px rgba(34,197,94,0); }
+  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+.launch-copy { display: flex; flex-direction: column; gap: 2px; }
+.launch-copy strong { font-family: var(--font-display); font-size: 15px; color: var(--text-1); }
+.launch-copy span { font-size: 13px; color: var(--text-2); }
+@media (prefers-reduced-motion: reduce) { .launch-pulse { animation: none; } }
+
+/* "Free for you during beta" tag on paid cards */
+.plan-freenow {
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 0.04em;
+  color: var(--green);
+  background: var(--green-dim);
+  border: 1px solid var(--border-active);
+  border-radius: var(--r-pill);
+  padding: 5px 10px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+/* Waitlist modal */
+.waitlist-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background: rgba(4, 7, 12, 0.72);
+  backdrop-filter: blur(6px);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+.waitlist-overlay.open { opacity: 1; pointer-events: auto; }
+.waitlist-modal {
+  position: relative;
+  width: 100%; max-width: 420px;
+  background: var(--bg-card, #0c1018);
+  border: 1px solid var(--border-active);
+  border-radius: var(--r-lg);
+  padding: 30px 26px 26px;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  transform: translateY(12px) scale(0.98);
+  transition: transform 0.22s var(--t-spring, ease);
+}
+.waitlist-overlay.open .waitlist-modal { transform: translateY(0) scale(1); }
+.waitlist-close {
+  position: absolute; top: 10px; right: 14px;
+  background: none; border: none; cursor: pointer;
+  font-size: 26px; line-height: 1; color: var(--text-3);
+}
+.waitlist-close:hover { color: var(--text-1); }
+.waitlist-icon { font-size: 34px; margin-bottom: 8px; }
+.waitlist-modal h3 { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--text-1); margin-bottom: 8px; }
+.waitlist-modal h3 .wl-plan { color: var(--green); }
+.waitlist-sub { font-size: 13px; color: var(--text-2); line-height: 1.6; margin-bottom: 18px; }
+.waitlist-form { display: flex; gap: 8px; }
+.waitlist-input {
+  flex: 1; min-width: 0;
+  padding: 12px 14px;
+  background: var(--bg-2, rgba(255,255,255,0.04));
+  border: 1px solid var(--border-mid);
+  border-radius: var(--r-md, 10px);
+  color: var(--text-1); font-size: 14px;
+}
+.waitlist-input:focus { outline: none; border-color: var(--green); }
+.waitlist-submit { flex: none; white-space: nowrap; }
+.waitlist-msg { min-height: 18px; font-size: 13px; margin-top: 12px; }
+.waitlist-msg.ok { color: var(--green); }
+.waitlist-msg.err { color: #f87171; }
+@media (max-width: 480px) {
+  .waitlist-form { flex-direction: column; }
+  .waitlist-submit { width: 100%; }
+}
