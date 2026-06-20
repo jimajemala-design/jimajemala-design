@@ -2,6 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!-- Logged-in users land on the social feed. Browsing the bare "/" with no
+       hash redirects to /feed.html; food database (/#gallery) and ?home=1 stay. -->
+  <script>
+    (function () {
+      try {
+        if (location.pathname !== '/' || location.hash || /[?&]home=1/.test(location.search)) return;
+        var t = localStorage.getItem('nb_token');
+        if (!t) return;
+        var p = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (p && p.exp && Date.now() < p.exp * 1000) location.replace('/feed.html');
+      } catch (e) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="description" content="NutriFell — Interactive 3D nutrition explorer. 74 foods rendered in real-time 3D with complete nutritional intelligence." />
   <title>NutriFell — Fuel Your Best Self</title>

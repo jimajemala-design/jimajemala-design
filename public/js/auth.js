@@ -390,6 +390,7 @@ function _buildSidebar(user) {
         <div class="nb-streak" id="nbStreak" hidden aria-live="polite"></div>
         <nav class="nb-sidebar-nav">
           <a class="nb-nav-item" href="/">🏠 Home</a>
+          <a class="nb-nav-item" href="/feed.html">📱 Social Feed</a>
           <a class="nb-nav-item" href="/#gallery">🥗 Food Database</a>
           <a class="nb-nav-item" href="/fridge.html">🧊 My Fridge</a>
           <a class="nb-nav-item" href="/water.html">💧 Water Tracker</a>

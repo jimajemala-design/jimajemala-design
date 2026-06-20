@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Profile · NutriFell</title>
+  <meta name="description" content="A NutriFell community profile." />
+  <meta name="theme-color" content="#080c14" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/feed.css" />
+  <style>
+    .prof-wrap { max-width: 760px; margin: 0 auto; padding-bottom: calc(var(--bottom-h) + 28px); }
+    .prof-cover { height: 180px; background: linear-gradient(135deg, rgba(34,197,94,0.25), rgba(59,130,246,0.18)); background-size: cover; background-position: center; }
+    .prof-head { padding: 0 18px; margin-top: -44px; }
+    .prof-avatar { width: 92px; height: 92px; border-radius: 50%; border: 4px solid var(--bg); background: linear-gradient(135deg, var(--green), #16a34a); color: #04130a; font-weight: 700; font-size: 38px; display: grid; place-items: center; background-size: cover; background-position: center; }
+    .prof-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+    .prof-name { font-size: 24px; font-weight: 700; margin: 12px 0 2px; }
+    .prof-handle { color: var(--text-3); font-size: 14px; }
+    .prof-bio { margin: 12px 0; font-size: 15px; line-height: 1.5; }
+    .prof-meta { display: flex; gap: 16px; flex-wrap: wrap; color: var(--text-2); font-size: 13.5px; margin-bottom: 14px; }
+    .prof-meta a { color: var(--info); }
+    .prof-stats { display: flex; gap: 26px; padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .prof-stat b { font-size: 19px; display: block; }
+    .prof-stat span { font-size: 12.5px; color: var(--text-3); }
+    .prof-btn { padding: 10px 22px; border-radius: 999px; font-weight: 600; font-size: 14px; border: none; }
+    .prof-btn.follow { background: var(--green); color: #04130a; }
+    .prof-btn.following { background: var(--glass-2); color: var(--text-2); border: 1px solid var(--line); }
+    .prof-btn.edit { background: var(--glass-2); color: var(--text); border: 1px solid var(--line); }
+    .prof-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 14px 2px; }
+    .grid-tile { position: relative; aspect-ratio: 1; background: var(--glass-2); border-radius: 8px; overflow: hidden; display: grid; place-items: center; font-size: 30px; }
+    .grid-tile img, .grid-tile video { width: 100%; height: 100%; object-fit: cover; }
+    .grid-badge { position: absolute; top: 6px; right: 6px; font-size: 13px; }
+    .grid-stats { position: absolute; inset: 0; background: rgba(0,0,0,0.45); color: #fff; display: none; align-items: center; justify-content: center; gap: 14px; font-weight: 700; font-size: 14px; }
+    .grid-tile:hover .grid-stats { display: flex; }
+    .prof-tabs { display: flex; gap: 4px; padding: 4px; }
+    .prof-tab { flex: 1; padding: 10px; text-align: center; border-radius: 10px; background: none; border: none; color: var(--text-3); font-weight: 600; font-size: 13px; }
+    .prof-tab.active { background: var(--glass-2); color: var(--text); }
+    .prof-back { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); padding: 14px 18px; font-weight: 600; }
+  </style>
+</head>
+<body class="feed-body">
+  <header class="feed-top">
+    <a class="feed-logo" href="/feed.html">Nutri<span>Fell</span></a>
+    <div style="flex:1"></div>
+    <a class="feed-avatar-btn" id="topAvatar" href="/feed.html" aria-label="Back to feed">←</a>
+  </header>
+
+  <div class="prof-wrap" id="profWrap">
+    <div class="feed-empty" id="profLoading"><span class="em">⏳</span><h3>Loading profile…</h3></div>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Primary">
+    <a class="bn-item" href="/feed.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Feed</a>
+    <a class="bn-item" href="/#gallery"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg>Explore</a>
+    <a class="bn-create" href="/feed.html" aria-label="Feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></a>
+    <a class="bn-item" href="/recipes.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v7a3 3 0 0 0 6 0V2M10 9v13M17 2c-1.5 1-2 3-2 6s.5 5 2 6V2z"/></svg>Recipes</a>
+    <a class="bn-item active" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Profile</a>
+  </nav>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    (function () {
+      var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]; }); };
+      var TYPE = { photo: '📸', video: '🎬', recipe: '🍽️', text: '💬' };
+      var id = new URLSearchParams(location.search).get('id');
+      var wrap = document.getElementById('profWrap');
+      var me = (typeof Auth !== 'undefined' && Auth.isAuthed()) ? Auth.user() : null;
+      var av = document.getElementById('topAvatar');
+      if (me) { av.textContent = (me.name || '?').trim().charAt(0).toUpperCase(); av.href = '/feed.html'; }
+      if (!id) { wrap.innerHTML = '<div class="feed-empty"><span class="em">🤔</span><h3>No profile selected</h3><p><a href="/feed.html" style="color:var(--green)">Back to the feed</a></p></div>'; return; }
+
+      function avatarStyle(url) { return url ? ' style="background-image:url(\'' + esc(url) + '\')"' : ''; }
+
+      Promise.all([
+        Auth.api('/api/users/' + id),
+        Auth.api('/api/users/' + id + '/posts')
+      ]).then(function (res) {
+        var u = res[0], posts = res[1] || [];
+        var ini = (u.name || '?').trim().charAt(0).toUpperCase();
+        var btn = u.isOwn
+          ? '<a class="prof-btn edit" href="/profile-view.html">Edit Profile</a>'
+          : '<button class="prof-btn ' + (u.isFollowing ? 'following' : 'follow') + '" id="followBtn">' + (u.isFollowing ? 'Following' : 'Follow') + '</button>';
+        var meta = [];
+        if (u.location) meta.push('📍 ' + esc(u.location));
+        if (u.website) meta.push('🔗 <a href="' + esc(u.website) + '" target="_blank" rel="noopener">' + esc(u.website.replace(/^https?:\/\//, '')) + '</a>');
+
+        var tiles = posts.length ? posts.map(function (p) {
+          var media = '';
+          if ((p.photos || []).length) media = '<img src="' + esc(p.photos[0]) + '" alt="" loading="lazy">';
+          else if (p.video) media = '<video src="' + esc(p.video) + '" muted></video>';
+          else if (p.recipe && p.recipe.cover) media = '<img src="' + esc(p.recipe.cover) + '" alt="" loading="lazy">';
+          else media = TYPE[p.type] || '📝';
+          return '<a class="grid-tile" href="/feed.html?post=' + esc(p.id) + '">' + media +
+            '<span class="grid-badge">' + (TYPE[p.type] || '') + '</span>' +
+            '<span class="grid-stats">❤️ ' + (p.totalReactions || 0) + ' &nbsp; 💬 ' + (p.commentCount || 0) + '</span></a>';
+        }).join('') : '<div class="feed-empty" style="grid-column:1/-1"><span class="em">🌱</span><h3>No posts yet</h3></div>';
+
+        wrap.innerHTML =
+          '<div class="prof-cover"' + avatarStyle(u.cover) + '></div>' +
+          '<div class="prof-head">' +
+            '<div class="prof-top"><div class="prof-avatar"' + avatarStyle(u.avatar) + '>' + (u.avatar ? '' : ini) + '</div>' + btn + '</div>' +
+            '<div class="prof-name">' + esc(u.name) + '</div>' +
+            '<div class="prof-handle">' + esc(u.username) + '</div>' +
+            (u.bio ? '<div class="prof-bio">' + esc(u.bio) + '</div>' : '') +
+            (meta.length ? '<div class="prof-meta">' + meta.join('') + '</div>' : '') +
+            '<div class="prof-stats">' +
+              '<div class="prof-stat"><b>' + u.stats.posts + '</b><span>Posts</span></div>' +
+              '<div class="prof-stat"><b id="followerCount">' + u.stats.followers + '</b><span>Followers</span></div>' +
+              '<div class="prof-stat"><b>' + u.stats.following + '</b><span>Following</span></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="prof-tabs"><button class="prof-tab active">Posts</button></div>' +
+          '<div class="prof-grid">' + tiles + '</div>';
+
+        var fb = document.getElementById('followBtn');
+        if (fb) fb.addEventListener('click', function () {
+          if (!Auth.isAuthed()) { location.href = '/login.html'; return; }
+          fb.disabled = true;
+          Auth.api('/api/users/' + id + '/follow', { method: 'POST' }).then(function (out) {
+            fb.className = 'prof-btn ' + (out.following ? 'following' : 'follow');
+            fb.textContent = out.following ? 'Following' : 'Follow';
+            document.getElementById('followerCount').textContent = out.followers;
+          }).catch(function (e) { if (window.toast) toast(e.message, 'error'); }).finally(function () { fb.disabled = false; });
+        });
+      }).catch(function () {
+        wrap.innerHTML = '<div class="feed-empty"><span class="em">😕</span><h3>Profile not found</h3><p><a href="/feed.html" style="color:var(--green)">Back to the feed</a></p></div>';
+      });
+    })();
+  </script>
+</body>
+</html>

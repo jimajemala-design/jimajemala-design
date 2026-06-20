@@ -4,7 +4,9 @@
 // 4.1.0 — evict stale scene.js + the pre-optimization (39MB) apple/salmon GLBs.
 // 4.2.0 — fix blank canvas: buffer sized from real client size + ResizeObserver
 //         (rescues the display:none-at-init race) + spinner handoff fix.
-const VERSION = '4.2.0';
+// 4.3.0 — social feed (Phase 1): precache feed assets; never-cache the
+//         per-viewer feed/posts/users/notifications APIs.
+const VERSION = '4.3.0';
 const STATIC_CACHE = `nutrifell-static-${VERSION}`;
 const API_CACHE = `nutrifell-api-${VERSION}`;
 const CDN_CACHE = `nutrifell-cdn-${VERSION}`;
@@ -15,11 +17,14 @@ const PRECACHE = [
   '/',
   '/index.html',
   '/fridge.html',
+  '/feed.html',
   '/css/style.css',
   '/css/auth.css',
   '/css/features.css',
+  '/css/feed.css',
   '/js/app.js',
   '/js/auth.js',
+  '/js/feed.js',
   '/manifest.json',
 ];
 
@@ -40,6 +45,11 @@ const NEVER_CACHE = [
   '/api/recipes/bookmarks',
   '/api/recipes/react',
   '/api/recipes/rate',
+  // Social feed is per-viewer and changes constantly — always hit the network.
+  '/api/feed',
+  '/api/posts',
+  '/api/users',
+  '/api/notifications',
 ];
 const isPrivateApi = (pathname) => NEVER_CACHE.some((p) => pathname.startsWith(p));
 

@@ -209,12 +209,27 @@ const BOOKMARKS_FILE = path.join(DATA_DIR, 'bookmarks.json');
 const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
 const WAITLIST_FILE = path.join(DATA_DIR, 'waitlist.json');
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads', 'recipes');
+// ── Social feed stores (Phase 1) ──
+const POSTS_FILE = path.join(DATA_DIR, 'posts.json');
+const FOLLOWS_FILE = path.join(DATA_DIR, 'follows.json');
+const POST_REACTIONS_FILE = path.join(DATA_DIR, 'post_reactions.json');
+const POST_COMMENTS_FILE = path.join(DATA_DIR, 'post_comments.json');
+const POST_SAVES_FILE = path.join(DATA_DIR, 'post_saves.json');
+const POST_REPORTS_FILE = path.join(DATA_DIR, 'post_reports.json');
+const NOTIFICATIONS_FILE = path.join(DATA_DIR, 'notifications.json');
+const POSTS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'posts');
+const REELS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'reels');
+const AVATARS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'avatars');
+const COVERS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'covers');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+for (const d of [UPLOADS_DIR, POSTS_UPLOAD_DIR, REELS_UPLOAD_DIR, AVATARS_UPLOAD_DIR, COVERS_UPLOAD_DIR]) {
+  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+}
 for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE, LOGS_FILE, WATER_FILE,
   SMOKING_FILE, RECIPES_FILE, COMMENTS_FILE, REACTIONS_FILE, BOOKMARKS_FILE, REPORTS_FILE,
-  WAITLIST_FILE]) {
+  WAITLIST_FILE, POSTS_FILE, FOLLOWS_FILE, POST_REACTIONS_FILE, POST_COMMENTS_FILE,
+  POST_SAVES_FILE, POST_REPORTS_FILE, NOTIFICATIONS_FILE]) {
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf8');
 }
 
@@ -3120,6 +3135,406 @@ app.post('/api/recipes/:id/ai-analysis', async (req, res) => {
     persist(a);
     res.json(a);
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SOCIAL FEED  (Phase 1 — posts, feed, reactions, comments, saves, follows)
+//  Generalizes the recipe social primitives (reactions/comments/bookmarks/
+//  reports) to first-class posts. Feed scoring uses the "For You" formula.
+// ═══════════════════════════════════════════════════════════════════════
+const POST_REACTIONS = ['❤️', '🔥', '😋', '👏', '🤩', '💪'];
+const POST_TYPES = ['photo', 'video', 'recipe', 'text'];
+
+// @handle derived from username → name → email local-part.
+function userHandle(u) {
+  if (!u) return '@nutrifell';
+  if (u.username) return '@' + String(u.username).replace(/^@/, '');
+  const base = (u.name || (u.email || '').split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return '@' + (base || 'user');
+}
+
+// Token is OPTIONAL here (feed/single-post work logged-out); returns userId or null.
+function optionalAuth(req) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) return null;
+  try { return jwt.verify(token, JWT_SECRET).id; } catch { return null; }
+}
+
+// Store a notification (best-effort; never notify yourself). Powers the Phase 3
+// bell UI; counts are already queryable via /api/notifications/count.
+function pushNotification(type, { toUserId, fromUserId, postId, text }) {
+  if (!toUserId || toUserId === fromUserId) return;
+  const from = readJSON(USERS_FILE).find(u => u.id === fromUserId);
+  const all = readJSON(NOTIFICATIONS_FILE);
+  all.unshift({
+    id: uuidv4(), type, toUserId, fromUserId,
+    fromName: (from && from.name) || 'Someone', fromAvatar: (from && from.avatar) || null,
+    postId: postId || null, text: text || '', read: false, at: new Date().toISOString(),
+  });
+  writeJSON(NOTIFICATIONS_FILE, all.slice(0, 500));
+}
+
+function extractHashtags(text) {
+  const tags = new Set();
+  (String(text || '').match(/#[\p{L}0-9_]+/gu) || []).forEach(t => tags.add(t.slice(1).toLowerCase()));
+  return [...tags].slice(0, 30);
+}
+
+// Multer for posts: up to 10 images (JPG/PNG/WebP) OR one video (MP4/WebM/MOV).
+// 180MB cap covers ≤3-min reels. Transcoding/thumbnails deferred (no ffmpeg yet).
+const postUpload = multer
+  ? multer({
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 180 * 1024 * 1024, files: 10 },
+      fileFilter: (req, file, cb) => {
+        const ok = /^image\/(jpe?g|png|webp)$/.test(file.mimetype)
+          || /^video\/(mp4|webm|quicktime)$/.test(file.mimetype);
+        cb(ok ? null : new Error('Only JPG/PNG/WebP images or MP4/WebM/MOV video allowed'), ok);
+      },
+    })
+  : { array: () => (req, res, next) => next() }; // no-op if multer missing
+
+// Persist uploaded buffers → photos (resized WebP) into /uploads/posts and a
+// single video into /uploads/reels. Returns { photos:[], video:url|null }.
+async function savePostMedia(files) {
+  const photos = [];
+  let video = null;
+  for (const file of files || []) {
+    const base = `${Date.now()}-${uuidv4().slice(0, 8)}`;
+    if (/^image\//.test(file.mimetype)) {
+      if (photos.length >= 10) continue;
+      if (sharp) {
+        const name = `${base}.webp`;
+        await sharp(file.buffer).rotate().resize({ width: 1280, withoutEnlargement: true })
+          .webp({ quality: 82 }).toFile(path.join(POSTS_UPLOAD_DIR, name));
+        photos.push(`/uploads/posts/${name}`);
+      } else {
+        const ext = (file.mimetype.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+        const name = `${base}.${ext}`;
+        fs.writeFileSync(path.join(POSTS_UPLOAD_DIR, name), file.buffer);
+        photos.push(`/uploads/posts/${name}`);
+      }
+    } else if (/^video\//.test(file.mimetype) && !video) {
+      const ext = file.mimetype === 'video/quicktime' ? 'mov' : (file.mimetype.split('/')[1] || 'mp4');
+      const name = `${base}.${ext}`;
+      fs.writeFileSync(path.join(REELS_UPLOAD_DIR, name), file.buffer);
+      video = `/uploads/reels/${name}`;
+    }
+  }
+  return { photos, video };
+}
+
+// Aggregate reactions/comments/saves/views + the For You ranking score, and the
+// viewer's own reaction / saved state. Score = likes×3 + comments×5 + saves×4 +
+// views×0.1 − hours_old×0.5  (shares deferred to a later phase).
+function decoratePost(p, reactions, comments, saves, viewerId) {
+  const rs = reactions.filter(x => x.postId === p.id);
+  const counts = {}; POST_REACTIONS.forEach(e => counts[e] = 0);
+  rs.forEach(x => { if (counts[x.emoji] != null) counts[x.emoji]++; });
+  const totalReactions = rs.length;
+  const commentCount = comments.filter(c => c.postId === p.id).length;
+  const saveCount = saves.filter(s => s.postId === p.id).length;
+  const views = p.views || 0;
+  const hours = (Date.now() - new Date(p.createdAt).getTime()) / 3600000;
+  const score = totalReactions * 3 + commentCount * 5 + saveCount * 4 + views * 0.1 - hours * 0.5;
+  const myReaction = viewerId ? ((rs.find(x => x.userId === viewerId) || {}).emoji || null) : null;
+  const saved = viewerId ? saves.some(s => s.postId === p.id && s.userId === viewerId) : false;
+  return { ...p, reactionCounts: counts, totalReactions, commentCount, saveCount, views, score, myReaction, saved };
+}
+
+// ── Feed (paginated, scored, works logged-out) ──
+app.get('/api/feed', (req, res) => {
+  const viewerId = optionalAuth(req);
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const perPage = 20;
+  const reactions = readJSON(POST_REACTIONS_FILE);
+  const comments = readJSON(POST_COMMENTS_FILE);
+  const saves = readJSON(POST_SAVES_FILE);
+  let list = readJSON(POSTS_FILE).map(p => decoratePost(p, reactions, comments, saves, viewerId));
+  const { type, tag, userId } = req.query;
+  if (type && POST_TYPES.includes(type)) list = list.filter(p => p.type === type);
+  if (tag) list = list.filter(p => (p.hashtags || []).includes(String(tag).toLowerCase()));
+  if (userId) list = list.filter(p => p.userId === userId);
+  list.sort((a, b) => b.score - a.score);
+  const total = list.length;
+  const start = (page - 1) * perPage;
+  const pageItems = list.slice(start, start + perPage);
+  let followingSet = new Set();
+  if (viewerId) followingSet = new Set(readJSON(FOLLOWS_FILE).filter(f => f.followerId === viewerId).map(f => f.followingId));
+  pageItems.forEach(p => { p.isFollowingAuthor = followingSet.has(p.userId); p.isOwn = p.userId === viewerId; });
+  res.json({ posts: pageItems, page, perPage, total, hasMore: start + perPage < total });
+});
+
+// ── Create a post ──
+app.post('/api/posts', auth, (req, res) => {
+  postUpload.array('media', 10)(req, res, async (uErr) => {
+    if (uErr) return res.status(400).json({ error: uErr.message });
+    try {
+      const b = req.body || {};
+      const type = POST_TYPES.includes(b.type) ? b.type : 'text';
+      const caption = String(b.caption || '').trim().slice(0, 500);
+      const { photos, video } = await savePostMedia(req.files);
+      if (type === 'photo' && photos.length === 0) return res.status(400).json({ error: 'Add at least one photo.' });
+      if (type === 'video' && !video) return res.status(400).json({ error: 'Add a video to post a reel.' });
+      if (type === 'text' && !caption) return res.status(400).json({ error: 'Write something to share.' });
+      let recipeRef = null;
+      if (type === 'recipe') {
+        const recipe = readJSON(RECIPES_FILE).find(r => r.id === b.recipeId);
+        if (!recipe) return res.status(400).json({ error: 'Recipe not found.' });
+        if (recipe.userId !== req.userId) return res.status(403).json({ error: 'You can only share your own recipes.' });
+        recipeRef = { id: recipe.id, name: recipe.name, cover: (recipe.photos || [])[0] || null,
+          calories: recipe.nutrition ? recipe.nutrition.perServing.calories : null, category: recipe.category };
+      }
+      const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+      let foodTags = [];
+      try { foodTags = Array.isArray(JSON.parse(b.foodTags || '[]')) ? JSON.parse(b.foodTags).slice(0, 10) : []; } catch { foodTags = []; }
+      const post = {
+        id: uuidv4(), userId: req.userId,
+        authorName: (user && user.name) || 'NutriFell User',
+        authorUsername: userHandle(user),
+        authorAvatar: (user && user.avatar) || null,
+        type, caption, photos, video, recipe: recipeRef,
+        hashtags: extractHashtags(`${caption} ${b.hashtags || ''}`),
+        foodTags, location: b.location ? String(b.location).trim().slice(0, 80) : '',
+        views: 0, createdAt: new Date().toISOString(),
+      };
+      const all = readJSON(POSTS_FILE);
+      all.unshift(post);
+      writeJSON(POSTS_FILE, all);
+      res.status(201).json(post);
+    } catch (err) {
+      console.error('Post create error:', err.message);
+      res.status(500).json({ error: 'Could not publish your post. Please try again.' });
+    }
+  });
+});
+
+// ── Single post ──
+app.get('/api/posts/:id', (req, res) => {
+  const viewerId = optionalAuth(req);
+  const p = readJSON(POSTS_FILE).find(x => x.id === req.params.id);
+  if (!p) return res.status(404).json({ error: 'Post not found' });
+  const d = decoratePost(p, readJSON(POST_REACTIONS_FILE), readJSON(POST_COMMENTS_FILE), readJSON(POST_SAVES_FILE), viewerId);
+  d.isOwn = p.userId === viewerId;
+  res.json(d);
+});
+
+// ── Delete own post (+ its reactions/comments/saves + media files) ──
+app.delete('/api/posts/:id', auth, (req, res) => {
+  const all = readJSON(POSTS_FILE);
+  const p = all.find(x => x.id === req.params.id);
+  if (!p) return res.status(404).json({ error: 'Post not found' });
+  if (p.userId !== req.userId) return res.status(403).json({ error: 'Not your post' });
+  writeJSON(POSTS_FILE, all.filter(x => x.id !== req.params.id));
+  writeJSON(POST_REACTIONS_FILE, readJSON(POST_REACTIONS_FILE).filter(x => x.postId !== p.id));
+  writeJSON(POST_COMMENTS_FILE, readJSON(POST_COMMENTS_FILE).filter(c => c.postId !== p.id));
+  writeJSON(POST_SAVES_FILE, readJSON(POST_SAVES_FILE).filter(s => s.postId !== p.id));
+  [...(p.photos || []), p.video].filter(Boolean).forEach(u => {
+    try { fs.unlinkSync(path.join(__dirname, 'public', u)); } catch {}
+  });
+  res.json({ success: true });
+});
+
+// ── React (toggle one emoji per user per post) ──
+function applyReaction(postId, userId, emoji) {
+  const all = readJSON(POST_REACTIONS_FILE);
+  const mine = all.find(x => x.postId === postId && x.userId === userId);
+  let next = all;
+  if (mine && mine.emoji === emoji) next = all.filter(x => x !== mine);
+  else if (mine) { mine.emoji = emoji; mine.at = new Date().toISOString(); }
+  else next.push({ id: uuidv4(), postId, userId, emoji, at: new Date().toISOString() });
+  writeJSON(POST_REACTIONS_FILE, next);
+  const counts = {}; POST_REACTIONS.forEach(e => counts[e] = 0);
+  next.filter(x => x.postId === postId).forEach(x => { if (counts[x.emoji] != null) counts[x.emoji]++; });
+  const myReaction = next.find(x => x.postId === postId && x.userId === userId);
+  return { counts, total: Object.values(counts).reduce((a, c) => a + c, 0), mine: myReaction ? myReaction.emoji : null };
+}
+
+app.post('/api/posts/:id/react', auth, (req, res) => {
+  const emoji = (req.body && req.body.emoji) || '';
+  if (!POST_REACTIONS.includes(emoji)) return res.status(400).json({ error: 'Invalid reaction' });
+  const post = readJSON(POSTS_FILE).find(p => p.id === req.params.id);
+  if (!post) return res.status(404).json({ error: 'Post not found' });
+  const out = applyReaction(req.params.id, req.userId, emoji);
+  if (out.mine) pushNotification('reaction', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: `reacted ${emoji} to your post` });
+  res.json(out);
+});
+
+// Convenience: double-tap "like" toggles the ❤️ reaction.
+app.post('/api/posts/:id/like', auth, (req, res) => {
+  const post = readJSON(POSTS_FILE).find(p => p.id === req.params.id);
+  if (!post) return res.status(404).json({ error: 'Post not found' });
+  const out = applyReaction(req.params.id, req.userId, '❤️');
+  if (out.mine) pushNotification('like', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: 'liked your post' });
+  res.json({ ...out, liked: out.mine === '❤️' });
+});
+
+// ── Save / unsave ──
+app.post('/api/posts/:id/save', auth, (req, res) => {
+  const all = readJSON(POST_SAVES_FILE);
+  const mine = all.find(x => x.postId === req.params.id && x.userId === req.userId);
+  let next = all, saved;
+  if (mine) { next = all.filter(x => x !== mine); saved = false; }
+  else { next.push({ userId: req.userId, postId: req.params.id, at: new Date().toISOString() }); saved = true; }
+  writeJSON(POST_SAVES_FILE, next);
+  res.json({ saved });
+});
+
+// ── Report ──
+app.post('/api/posts/:id/report', auth, (req, res) => {
+  const all = readJSON(POST_REPORTS_FILE);
+  all.push({ id: uuidv4(), postId: req.params.id, userId: req.userId,
+    reason: (req.body && String(req.body.reason || '').slice(0, 500)) || 'Unspecified', at: new Date().toISOString() });
+  writeJSON(POST_REPORTS_FILE, all);
+  res.json({ success: true, message: 'Thanks — our team will review this post.' });
+});
+
+// ── Views (client calls once when a post enters the viewport) ──
+app.post('/api/posts/:id/view', (req, res) => {
+  const all = readJSON(POSTS_FILE);
+  const p = all.find(x => x.id === req.params.id);
+  if (!p) return res.status(404).json({ error: 'Post not found' });
+  p.views = (p.views || 0) + 1;
+  writeJSON(POSTS_FILE, all);
+  res.json({ views: p.views });
+});
+
+// ── Comments (threaded one level) ──
+function shapePostComments(postId) {
+  const all = readJSON(POST_COMMENTS_FILE).filter(c => c.postId === postId);
+  const roots = all.filter(c => !c.parentId).sort((a, b) => b.at.localeCompare(a.at));
+  return roots.map(c => ({
+    ...c, likeCount: (c.likes || []).length,
+    replies: all.filter(r => r.parentId === c.id).sort((a, b) => a.at.localeCompare(b.at))
+      .map(r => ({ ...r, likeCount: (r.likes || []).length })),
+  }));
+}
+
+app.get('/api/posts/:id/comments', (req, res) => res.json(shapePostComments(req.params.id)));
+
+app.post('/api/posts/:id/comments', auth, (req, res) => {
+  const text = req.body && String(req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'Comment cannot be empty' });
+  const post = readJSON(POSTS_FILE).find(p => p.id === req.params.id);
+  if (!post) return res.status(404).json({ error: 'Post not found' });
+  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+  const all = readJSON(POST_COMMENTS_FILE);
+  const comment = { id: uuidv4(), postId: req.params.id, userId: req.userId,
+    authorName: (user && user.name) || 'NutriFell User', authorAvatar: (user && user.avatar) || null,
+    text: text.slice(0, 2000), parentId: null, likes: [], at: new Date().toISOString() };
+  all.push(comment);
+  writeJSON(POST_COMMENTS_FILE, all);
+  pushNotification('comment', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: 'commented on your post' });
+  res.status(201).json(comment);
+});
+
+app.post('/api/posts/:id/comments/:cid/reply', auth, (req, res) => {
+  const text = req.body && String(req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'Reply cannot be empty' });
+  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+  const all = readJSON(POST_COMMENTS_FILE);
+  const parent = all.find(c => c.id === req.params.cid);
+  if (!parent) return res.status(404).json({ error: 'Comment not found' });
+  const reply = { id: uuidv4(), postId: req.params.id, userId: req.userId,
+    authorName: (user && user.name) || 'NutriFell User', authorAvatar: (user && user.avatar) || null,
+    text: text.slice(0, 2000), parentId: parent.parentId || parent.id, likes: [], at: new Date().toISOString() };
+  all.push(reply);
+  writeJSON(POST_COMMENTS_FILE, all);
+  pushNotification('reply', { toUserId: parent.userId, fromUserId: req.userId, postId: req.params.id, text: 'replied to your comment' });
+  res.status(201).json(reply);
+});
+
+app.post('/api/posts/:id/comments/:cid/like', auth, (req, res) => {
+  const all = readJSON(POST_COMMENTS_FILE);
+  const c = all.find(x => x.id === req.params.cid);
+  if (!c) return res.status(404).json({ error: 'Comment not found' });
+  c.likes = c.likes || [];
+  const i = c.likes.indexOf(req.userId);
+  if (i === -1) c.likes.push(req.userId); else c.likes.splice(i, 1);
+  writeJSON(POST_COMMENTS_FILE, all);
+  res.json({ likeCount: c.likes.length, liked: i === -1 });
+});
+
+// ── Follow system ──
+app.get('/api/users/suggested', (req, res) => {
+  const viewerId = optionalAuth(req);
+  const follows = readJSON(FOLLOWS_FILE);
+  const followingIds = new Set(follows.filter(f => f.followerId === viewerId).map(f => f.followingId));
+  const followerCount = {};
+  follows.forEach(f => { followerCount[f.followingId] = (followerCount[f.followingId] || 0) + 1; });
+  const users = readJSON(USERS_FILE)
+    .filter(u => u.id !== viewerId && !followingIds.has(u.id))
+    .map(u => ({ id: u.id, name: u.name, username: userHandle(u), avatar: u.avatar || null,
+      bio: (u.bio || '').slice(0, 80), followers: followerCount[u.id] || 0 }))
+    .sort((a, b) => b.followers - a.followers)
+    .slice(0, 5);
+  res.json(users);
+});
+
+function profileSummary(u, viewerId) {
+  const follows = readJSON(FOLLOWS_FILE);
+  const posts = readJSON(POSTS_FILE).filter(p => p.userId === u.id).length;
+  const followers = follows.filter(f => f.followingId === u.id).length;
+  const following = follows.filter(f => f.followerId === u.id).length;
+  return {
+    id: u.id, name: u.name, username: userHandle(u), avatar: u.avatar || null,
+    cover: u.cover || null, bio: u.bio || '', location: u.location || '', website: u.website || '',
+    stats: { posts, followers, following },
+    isFollowing: viewerId ? follows.some(f => f.followerId === viewerId && f.followingId === u.id) : false,
+    isOwn: viewerId === u.id,
+  };
+}
+
+app.get('/api/users/:id', (req, res) => {
+  const viewerId = optionalAuth(req);
+  const u = readJSON(USERS_FILE).find(x => x.id === req.params.id);
+  if (!u) return res.status(404).json({ error: 'User not found' });
+  res.json(profileSummary(u, viewerId));
+});
+
+app.get('/api/users/:id/posts', (req, res) => {
+  const viewerId = optionalAuth(req);
+  const reactions = readJSON(POST_REACTIONS_FILE);
+  const comments = readJSON(POST_COMMENTS_FILE);
+  const saves = readJSON(POST_SAVES_FILE);
+  const list = readJSON(POSTS_FILE).filter(p => p.userId === req.params.id)
+    .map(p => decoratePost(p, reactions, comments, saves, viewerId))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  res.json(list);
+});
+
+app.post('/api/users/:id/follow', auth, (req, res) => {
+  const targetId = req.params.id;
+  if (targetId === req.userId) return res.status(400).json({ error: "You can't follow yourself" });
+  const target = readJSON(USERS_FILE).find(u => u.id === targetId);
+  if (!target) return res.status(404).json({ error: 'User not found' });
+  const all = readJSON(FOLLOWS_FILE);
+  const mine = all.find(f => f.followerId === req.userId && f.followingId === targetId);
+  let next = all, following;
+  if (mine) { next = all.filter(f => f !== mine); following = false; }
+  else {
+    next.push({ followerId: req.userId, followingId: targetId, at: new Date().toISOString() });
+    following = true;
+    pushNotification('follow', { toUserId: targetId, fromUserId: req.userId, text: 'started following you' });
+  }
+  writeJSON(FOLLOWS_FILE, next);
+  res.json({ following, followers: next.filter(f => f.followingId === targetId).length });
+});
+
+// ── Notifications (data layer ready; bell UI lands in a later phase) ──
+app.get('/api/notifications', auth, (req, res) => {
+  res.json(readJSON(NOTIFICATIONS_FILE).filter(n => n.toUserId === req.userId).slice(0, 100));
+});
+app.get('/api/notifications/count', auth, (req, res) => {
+  const n = readJSON(NOTIFICATIONS_FILE).filter(x => x.toUserId === req.userId && !x.read).length;
+  res.json({ count: n });
+});
+app.put('/api/notifications/read', auth, (req, res) => {
+  const all = readJSON(NOTIFICATIONS_FILE);
+  all.forEach(n => { if (n.toUserId === req.userId) n.read = true; });
+  writeJSON(NOTIFICATIONS_FILE, all);
+  res.json({ success: true });
 });
 
 // ─── Styled error pages (404 / 500) ──────────────────────────────────────

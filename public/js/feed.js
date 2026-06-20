@@ -1,0 +1,722 @@
+/* feed.js — NutriFell Social Feed (Phase 1)
+   Infinite-scroll feed, video autoplay-on-scroll, photo carousel, reactions,
+   comments, save/report/share, follow, and the create-post modal. Integrates
+   with the shared Auth/Toast helpers from auth.js. */
+'use strict';
+
+const Feed = (() => {
+  // Lucide-style stroke icons (SVG, themeable via currentColor).
+  const I = {
+    heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>',
+    heartFill: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21 4.2 13.4l-1-1a5.5 5.5 0 0 1 7.8-7.8l1 1.1 1-1.1a5.5 5.5 0 0 1 7.8 7.8l-1 1z"/></svg>',
+    comment: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12 7.6L3 21l1.9-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg>',
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>',
+    bookmark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21 12 16 5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
+    bookmarkFill: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 21 12 16 5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
+    more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+    mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m23 9-6 6M17 9l6 6"/></svg>',
+    volume: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+    home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
+    compass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+    user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>',
+    message: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12 7.6L3 21l1.9-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg>',
+  };
+
+  const REACTIONS = ['❤️', '🔥', '😋', '👏', '🤩', '💪'];
+  const TYPE_BADGE = { photo: '📸 Photo', video: '🎬 Reel', recipe: '🍽️ Recipe', text: '💬 Tip' };
+
+  const state = { page: 1, hasMore: true, loading: false, filter: '', seen: new Set(), viewed: new Set() };
+  let io = null, videoIO = null, sentinelIO = null;
+
+  // ── helpers ──────────────────────────────────────────────────────────
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  const authed = () => Auth.isAuthed();
+  const me = () => Auth.user() || {};
+  const initial = (name) => (name || '?').trim().charAt(0).toUpperCase();
+
+  function timeAgo(iso) {
+    const s = Math.max(1, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'just now';
+    const m = s / 60; if (m < 60) return `${Math.floor(m)}m ago`;
+    const h = m / 60; if (h < 24) return `${Math.floor(h)}h ago`;
+    const d = h / 24; if (d < 7) return `${Math.floor(d)}d ago`;
+    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+  const nFmt = (n) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
+
+  // Linkify #hashtags in captions (everything else escaped first).
+  function renderCaption(text) {
+    return esc(text).replace(/#([\p{L}0-9_]+)/gu, '<a class="hashtag" href="/feed.html?tag=$1">#$1</a>');
+  }
+
+  function avatarHTML(url, name, cls) {
+    if (url) return `<div class="${cls}" style="background-image:url('${esc(url)}')"></div>`;
+    return `<div class="${cls}">${esc(initial(name))}</div>`;
+  }
+
+  // ── media renderers ──────────────────────────────────────────────────
+  function mediaHTML(p) {
+    if (p.type === 'text') {
+      return `<div class="post-media text-only"><div class="post-text-body">${renderCaption(p.caption)}</div></div>`;
+    }
+    if (p.type === 'recipe' && p.recipe) {
+      const r = p.recipe;
+      const cover = r.cover
+        ? `<img class="post-recipe-cover" src="${esc(r.cover)}" alt="${esc(r.name)}" loading="lazy">`
+        : `<div class="post-recipe-cover">🍽️</div>`;
+      return `<a class="post-recipe" href="/recipe-detail.html?id=${esc(r.id)}">
+        ${cover}
+        <div class="post-recipe-info">
+          <h4>${esc(r.name)}</h4>
+          <div class="post-recipe-tags"><span>${esc(r.category || 'Recipe')}</span>
+          ${r.calories != null ? `<span class="post-recipe-kcal">${r.calories} kcal/serving</span>` : ''}</div>
+        </div></a>`;
+    }
+    if (p.type === 'video' && p.video) {
+      return `<div class="reel" data-media>
+        <video src="${esc(p.video)}" muted loop playsinline preload="metadata"></video>
+        <button class="reel-mute" aria-label="Unmute video">${I.mute}</button>
+        <div class="reel-views">${I.eye}<span>${nFmt(p.views || 0)}</span></div>
+        <div class="reel-progress"><div class="reel-progress-bar"></div></div>
+        <div class="heart-burst">❤️</div>
+      </div>`;
+    }
+    // photo (single or carousel)
+    const photos = p.photos || [];
+    if (photos.length <= 1) {
+      const src = photos[0] || '';
+      return `<div class="post-media" data-media>
+        <img class="post-photo" src="${esc(src)}" alt="${esc(p.caption).slice(0, 80)}" loading="lazy">
+        <div class="heart-burst">❤️</div></div>`;
+    }
+    const slides = photos.map(u => `<div class="carousel-slide"><img src="${esc(u)}" alt="" loading="lazy"></div>`).join('');
+    const dots = photos.map((_, i) => `<span class="carousel-dot${i === 0 ? ' active' : ''}"></span>`).join('');
+    return `<div class="post-media carousel" data-media data-carousel>
+      <div class="carousel-track">${slides}</div>
+      <div class="carousel-count">1/${photos.length}</div>
+      <div class="carousel-dots">${dots}</div>
+      <div class="heart-burst">❤️</div></div>`;
+  }
+
+  // ── post card ────────────────────────────────────────────────────────
+  function postHTML(p) {
+    const my = me();
+    const showFollow = authed() && !p.isOwn && p.userId;
+    const followCls = p.isFollowingAuthor ? 'follow-btn following' : 'follow-btn';
+    const reactEmoji = p.myReaction || '🤍';
+    const foodtags = (p.foodTags || []).length
+      ? `<div class="post-foodtags">${p.foodTags.map(t => `<span class="foodtag">${esc(typeof t === 'string' ? t : (t.name || ''))}</span>`).join('')}</div>` : '';
+    const captionBlock = (p.type !== 'text' && p.caption)
+      ? `<div class="post-body"><div class="post-caption">${renderCaption(p.caption)}</div>${foodtags}</div>`
+      : (p.type === 'text' ? `<div class="post-body">${foodtags}</div>` : '');
+    return `<article class="post" data-id="${esc(p.id)}" data-type="${esc(p.type)}" data-user="${esc(p.userId)}">
+      <header class="post-head">
+        <a href="/profile-social.html?id=${esc(p.userId)}">${avatarHTML(p.authorAvatar, p.authorName, 'post-avatar')}</a>
+        <div class="post-id">
+          <div class="post-name"><b>${esc(p.authorName)}</b></div>
+          <div class="post-meta"><span>${esc(p.authorUsername || '')}</span><span>·</span><span>${timeAgo(p.createdAt)}</span>
+            <span class="post-type-badge">${TYPE_BADGE[p.type] || ''}</span></div>
+        </div>
+        ${showFollow ? `<button class="${followCls}" data-act="follow">${p.isFollowingAuthor ? 'Following' : 'Follow'}</button>` : ''}
+        <button class="post-menu-btn" data-act="menu" aria-label="Post options">${I.more}</button>
+      </header>
+      ${mediaHTML(p)}
+      ${captionBlock}
+      ${p.totalReactions ? `<div class="react-summary"><span class="em">${topReactEmojis(p)}</span><span>${nFmt(p.totalReactions)}</span></div>` : ''}
+      <div class="post-actions">
+        <button class="act act-react ${p.myReaction ? 'liked' : ''}" data-act="react" aria-label="React">
+          <span class="react-emoji">${reactEmoji}</span><span data-react-count>${p.totalReactions ? nFmt(p.totalReactions) : ''}</span>
+        </button>
+        <button class="act" data-act="comment" aria-label="Comments">${I.comment}<span data-comment-count>${p.commentCount ? nFmt(p.commentCount) : ''}</span></button>
+        <button class="act" data-act="share" aria-label="Share">${I.share}</button>
+        <button class="act spacer ${p.saved ? 'saved' : ''}" data-act="save" aria-label="Save">${p.saved ? I.bookmarkFill : I.bookmark}</button>
+      </div>
+    </article>`;
+  }
+
+  function topReactEmojis(p) {
+    const entries = Object.entries(p.reactionCounts || {}).filter(([, c]) => c > 0)
+      .sort((a, b) => b[1] - a[1]).slice(0, 3).map(([e]) => e);
+    return entries.length ? entries.join('') : '❤️';
+  }
+
+  // ── data ─────────────────────────────────────────────────────────────
+  async function fetchPage() {
+    const qs = new URLSearchParams({ page: String(state.page) });
+    if (state.filter) qs.set('type', state.filter);
+    const tag = new URLSearchParams(location.search).get('tag');
+    if (tag) qs.set('tag', tag);
+    return Auth.api('/api/feed?' + qs.toString());
+  }
+
+  async function loadMore() {
+    if (state.loading || !state.hasMore) return;
+    state.loading = true;
+    showSkeletons();
+    try {
+      const data = await fetchPage();
+      removeSkeletons();
+      const fresh = (data.posts || []).filter(p => !state.seen.has(p.id));
+      fresh.forEach(p => state.seen.add(p.id));
+      const list = document.getElementById('feedList');
+      fresh.forEach(p => list.insertAdjacentHTML('beforeend', postHTML(p)));
+      bindNewPosts();
+      state.hasMore = data.hasMore;
+      state.page += 1;
+      if (!fresh.length && !list.querySelector('.post')) showEmpty();
+      else if (!state.hasMore) showEnd();
+    } catch (err) {
+      removeSkeletons();
+      toast(err.message || 'Could not load the feed.', 'error');
+    } finally {
+      state.loading = false;
+    }
+  }
+
+  function resetFeed() {
+    state.page = 1; state.hasMore = true; state.seen = new Set();
+    const list = document.getElementById('feedList');
+    list.innerHTML = '';
+    document.getElementById('feedEnd')?.remove();
+    document.getElementById('feedEmpty')?.remove();
+    loadMore();
+  }
+
+  // ── skeletons / states ───────────────────────────────────────────────
+  function showSkeletons() {
+    if (document.getElementById('feedSkel')) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'feedSkel';
+    wrap.style.display = 'contents';
+    let html = '';
+    for (let i = 0; i < 3; i++) html += `<div class="skel-card">
+      <div class="skel-head"><div class="skel skel-avatar"></div><div style="flex:1">
+        <div class="skel skel-line" style="width:40%"></div><div class="skel skel-line" style="width:24%;margin-top:8px"></div></div></div>
+      <div class="skel skel-media"></div>
+      <div style="padding:14px"><div class="skel skel-line" style="width:80%"></div></div></div>`;
+    wrap.innerHTML = html;
+    document.getElementById('feedList').appendChild(wrap);
+  }
+  function removeSkeletons() { document.getElementById('feedSkel')?.remove(); }
+  function showEmpty() {
+    const list = document.getElementById('feedList');
+    list.insertAdjacentHTML('beforeend', `<div class="feed-empty" id="feedEmpty">
+      <span class="em">🌱</span><h3>The feed is just getting started</h3>
+      <p>Be the first to share a meal, a reel, or a tip with the community.</p>
+      <p style="margin-top:14px"><button class="btn-post" style="padding:11px 24px" onclick="Feed.openCreate()">Create the first post</button></p></div>`);
+  }
+  function showEnd() {
+    if (document.getElementById('feedEnd')) return;
+    document.getElementById('feedList').insertAdjacentHTML('beforeend',
+      `<div class="feed-end" id="feedEnd">You're all caught up ✦</div>`);
+  }
+
+  // ── per-post interaction binding ─────────────────────────────────────
+  function bindNewPosts() {
+    document.querySelectorAll('.post:not([data-bound])').forEach(el => {
+      el.setAttribute('data-bound', '1');
+      const id = el.dataset.id;
+
+      el.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        const act = btn.dataset.act;
+        if (act === 'react') { e.preventDefault(); openReactPicker(el, btn); }
+        else if (act === 'comment') { e.preventDefault(); openComments(id); }
+        else if (act === 'share') { e.preventDefault(); sharePost(id); }
+        else if (act === 'save') { e.preventDefault(); toggleSave(el, btn); }
+        else if (act === 'follow') { e.preventDefault(); toggleFollow(el, btn); }
+        else if (act === 'menu') { e.preventDefault(); openMenu(el, btn); }
+      });
+
+      // double-tap / double-click media → quick ❤️ like
+      const media = el.querySelector('[data-media]');
+      if (media) {
+        let lastTap = 0;
+        const quick = () => doubleTapLike(el);
+        media.addEventListener('dblclick', quick);
+        media.addEventListener('touchend', (ev) => {
+          const now = Date.now();
+          if (now - lastTap < 300) { ev.preventDefault(); quick(); }
+          lastTap = now;
+        });
+      }
+      const carousel = el.querySelector('[data-carousel]');
+      if (carousel) bindCarousel(carousel);
+      const reel = el.querySelector('.reel');
+      if (reel) bindReel(el, reel);
+
+      // count a view once when the card first becomes visible
+      if (videoIO) videoIO.observe(el);
+    });
+  }
+
+  // ── reactions ────────────────────────────────────────────────────────
+  let openPop = null;
+  function closePop() { if (openPop) { openPop.remove(); openPop = null; } }
+  function openReactPicker(postEl, btn) {
+    if (!requireLogin()) return;
+    closePop();
+    const pop = document.createElement('div');
+    pop.className = 'react-pop';
+    pop.innerHTML = REACTIONS.map(em => `<button data-em="${em}">${em}</button>`).join('');
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect();
+    pop.style.left = Math.max(8, r.left) + 'px';
+    pop.style.top = (r.top + window.scrollY - 54) + 'px';
+    requestAnimationFrame(() => pop.classList.add('show'));
+    openPop = pop;
+    pop.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-em]'); if (!b) return;
+      react(postEl, b.dataset.em); closePop();
+    });
+    setTimeout(() => document.addEventListener('click', onDocClosePop, { once: true }), 0);
+  }
+  function onDocClosePop(e) { if (openPop && !openPop.contains(e.target)) closePop(); }
+
+  async function react(postEl, emoji) {
+    if (!requireLogin()) return;
+    const id = postEl.dataset.id;
+    try {
+      const out = await Auth.api(`/api/posts/${id}/react`, { method: 'POST', body: JSON.stringify({ emoji }) });
+      updateReactionUI(postEl, out);
+    } catch (err) { toast(err.message, 'error'); }
+  }
+  async function doubleTapLike(postEl) {
+    if (!requireLogin()) return;
+    const burst = postEl.querySelector('.heart-burst');
+    if (burst) { burst.classList.remove('go'); void burst.offsetWidth; burst.classList.add('go'); }
+    const id = postEl.dataset.id;
+    try {
+      const out = await Auth.api(`/api/posts/${id}/like`, { method: 'POST' });
+      updateReactionUI(postEl, out);
+    } catch (err) { toast(err.message, 'error'); }
+  }
+  function updateReactionUI(postEl, out) {
+    const btn = postEl.querySelector('.act-react');
+    const emojiEl = btn.querySelector('.react-emoji');
+    const countEl = btn.querySelector('[data-react-count]');
+    emojiEl.textContent = out.mine || '🤍';
+    btn.classList.toggle('liked', !!out.mine);
+    countEl.textContent = out.total ? nFmt(out.total) : '';
+    // summary line
+    let summary = postEl.querySelector('.react-summary');
+    if (out.total > 0) {
+      const top = Object.entries(out.counts).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([e]) => e).join('');
+      if (!summary) {
+        summary = document.createElement('div'); summary.className = 'react-summary';
+        postEl.querySelector('.post-actions').before(summary);
+      }
+      summary.innerHTML = `<span class="em">${top}</span><span>${nFmt(out.total)}</span>`;
+    } else if (summary) summary.remove();
+  }
+
+  // ── save / share / report / follow ───────────────────────────────────
+  async function toggleSave(postEl, btn) {
+    if (!requireLogin()) return;
+    try {
+      const out = await Auth.api(`/api/posts/${postEl.dataset.id}/save`, { method: 'POST' });
+      btn.classList.toggle('saved', out.saved);
+      btn.innerHTML = (out.saved ? I.bookmarkFill : I.bookmark);
+      toast(out.saved ? 'Saved to your collection' : 'Removed from saved', 'success', 1800);
+    } catch (err) { toast(err.message, 'error'); }
+  }
+  async function sharePost(id) {
+    const url = location.origin + '/feed.html?post=' + id;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'NutriFell', url }); return; } catch { /* cancelled */ }
+    }
+    try { await navigator.clipboard.writeText(url); toast('Link copied to clipboard', 'success', 2000); }
+    catch { window.open('https://wa.me/?text=' + encodeURIComponent(url), '_blank'); }
+  }
+  function openMenu(postEl, btn) {
+    const id = postEl.dataset.id;
+    const isOwn = postEl.dataset.user === (me().id || '');
+    const items = [];
+    items.push(`<button data-m="copy">🔗 Copy link</button>`);
+    if (isOwn) items.push(`<button data-m="delete">🗑️ Delete post</button>`);
+    else items.push(`<button data-m="report">🚩 Report post</button>`);
+    const pop = document.createElement('div');
+    pop.className = 'react-pop'; pop.style.flexDirection = 'column'; pop.style.padding = '6px';
+    pop.innerHTML = items.map(b => b.replace('<button', '<button style="font-size:14px;padding:8px 12px;white-space:nowrap;color:var(--text)"')).join('');
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect();
+    pop.style.left = Math.min(r.left, window.innerWidth - 180) + 'px';
+    pop.style.top = (r.bottom + window.scrollY + 6) + 'px';
+    requestAnimationFrame(() => pop.classList.add('show'));
+    closePop(); openPop = pop;
+    pop.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-m]'); if (!b) return;
+      closePop();
+      if (b.dataset.m === 'copy') sharePost(id);
+      else if (b.dataset.m === 'report') reportPost(id);
+      else if (b.dataset.m === 'delete') deletePost(postEl, id);
+    });
+    setTimeout(() => document.addEventListener('click', onDocClosePop, { once: true }), 0);
+  }
+  async function reportPost(id) {
+    if (!requireLogin()) return;
+    const reason = prompt('Why are you reporting this post? (optional)') ?? '';
+    try { const r = await Auth.api(`/api/posts/${id}/report`, { method: 'POST', body: JSON.stringify({ reason }) });
+      toast(r.message || 'Reported. Thank you.', 'success'); } catch (err) { toast(err.message, 'error'); }
+  }
+  async function deletePost(postEl, id) {
+    if (!confirm('Delete this post? This cannot be undone.')) return;
+    try { await Auth.api(`/api/posts/${id}`, { method: 'DELETE' }); postEl.remove(); toast('Post deleted', 'success'); }
+    catch (err) { toast(err.message, 'error'); }
+  }
+  async function toggleFollow(postEl, btn) {
+    if (!requireLogin()) return;
+    const userId = postEl.dataset.user;
+    btn.disabled = true;
+    try {
+      const out = await Auth.api(`/api/users/${userId}/follow`, { method: 'POST' });
+      // reflect on every visible card by the same author
+      document.querySelectorAll(`.post[data-user="${userId}"] [data-act="follow"]`).forEach(b => {
+        b.classList.toggle('following', out.following);
+        b.textContent = out.following ? 'Following' : 'Follow';
+      });
+      toast(out.following ? 'Following' : 'Unfollowed', 'success', 1600);
+    } catch (err) { toast(err.message, 'error'); }
+    finally { btn.disabled = false; }
+  }
+
+  // ── carousel ─────────────────────────────────────────────────────────
+  function bindCarousel(el) {
+    const track = el.querySelector('.carousel-track');
+    const dots = [...el.querySelectorAll('.carousel-dot')];
+    const count = el.querySelector('.carousel-count');
+    const n = dots.length; let idx = 0, startX = 0, dx = 0, dragging = false;
+    const go = (i) => {
+      idx = Math.max(0, Math.min(n - 1, i));
+      track.style.transform = `translateX(${-idx * 100}%)`;
+      dots.forEach((d, k) => d.classList.toggle('active', k === idx));
+      if (count) count.textContent = `${idx + 1}/${n}`;
+    };
+    el.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; dragging = true; track.classList.add('dragging'); }, { passive: true });
+    el.addEventListener('touchmove', (e) => {
+      if (!dragging) return; dx = e.touches[0].clientX - startX;
+      track.style.transform = `translateX(calc(${-idx * 100}% + ${dx}px))`;
+    }, { passive: true });
+    el.addEventListener('touchend', () => {
+      dragging = false; track.classList.remove('dragging');
+      if (Math.abs(dx) > 50) go(idx + (dx < 0 ? 1 : -1)); else go(idx);
+      dx = 0;
+    });
+  }
+
+  // ── video reel ───────────────────────────────────────────────────────
+  function bindReel(postEl, reel) {
+    const video = reel.querySelector('video');
+    const muteBtn = reel.querySelector('.reel-mute');
+    const bar = reel.querySelector('.reel-progress-bar');
+    muteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      video.muted = !video.muted;
+      muteBtn.innerHTML = video.muted ? I.mute : I.volume;
+      if (!video.muted) video.play().catch(() => {});
+    });
+    video.addEventListener('timeupdate', () => {
+      if (video.duration) bar.style.width = (video.currentTime / video.duration * 100) + '%';
+    });
+  }
+
+  // Autoplay videos in view, pause out of view; also counts a view per post.
+  function setupVideoObserver() {
+    videoIO = new IntersectionObserver((entries) => {
+      entries.forEach(en => {
+        const el = en.target;
+        const video = el.querySelector('.reel video');
+        if (en.isIntersecting) {
+          if (video) video.play().catch(() => {});
+          countView(el.dataset.id);
+        } else if (video) {
+          video.pause();
+        }
+      });
+    }, { threshold: 0.6 });
+  }
+  async function countView(id) {
+    if (!id || state.viewed.has(id)) return;
+    state.viewed.add(id);
+    try { await fetch(`/api/posts/${id}/view`, { method: 'POST' }); } catch { /* non-critical */ }
+  }
+
+  // ── comments sheet ───────────────────────────────────────────────────
+  let sheetPostId = null;
+  function openComments(id) {
+    sheetPostId = id;
+    document.getElementById('sheetOverlay').classList.add('open');
+    document.getElementById('commentSheet').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    const body = document.getElementById('sheetBody');
+    body.innerHTML = '<div class="feed-end">Loading comments…</div>';
+    Auth.api(`/api/posts/${id}/comments`).then(renderComments).catch(() => {
+      body.innerHTML = '<div class="feed-end">Could not load comments.</div>';
+    });
+    const input = document.getElementById('commentInput');
+    input.value = ''; document.getElementById('commentSend').disabled = true;
+  }
+  function closeSheet() {
+    document.getElementById('sheetOverlay').classList.remove('open');
+    document.getElementById('commentSheet').classList.remove('open');
+    document.body.style.overflow = '';
+    sheetPostId = null;
+  }
+  function commentHTML(c) {
+    const replies = (c.replies || []).map(r => `<div class="comment">
+      ${avatarHTML(r.authorAvatar, r.authorName, 'post-avatar')}
+      <div class="comment-main"><div class="comment-bubble"><b>${esc(r.authorName)}</b><p>${esc(r.text)}</p></div>
+      <div class="comment-actions"><span>${timeAgo(r.at)}</span><button data-clike="${esc(r.id)}" class="${(r.likes||[]).includes(me().id)?'liked':''}">♥ ${r.likeCount || ''}</button></div></div></div>`).join('');
+    return `<div class="comment" data-cid="${esc(c.id)}">
+      ${avatarHTML(c.authorAvatar, c.authorName, 'post-avatar')}
+      <div class="comment-main">
+        <div class="comment-bubble"><b>${esc(c.authorName)}</b><p>${esc(c.text)}</p></div>
+        <div class="comment-actions"><span>${timeAgo(c.at)}</span>
+          <button data-clike="${esc(c.id)}" class="${(c.likes||[]).includes(me().id)?'liked':''}">♥ ${c.likeCount || ''}</button>
+          <button data-creply="${esc(c.id)}">Reply</button></div>
+        ${replies ? `<div class="comment-replies">${replies}</div>` : ''}
+      </div></div>`;
+  }
+  function renderComments(list) {
+    const body = document.getElementById('sheetBody');
+    document.getElementById('sheetCount').textContent = list.reduce((n, c) => n + 1 + (c.replies || []).length, 0) + ' comments';
+    body.innerHTML = list.length ? list.map(commentHTML).join('')
+      : '<div class="feed-end">No comments yet. Start the conversation.</div>';
+  }
+  let replyTo = null;
+  async function sendComment() {
+    if (!requireLogin()) return;
+    const input = document.getElementById('commentInput');
+    const text = input.value.trim(); if (!text || !sheetPostId) return;
+    const path = replyTo
+      ? `/api/posts/${sheetPostId}/comments/${replyTo}/reply`
+      : `/api/posts/${sheetPostId}/comments`;
+    try {
+      await Auth.api(path, { method: 'POST', body: JSON.stringify({ text }) });
+      input.value = ''; replyTo = null; input.placeholder = 'Add a comment…';
+      const fresh = await Auth.api(`/api/posts/${sheetPostId}/comments`);
+      renderComments(fresh);
+      bumpCommentCount(sheetPostId, fresh.reduce((n, c) => n + 1 + (c.replies || []).length, 0));
+      document.getElementById('sheetBody').scrollTop = 0;
+    } catch (err) { toast(err.message, 'error'); }
+  }
+  function bumpCommentCount(id, n) {
+    const el = document.querySelector(`.post[data-id="${id}"] [data-comment-count]`);
+    if (el) el.textContent = n ? nFmt(n) : '';
+  }
+
+  function requireLogin() {
+    if (authed()) return true;
+    toast('Log in to join the conversation.', 'info', 2500);
+    setTimeout(() => location.href = '/login.html', 700);
+    return false;
+  }
+
+  // ── create-post modal ────────────────────────────────────────────────
+  const create = { type: 'photo', files: [] };
+  function openCreate() {
+    if (!requireLogin()) return;
+    document.getElementById('createModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    setType('photo');
+    create.files = []; renderPreviews();
+    document.getElementById('captionInput').value = '';
+    updateCharCount();
+  }
+  function closeCreate() {
+    document.getElementById('createModal').classList.remove('open');
+    document.body.style.overflow = '';
+    create.files = [];
+  }
+  function setType(t) {
+    create.type = t;
+    document.querySelectorAll('.type-opt').forEach(o => o.classList.toggle('active', o.dataset.type === t));
+    const isMedia = t === 'photo' || t === 'video';
+    document.getElementById('dropWrap').style.display = isMedia ? 'block' : 'none';
+    document.getElementById('recipePickWrap').style.display = t === 'recipe' ? 'block' : 'none';
+    document.getElementById('dropHint').textContent = t === 'video'
+      ? 'Drop a video (MP4/WebM/MOV, up to 3 min, 180MB)' : 'Drop photos (up to 10, JPG/PNG/WebP)';
+    create.files = []; renderPreviews();
+  }
+  async function addFiles(fileList) {
+    const isVideo = create.type === 'video';
+    for (const f of fileList) {
+      if (isVideo) {
+        if (!/^video\//.test(f.type)) { toast('That is not a video file.', 'error'); continue; }
+        if (f.size > 180 * 1024 * 1024) { toast('Video must be under 180MB.', 'error'); continue; }
+        const dur = await videoDuration(f).catch(() => 0);
+        if (dur > 181) { toast('Video must be 3 minutes or less.', 'error'); continue; }
+        create.files = [f]; break;
+      } else {
+        if (!/^image\//.test(f.type)) { toast('Only image files for photo posts.', 'error'); continue; }
+        if (create.files.length >= 10) { toast('Up to 10 photos per post.', 'warning'); break; }
+        create.files.push(f);
+      }
+    }
+    renderPreviews();
+  }
+  function videoDuration(file) {
+    return new Promise((resolve, reject) => {
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.onloadedmetadata = () => { URL.revokeObjectURL(v.src); resolve(v.duration); };
+      v.onerror = reject;
+      v.src = URL.createObjectURL(file);
+    });
+  }
+  function renderPreviews() {
+    const grid = document.getElementById('previewGrid');
+    grid.innerHTML = create.files.map((f, i) => {
+      const url = URL.createObjectURL(f);
+      const media = /^video\//.test(f.type) ? `<video src="${url}" muted></video>` : `<img src="${url}" alt="">`;
+      return `<div class="preview-thumb">${media}<button data-rm="${i}" aria-label="Remove">✕</button></div>`;
+    }).join('');
+    grid.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+      create.files.splice(Number(b.dataset.rm), 1); renderPreviews();
+    }));
+  }
+  function updateCharCount() {
+    const v = document.getElementById('captionInput').value.length;
+    document.getElementById('charCount').textContent = `${v}/500`;
+  }
+  async function submitPost() {
+    if (!requireLogin()) return;
+    const caption = document.getElementById('captionInput').value.trim();
+    const location_ = document.getElementById('locationInput').value.trim();
+    const btn = document.getElementById('submitPostBtn');
+    if (create.type === 'photo' && !create.files.length) return toast('Add at least one photo.', 'error');
+    if (create.type === 'video' && !create.files.length) return toast('Add a video to post a reel.', 'error');
+    if (create.type === 'text' && !caption) return toast('Write something to share.', 'error');
+    let recipeId = '';
+    if (create.type === 'recipe') {
+      recipeId = document.getElementById('recipeSelect').value;
+      if (!recipeId) return toast('Pick one of your recipes to share.', 'error');
+    }
+    const fd = new FormData();
+    fd.append('type', create.type);
+    fd.append('caption', caption);
+    fd.append('location', location_);
+    if (recipeId) fd.append('recipeId', recipeId);
+    create.files.forEach(f => fd.append('media', f));
+
+    const label = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Posting…';
+    try {
+      const res = await fetch('/api/posts', { method: 'POST', headers: { Authorization: 'Bearer ' + Auth.token() }, body: fd });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.error) || 'Could not publish your post.');
+      toast('Posted! 🎉', 'success');
+      closeCreate();
+      resetFeed();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.innerHTML = label;
+    }
+  }
+
+  // Load the current user's recipes into the recipe-share picker.
+  async function loadMyRecipes() {
+    try {
+      const all = await Auth.api('/api/recipes');
+      const mine = all.filter(r => r.userId === (me().id || ''));
+      const sel = document.getElementById('recipeSelect');
+      sel.innerHTML = mine.length
+        ? '<option value="">Choose a recipe…</option>' + mine.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')
+        : '<option value="">You have no recipes yet</option>';
+    } catch { /* ignore */ }
+  }
+
+  // ── suggested users (desktop rail) ───────────────────────────────────
+  async function loadSuggested() {
+    const host = document.getElementById('suggestList');
+    if (!host) return;
+    try {
+      const users = await Auth.api('/api/users/suggested');
+      if (!users.length) { host.closest('.rail-card').style.display = 'none'; return; }
+      host.innerHTML = users.map(u => `<div class="suggest-user" data-uid="${esc(u.id)}">
+        <a href="/profile-social.html?id=${esc(u.id)}">${avatarHTML(u.avatar, u.name, 'post-avatar')}</a>
+        <div class="suggest-info"><b>${esc(u.name)}</b><span>${esc(u.username)} · ${u.followers} followers</span></div>
+        <button class="suggest-follow" data-follow="${esc(u.id)}">Follow</button></div>`).join('');
+      host.querySelectorAll('[data-follow]').forEach(b => b.addEventListener('click', async () => {
+        b.disabled = true;
+        try { const out = await Auth.api(`/api/users/${b.dataset.follow}/follow`, { method: 'POST' });
+          b.textContent = out.following ? 'Following' : 'Follow';
+          b.style.background = out.following ? 'var(--glass-2)' : ''; b.style.color = out.following ? 'var(--text-2)' : '';
+        } catch (err) { toast(err.message, 'error'); } finally { b.disabled = false; }
+      }));
+    } catch { host.closest('.rail-card').style.display = 'none'; }
+  }
+
+  // ── init ─────────────────────────────────────────────────────────────
+  function init() {
+    setupVideoObserver();
+    // sentinel for infinite scroll
+    const sentinel = document.getElementById('feedSentinel');
+    sentinelIO = new IntersectionObserver((es) => { if (es[0].isIntersecting) loadMore(); }, { rootMargin: '600px' });
+    sentinelIO.observe(sentinel);
+
+    // filters
+    document.querySelectorAll('.feed-filters .chip').forEach(c => c.addEventListener('click', () => {
+      document.querySelectorAll('.feed-filters .chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      state.filter = c.dataset.filter || '';
+      resetFeed();
+    }));
+
+    // create modal wiring
+    document.querySelectorAll('[data-open-create]').forEach(b => b.addEventListener('click', openCreate));
+    document.getElementById('createClose').addEventListener('click', closeCreate);
+    document.querySelectorAll('.type-opt').forEach(o => o.addEventListener('click', () => {
+      setType(o.dataset.type); if (o.dataset.type === 'recipe') loadMyRecipes();
+    }));
+    document.getElementById('submitPostBtn').addEventListener('click', submitPost);
+    const fileInput = document.getElementById('fileInput');
+    document.getElementById('dropzone').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => addFiles(fileInput.files));
+    const dz = document.getElementById('dropzone');
+    ['dragover', 'dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
+    ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
+    dz.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+    const cap = document.getElementById('captionInput');
+    cap.addEventListener('input', updateCharCount);
+
+    // comment sheet wiring
+    document.getElementById('sheetOverlay').addEventListener('click', closeSheet);
+    document.getElementById('sheetClose').addEventListener('click', closeSheet);
+    const ci = document.getElementById('commentInput');
+    ci.addEventListener('input', () => { document.getElementById('commentSend').disabled = !ci.value.trim(); });
+    ci.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendComment(); } });
+    document.getElementById('commentSend').addEventListener('click', sendComment);
+    document.getElementById('sheetBody').addEventListener('click', (e) => {
+      const like = e.target.closest('[data-clike]');
+      const reply = e.target.closest('[data-creply]');
+      if (like) likeComment(like);
+      if (reply) { replyTo = reply.dataset.creply; ci.placeholder = 'Replying…'; ci.focus(); }
+    });
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeCreate(); closePop(); } });
+    window.addEventListener('scroll', closePop, { passive: true });
+
+    loadSuggested();
+    loadMore();
+  }
+  async function likeComment(btn) {
+    if (!requireLogin()) return;
+    try { const out = await Auth.api(`/api/posts/${sheetPostId}/comments/${btn.dataset.clike}/like`, { method: 'POST' });
+      btn.classList.toggle('liked', out.liked); btn.textContent = '♥ ' + (out.likeCount || ''); }
+    catch (err) { toast(err.message, 'error'); }
+  }
+
+  return { init, openCreate, ICONS: I };
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('feedList')) Feed.init();
+});
