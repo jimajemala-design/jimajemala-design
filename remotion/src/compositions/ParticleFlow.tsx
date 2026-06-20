@@ -9,6 +9,7 @@
 
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { BackgroundMusic } from "../BackgroundMusic";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Particle {
@@ -75,6 +76,7 @@ export const ParticleFlow: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ background: "#1a1f3a", overflow: "hidden" }}>
+      <BackgroundMusic />
 
       {/* Subtle mid-screen radial glow — depth layer */}
       <div style={{

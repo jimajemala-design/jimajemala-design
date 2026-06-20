@@ -2,6 +2,7 @@
   "name": "nutribase-remotion",
   "private": true,
   "scripts": {
+    "music": "node scripts/generate-music.js",
     "studio": "remotion studio src/index.ts",
     "render:floating": "remotion render src/index.ts FloatingFoods  out/FloatingFoods.mp4",
     "render:wave": "remotion render src/index.ts GradientWave   out/GradientWave.mp4",

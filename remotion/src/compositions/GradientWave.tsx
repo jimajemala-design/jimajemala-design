@@ -8,6 +8,7 @@
 
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { BackgroundMusic } from "../BackgroundMusic";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -129,6 +130,7 @@ export const GradientWave: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ background: "#1a1f3a", overflow: "hidden" }}>
+      <BackgroundMusic />
 
       {/* ── Layer 1: animated colour blobs ─────────────────────────────── */}
       {/* Green blob A */}

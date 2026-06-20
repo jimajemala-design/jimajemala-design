@@ -7,6 +7,7 @@
 
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { BackgroundMusic } from "../BackgroundMusic";
 
 // ─── Food item definitions ────────────────────────────────────────────────────
 // bx/by: base position (px)   sz: font size (px)
@@ -59,6 +60,7 @@ export const FloatingFoods: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ background: "#1a1f3a", overflow: "hidden" }}>
+      <BackgroundMusic />
       {ITEMS.map((item, idx) => {
         // ── Position ──────────────────────────────────────────────────────
         const x = item.bx + Math.sin(t * item.xF + item.ph) * item.xA;

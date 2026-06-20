@@ -8,6 +8,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { loadFont } from "@remotion/google-fonts/SpaceGrotesk";
+import { BackgroundMusic } from "../BackgroundMusic";
 
 const { fontFamily } = loadFont();
 
@@ -542,6 +543,7 @@ const Scene6CTA: React.FC = () => {
 export const PromoVideo: React.FC = () => {
   return (
     <AbsoluteFill style={{ backgroundColor: BG }}>
+      <BackgroundMusic volume={0.55} />
       <AbsoluteFill
         style={{
           background: `radial-gradient(120% 90% at 50% 0%, rgba(34,197,94,0.08), transparent 55%), radial-gradient(100% 80% at 50% 100%, rgba(59,130,246,0.06), transparent 55%)`,
