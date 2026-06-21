@@ -217,6 +217,7 @@ const POST_COMMENTS_FILE = path.join(DATA_DIR, 'post_comments.json');
 const POST_SAVES_FILE = path.join(DATA_DIR, 'post_saves.json');
 const POST_REPORTS_FILE = path.join(DATA_DIR, 'post_reports.json');
 const NOTIFICATIONS_FILE = path.join(DATA_DIR, 'notifications.json');
+const HASHTAG_FOLLOWS_FILE = path.join(DATA_DIR, 'hashtag_follows.json');
 const POSTS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'posts');
 const REELS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'reels');
 const AVATARS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'avatars');
@@ -229,7 +230,7 @@ for (const d of [UPLOADS_DIR, POSTS_UPLOAD_DIR, REELS_UPLOAD_DIR, AVATARS_UPLOAD
 for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE, LOGS_FILE, WATER_FILE,
   SMOKING_FILE, RECIPES_FILE, COMMENTS_FILE, REACTIONS_FILE, BOOKMARKS_FILE, REPORTS_FILE,
   WAITLIST_FILE, POSTS_FILE, FOLLOWS_FILE, POST_REACTIONS_FILE, POST_COMMENTS_FILE,
-  POST_SAVES_FILE, POST_REPORTS_FILE, NOTIFICATIONS_FILE]) {
+  POST_SAVES_FILE, POST_REPORTS_FILE, NOTIFICATIONS_FILE, HASHTAG_FOLLOWS_FILE]) {
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf8');
 }
 
@@ -3181,6 +3182,26 @@ function extractHashtags(text) {
   return [...tags].slice(0, 30);
 }
 
+// Resolve @mentions in free text to unique userIds (custom username first, then
+// the derived @handle). Powers mention notifications + clickable @links.
+function resolveMentions(text) {
+  const tokens = [...new Set((String(text || '').match(/@([a-z0-9_]{2,30})/gi) || []).map(t => t.slice(1).toLowerCase()))];
+  if (!tokens.length) return [];
+  const users = readJSON(USERS_FILE);
+  const ids = [];
+  for (const tok of tokens) {
+    const u = users.find(x => (x.username || '').toLowerCase() === tok)
+      || users.find(x => userHandle(x).slice(1).toLowerCase() === tok);
+    if (u) ids.push(u.id);
+  }
+  return [...new Set(ids)];
+}
+function notifyMentions(text, fromUserId, postId, label) {
+  resolveMentions(text).forEach(toUserId => {
+    pushNotification('mention', { toUserId, fromUserId, postId, text: label || 'mentioned you in a post' });
+  });
+}
+
 // Multer for posts: up to 10 images (JPG/PNG/WebP) OR one video (MP4/WebM/MOV).
 // 180MB cap covers ≤3-min reels. Transcoding/thumbnails deferred (no ffmpeg yet).
 const postUpload = multer
@@ -3302,6 +3323,7 @@ app.post('/api/posts', auth, (req, res) => {
       const all = readJSON(POSTS_FILE);
       all.unshift(post);
       writeJSON(POSTS_FILE, all);
+      notifyMentions(caption, req.userId, post.id, 'mentioned you in a post');
       res.status(201).json(post);
     } catch (err) {
       console.error('Post create error:', err.message);
@@ -3378,6 +3400,10 @@ app.post('/api/posts/:id/save', auth, (req, res) => {
   if (mine) { next = all.filter(x => x !== mine); saved = false; }
   else { next.push({ userId: req.userId, postId: req.params.id, at: new Date().toISOString() }); saved = true; }
   writeJSON(POST_SAVES_FILE, next);
+  if (saved) {
+    const post = readJSON(POSTS_FILE).find(p => p.id === req.params.id);
+    if (post) pushNotification('save', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: 'saved your post' });
+  }
   res.json({ saved });
 });
 
@@ -3426,6 +3452,7 @@ app.post('/api/posts/:id/comments', auth, (req, res) => {
   all.push(comment);
   writeJSON(POST_COMMENTS_FILE, all);
   pushNotification('comment', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: 'commented on your post' });
+  notifyMentions(text, req.userId, post.id, 'mentioned you in a comment');
   res.status(201).json(comment);
 });
 
@@ -3442,6 +3469,7 @@ app.post('/api/posts/:id/comments/:cid/reply', auth, (req, res) => {
   all.push(reply);
   writeJSON(POST_COMMENTS_FILE, all);
   pushNotification('reply', { toUserId: parent.userId, fromUserId: req.userId, postId: req.params.id, text: 'replied to your comment' });
+  notifyMentions(text, req.userId, req.params.id, 'mentioned you in a comment');
   res.status(201).json(reply);
 });
 
@@ -3652,9 +3680,46 @@ app.get('/api/users/:id/liked', (req, res) => {
   res.json(list);
 });
 
-// ── Notifications (data layer ready; bell UI lands in a later phase) ──
+// ── Notifications (Phase 3 bell UI + full page) ──
+// Filter groups map UI tabs → stored notification types.
+const NOTIF_GROUPS = { likes: ['like', 'reaction', 'save'], comments: ['comment', 'reply', 'mention'], follows: ['follow'] };
+function notifThumb(post) {
+  if (!post) return null;
+  if ((post.photos || []).length) return post.photos[0];
+  if (post.recipe && post.recipe.cover) return post.recipe.cover;
+  return null;
+}
+// Join fresh author + post data so avatars/thumbnails stay current and the
+// client gets a ready-made link target.
+function decorateNotification(n, posts, users) {
+  const post = n.postId ? posts.find(p => p.id === n.postId) : null;
+  const from = users.find(u => u.id === n.fromUserId);
+  return {
+    ...n,
+    fromName: (from && from.name) || n.fromName || 'Someone',
+    fromAvatar: (from && from.avatar) || n.fromAvatar || null,
+    fromUsername: from ? userHandle(from) : null,
+    postThumb: notifThumb(post),
+    postType: post ? post.type : null,
+    link: n.type === 'follow'
+      ? `/profile-social.html?id=${n.fromUserId}`
+      : (n.postId ? `/feed.html?post=${n.postId}` : '#'),
+  };
+}
+
 app.get('/api/notifications', auth, (req, res) => {
-  res.json(readJSON(NOTIFICATIONS_FILE).filter(n => n.toUserId === req.userId).slice(0, 100));
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const perPage = 20;
+  let list = readJSON(NOTIFICATIONS_FILE).filter(n => n.toUserId === req.userId);
+  const filter = req.query.type;
+  if (filter && NOTIF_GROUPS[filter]) list = list.filter(n => NOTIF_GROUPS[filter].includes(n.type));
+  const total = list.length;
+  const unread = readJSON(NOTIFICATIONS_FILE).filter(n => n.toUserId === req.userId && !n.read).length;
+  const start = (page - 1) * perPage;
+  const posts = readJSON(POSTS_FILE);
+  const users = readJSON(USERS_FILE);
+  const items = list.slice(start, start + perPage).map(n => decorateNotification(n, posts, users));
+  res.json({ notifications: items, page, perPage, total, unread, hasMore: start + perPage < total });
 });
 app.get('/api/notifications/count', auth, (req, res) => {
   const n = readJSON(NOTIFICATIONS_FILE).filter(x => x.toUserId === req.userId && !x.read).length;
@@ -3666,6 +3731,124 @@ app.put('/api/notifications/read', auth, (req, res) => {
   writeJSON(NOTIFICATIONS_FILE, all);
   res.json({ success: true });
 });
+app.put('/api/notifications/:id/read', auth, (req, res) => {
+  const all = readJSON(NOTIFICATIONS_FILE);
+  const n = all.find(x => x.id === req.params.id && x.toUserId === req.userId);
+  if (!n) return res.status(404).json({ error: 'Notification not found' });
+  n.read = true;
+  writeJSON(NOTIFICATIONS_FILE, all);
+  res.json({ success: true });
+});
+
+// ── Hashtags ──
+// Shared: decorate posts matching a predicate, sorted top (by reactions) or recent.
+function decoratePostsWhere(filterFn, viewerId, sort) {
+  const reactions = readJSON(POST_REACTIONS_FILE);
+  const comments = readJSON(POST_COMMENTS_FILE);
+  const saves = readJSON(POST_SAVES_FILE);
+  const list = readJSON(POSTS_FILE).filter(filterFn).map(p => decoratePost(p, reactions, comments, saves, viewerId));
+  if (sort === 'top') list.sort((a, b) => b.totalReactions - a.totalReactions || b.createdAt.localeCompare(a.createdAt));
+  else list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return list;
+}
+
+app.get('/api/hashtags/trending', (req, res) => {
+  const since = Date.now() - 7 * 864e5;
+  const counts = {};
+  readJSON(POSTS_FILE).forEach(p => {
+    const recent = new Date(p.createdAt).getTime() >= since;
+    (p.hashtags || []).forEach(t => {
+      counts[t] = counts[t] || { tag: t, count: 0, recent: 0 };
+      counts[t].count++; if (recent) counts[t].recent++;
+    });
+  });
+  res.json(Object.values(counts).sort((a, b) => b.recent - a.recent || b.count - a.count).slice(0, 10));
+});
+
+app.get('/api/hashtags/:tag', (req, res) => {
+  const viewerId = optionalAuth(req);
+  const tag = String(req.params.tag).toLowerCase().replace(/^#/, '');
+  const posts = readJSON(POSTS_FILE).filter(p => (p.hashtags || []).includes(tag));
+  const since = Date.now() - 7 * 864e5;
+  const recentCount = posts.filter(p => new Date(p.createdAt).getTime() >= since).length;
+  const rel = {};
+  posts.forEach(p => (p.hashtags || []).forEach(t => { if (t !== tag) rel[t] = (rel[t] || 0) + 1; }));
+  const related = Object.entries(rel).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t, c]) => ({ tag: t, count: c }));
+  const isFollowing = viewerId ? readJSON(HASHTAG_FOLLOWS_FILE).some(f => f.userId === viewerId && f.tag === tag) : false;
+  res.json({ tag, postCount: posts.length, recentCount, related, isFollowing });
+});
+
+app.get('/api/hashtags/:tag/posts', (req, res) => {
+  const viewerId = optionalAuth(req);
+  const tag = String(req.params.tag).toLowerCase().replace(/^#/, '');
+  const sort = req.query.sort === 'top' ? 'top' : 'recent';
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const perPage = 18;
+  const list = decoratePostsWhere(p => (p.hashtags || []).includes(tag), viewerId, sort);
+  const start = (page - 1) * perPage;
+  res.json({ posts: list.slice(start, start + perPage), total: list.length, page, perPage, hasMore: start + perPage < list.length });
+});
+
+app.post('/api/hashtags/:tag/follow', auth, (req, res) => {
+  const tag = String(req.params.tag).toLowerCase().replace(/^#/, '');
+  const all = readJSON(HASHTAG_FOLLOWS_FILE);
+  const mine = all.find(f => f.userId === req.userId && f.tag === tag);
+  let next = all, following;
+  if (mine) { next = all.filter(f => f !== mine); following = false; }
+  else { next.push({ userId: req.userId, tag, at: new Date().toISOString() }); following = true; }
+  writeJSON(HASHTAG_FOLLOWS_FILE, next);
+  res.json({ following });
+});
+
+// ── Unified search (people / posts / hashtags / foods) ──
+function searchUsers(q, viewerId, limit) {
+  const ql = q.toLowerCase();
+  const follows = readJSON(FOLLOWS_FILE);
+  const followerCount = {};
+  follows.forEach(f => { followerCount[f.followingId] = (followerCount[f.followingId] || 0) + 1; });
+  const viewerFollowing = new Set(follows.filter(f => f.followerId === viewerId).map(f => f.followingId));
+  return readJSON(USERS_FILE)
+    .filter(u => (u.name || '').toLowerCase().includes(ql) || userHandle(u).toLowerCase().includes(ql) || (u.bio || '').toLowerCase().includes(ql))
+    .map(u => ({
+      id: u.id, name: u.name, username: userHandle(u), avatar: u.avatar || null,
+      bio: (u.bio || '').slice(0, 80), followers: followerCount[u.id] || 0,
+      isFollowing: viewerFollowing.has(u.id), isOwn: u.id === viewerId,
+    }))
+    .sort((a, b) => b.followers - a.followers).slice(0, limit);
+}
+function searchPosts(q, viewerId, limit) {
+  const ql = q.toLowerCase().replace(/^#/, '');
+  return decoratePostsWhere(p => (p.caption || '').toLowerCase().includes(ql) || (p.hashtags || []).some(t => t.includes(ql)), viewerId, 'top').slice(0, limit);
+}
+function searchHashtags(q, limit) {
+  const ql = q.toLowerCase().replace(/^#/, '');
+  const counts = {};
+  readJSON(POSTS_FILE).forEach(p => (p.hashtags || []).forEach(t => { if (!ql || t.includes(ql)) counts[t] = (counts[t] || 0) + 1; }));
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([tag, count]) => ({ tag, count }));
+}
+function searchFoods(q, limit) {
+  const ql = q.toLowerCase();
+  return foods
+    .filter(f => f.name.toLowerCase().includes(ql) || (f.category || '').toLowerCase().includes(ql))
+    .map(f => ({ id: f.id, name: f.name, emoji: f.emoji || '🍽️', calories: f.calories, category: f.category || null }))
+    .slice(0, limit);
+}
+
+app.get('/api/search', (req, res) => {
+  const viewerId = optionalAuth(req);
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.json({ users: [], posts: [], hashtags: [], foods: [] });
+  res.json({
+    users: searchUsers(q, viewerId, 6),
+    posts: searchPosts(q, viewerId, 9),
+    hashtags: searchHashtags(q, 6),
+    foods: searchFoods(q, 6),
+  });
+});
+app.get('/api/search/users', (req, res) => { const q = String(req.query.q || '').trim(); res.json(q ? searchUsers(q, optionalAuth(req), 30) : []); });
+app.get('/api/search/posts', (req, res) => { const q = String(req.query.q || '').trim(); res.json(q ? searchPosts(q, optionalAuth(req), 30) : []); });
+app.get('/api/search/hashtags', (req, res) => { const q = String(req.query.q || '').trim(); res.json(q ? searchHashtags(q, 30) : []); });
+app.get('/api/search/foods', (req, res) => { const q = String(req.query.q || '').trim(); res.json(q ? searchFoods(q, 40) : []); });
 
 // ─── Styled error pages (404 / 500) ──────────────────────────────────────
 function errorPage({ code, title, message }) {

@@ -30,7 +30,9 @@
   const nFmt = (n) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n || 0);
   const hostOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
   function renderCaption(text) {
-    return esc(text).replace(/#([\p{L}0-9_]+)/gu, '<a class="hashtag" href="/feed.html?tag=$1">#$1</a>');
+    return esc(text)
+      .replace(/#([\p{L}0-9_]+)/gu, '<a class="hashtag" href="/hashtag.html?tag=$1">#$1</a>')
+      .replace(/@([a-z0-9_]{2,30})/gi, '<a class="mention" href="/search.html?type=people&q=$1">@$1</a>');
   }
   function avatarHTML(url, name, cls) {
     return url

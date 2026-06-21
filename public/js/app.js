@@ -730,6 +730,11 @@ const App = (() => {
     renderRecent();
     renderTrending();
     renderGrid();
+    // Deep link: /index.html?food=<id> opens that food's 3D detail (search results).
+    try {
+      var fid = new URLSearchParams(location.search).get('food');
+      if (fid && foods.some(function (f) { return f.id === fid; })) openDetail(fid);
+    } catch (e) { /* ignore */ }
     initFilter();
     initFaq();
     initReveal();

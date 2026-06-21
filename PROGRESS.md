@@ -333,6 +333,40 @@ Complete profile system on `profile-social.html` + new `js/profile-social.js` +
   validated `^[a-z0-9_]{3,20}$` and unique across users. Verified end-to-end
   (uniqueness 409, bad-format 400, follow counts, viewer flags, image upload+serve).
 
+### Phase 3 — Notifications, hashtags, search (done 2026-06-21)
+- **Notifications** — navbar dropdown (`js/notifications.js`, `window.Notif`) wired
+  to any `[data-notif-bell]` with a `[data-notif-badge]`; polls
+  `/api/notifications/count` every 30s. Rows show actor avatar + type icon
+  (❤️/💬/🔁/👤/📌/🏷️), text, time-ago, post thumbnail, and deep-link; click marks
+  read + navigates. Full page `notifications.html` with All/Likes/Comments/Follows
+  filter tabs + infinite scroll + mark-all-read. Backend: `GET /api/notifications`
+  now paginated + `type` filter + enriched (`postThumb`, `link`, fresh
+  avatar/username); new `PUT /api/notifications/:id/read`. New notification types
+  wired: `reply`, `save`, `mention`.
+- **Hashtags** — `hashtag.html` + `js/hashtag.js`: hero with post count, Follow
+  (persisted in `data/hashtag_follows.json`) + Share, related (co-occurring) tags,
+  Top + Recent grids that open the shared post modal. Backend:
+  `GET /api/hashtags/trending` (7-day window), `GET /api/hashtags/:tag` (counts +
+  related + isFollowing), `GET /api/hashtags/:tag/posts?sort=top|recent`,
+  `POST /api/hashtags/:tag/follow`. Caption hashtags now link to `/hashtag.html`.
+- **Search + Explore** — `search.html` + `js/search.js`: debounced (300ms)
+  search-as-you-type across People / Posts / Recipes / Hashtags / Foods; recent
+  searches in localStorage (`nf_recent_searches`); Explore view (trending hashtags
+  + suggested users + popular foods) when empty. Backend: `GET /api/search` (mixed)
+  + `/api/search/{users,posts,hashtags,foods}`. Food results deep-link to the 3D
+  viewer via new `?food=<id>` support in `app.js`. Feed/profile "Explore" now point
+  here; the feed search bar routes #tags → hashtag page, else → search.
+- **Mentions** — `@username` resolved server-side (custom username or derived
+  handle) on post + comment + reply creation → `mention` notifications; rendered as
+  clickable `.mention` links across feed, profile, and the shared post modal.
+  Create-post caption has #hashtag + @mention autocomplete (arrow keys / click).
+- **Shared post modal** — `js/post-modal.js` (`PostModal.open(posts, index)`):
+  fullscreen media + comments + like/react/comment + prev/next, reused by the
+  hashtag and search pages (profile keeps its own copy). Styles reuse profile.css.
+- SW bumped to v4.4.0; new CSS/JS added to precache. Verified end-to-end against a
+  running server (search shapes, hashtag aggregation, mention + save + like
+  notifications, single/all read, pagination + filters).
+
 ## Running locally
 ```bash
 npm install

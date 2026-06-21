@@ -6,7 +6,7 @@
 //         (rescues the display:none-at-init race) + spinner handoff fix.
 // 4.3.0 — social feed (Phase 1): precache feed assets; never-cache the
 //         per-viewer feed/posts/users/notifications APIs.
-const VERSION = '4.3.0';
+const VERSION = '4.4.0';
 const STATIC_CACHE = `nutrifell-static-${VERSION}`;
 const API_CACHE = `nutrifell-api-${VERSION}`;
 const CDN_CACHE = `nutrifell-cdn-${VERSION}`;
@@ -22,9 +22,13 @@ const PRECACHE = [
   '/css/auth.css',
   '/css/features.css',
   '/css/feed.css',
+  '/css/profile.css',
+  '/css/phase3.css',
   '/js/app.js',
   '/js/auth.js',
   '/js/feed.js',
+  '/js/notifications.js',
+  '/js/post-modal.js',
   '/manifest.json',
 ];
 

@@ -49,9 +49,11 @@ const Feed = (() => {
   }
   const nFmt = (n) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
 
-  // Linkify #hashtags in captions (everything else escaped first).
+  // Linkify #hashtags and @mentions in captions (everything else escaped first).
   function renderCaption(text) {
-    return esc(text).replace(/#([\p{L}0-9_]+)/gu, '<a class="hashtag" href="/feed.html?tag=$1">#$1</a>');
+    return esc(text)
+      .replace(/#([\p{L}0-9_]+)/gu, '<a class="hashtag" href="/hashtag.html?tag=$1">#$1</a>')
+      .replace(/@([a-z0-9_]{2,30})/gi, '<a class="mention" href="/search.html?type=people&q=$1">@$1</a>');
   }
 
   function avatarHTML(url, name, cls) {
@@ -661,6 +663,63 @@ const Feed = (() => {
     } catch { host.closest('.rail-card').style.display = 'none'; }
   }
 
+  // ── caption autocomplete (# hashtags + @ mentions) ───────────────────
+  function initCaptionAutocomplete(ta) {
+    const field = ta.parentElement;
+    field.style.position = 'relative';
+    const pop = document.createElement('div');
+    pop.className = 'ac-pop';
+    field.appendChild(pop);
+    let acTimer = null, items = [], active = -1, tokenStart = -1, trigger = '';
+
+    const hide = () => { pop.classList.remove('open'); active = -1; };
+    function place() { pop.style.top = (ta.offsetTop + ta.offsetHeight + 4) + 'px'; pop.style.left = ta.offsetLeft + 'px'; }
+
+    function pick(i) {
+      const it = items[i]; if (!it) return;
+      const insert = (trigger === '#' ? '#' + it.tag : '@' + it.username) + ' ';
+      const before = ta.value.slice(0, tokenStart);
+      const after = ta.value.slice(ta.selectionStart);
+      ta.value = before + insert + after;
+      const caret = (before + insert).length;
+      ta.setSelectionRange(caret, caret);
+      hide(); ta.focus(); updateCharCount();
+    }
+    function render() {
+      if (!items.length) { hide(); return; }
+      pop.innerHTML = items.map((it, i) => trigger === '#'
+        ? `<div class="ac-item ${i === active ? 'active' : ''}" data-i="${i}"><span class="ac-tag">#${esc(it.tag)}</span><span class="ac-sub">${it.count}</span></div>`
+        : `<div class="ac-item ${i === active ? 'active' : ''}" data-i="${i}">${avatarHTML(it.avatar, it.name, 'post-avatar')}<span>${esc(it.name)}</span><span class="ac-sub">${esc(it.username)}</span></div>`).join('');
+      pop.querySelectorAll('.ac-item').forEach(el => el.addEventListener('mousedown', (e) => { e.preventDefault(); pick(parseInt(el.dataset.i, 10)); }));
+      place(); pop.classList.add('open');
+    }
+    async function query(term) {
+      try {
+        if (trigger === '#') { items = (await Auth.api('/api/search/hashtags?q=' + encodeURIComponent(term))).slice(0, 6); }
+        else { items = (await Auth.api('/api/search/users?q=' + encodeURIComponent(term))).slice(0, 6); }
+        active = -1; render();
+      } catch { hide(); }
+    }
+    ta.addEventListener('input', () => {
+      const left = ta.value.slice(0, ta.selectionStart);
+      const m = left.match(/([#@])([\p{L}0-9_]*)$/u);
+      clearTimeout(acTimer);
+      if (!m) { hide(); return; }
+      trigger = m[1]; tokenStart = ta.selectionStart - m[0].length;
+      const term = m[2];
+      if (trigger === '#' && term.length < 1) { hide(); return; } // wait for a char on #
+      acTimer = setTimeout(() => query(term), 180);
+    });
+    ta.addEventListener('keydown', (e) => {
+      if (!pop.classList.contains('open')) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, items.length - 1); render(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); render(); }
+      else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pick(active); }
+      else if (e.key === 'Escape') hide();
+    });
+    ta.addEventListener('blur', () => setTimeout(hide, 120));
+  }
+
   // ── init ─────────────────────────────────────────────────────────────
   function init() {
     setupVideoObserver();
@@ -693,6 +752,7 @@ const Feed = (() => {
     dz.addEventListener('drop', e => addFiles(e.dataTransfer.files));
     const cap = document.getElementById('captionInput');
     cap.addEventListener('input', updateCharCount);
+    initCaptionAutocomplete(cap);
 
     // comment sheet wiring
     document.getElementById('sheetOverlay').addEventListener('click', closeSheet);
