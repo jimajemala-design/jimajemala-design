@@ -25,14 +25,19 @@
   --maxw: 1180px;
 }
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box !important; }
 /* Global overflow guard: nothing should push the page wider than the viewport
-   (prevents the mobile "zoomed-out / horizontal scroll" symptom). */
-html, body { overflow-x: hidden; max-width: 100%; }
+   (prevents the mobile "zoomed-out / horizontal scroll" symptom). position:relative
+   on body is required for iOS Safari to actually clip absolutely-positioned popups. */
+html, body { overflow-x: hidden !important; max-width: 100vw; }
+.feed-shell, .feed-main, .feed-list, .post, .post-body, .post-media {
+  max-width: 100%; overflow-x: clip;
+}
 html { color-scheme: dark; }
 body.feed-body {
   margin: 0;
   width: 100%;
+  position: relative;
   background:
     radial-gradient(80% 50% at 50% -5%, rgba(34, 197, 94, 0.08), transparent 60%),
     var(--bg);
@@ -226,7 +231,8 @@ button { font-family: inherit; cursor: pointer; }
 
 /* reaction picker */
 .react-pop {
-  position: absolute; display: flex; gap: 4px; padding: 8px 10px; border-radius: 999px;
+  position: absolute; display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; border-radius: 999px;
+  max-width: calc(100vw - 16px);
   background: rgba(12, 18, 32, 0.96); border: 1px solid var(--line-2);
   box-shadow: var(--shadow); z-index: 60; transform: translateY(6px) scale(0.9); opacity: 0;
   transition: transform .16s cubic-bezier(.2,.9,.3,1.2), opacity .16s;

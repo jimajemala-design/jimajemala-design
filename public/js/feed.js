@@ -267,7 +267,9 @@ const Feed = (() => {
     pop.innerHTML = REACTIONS.map(em => `<button data-em="${em}">${em}</button>`).join('');
     document.body.appendChild(pop);
     const r = btn.getBoundingClientRect();
-    pop.style.left = Math.max(8, r.left) + 'px';
+    // Clamp within the viewport on both edges so it can't cause horizontal scroll.
+    const popW = pop.offsetWidth || 240;
+    pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - popW - 8)) + 'px';
     pop.style.top = (r.top + window.scrollY - 54) + 'px';
     requestAnimationFrame(() => pop.classList.add('show'));
     openPop = pop;
@@ -346,7 +348,9 @@ const Feed = (() => {
     pop.innerHTML = items.map(b => b.replace('<button', '<button style="font-size:14px;padding:8px 12px;white-space:nowrap;color:var(--text)"')).join('');
     document.body.appendChild(pop);
     const r = btn.getBoundingClientRect();
-    pop.style.left = Math.min(r.left, window.innerWidth - 180) + 'px';
+    // Clamp within the viewport on both edges (measure real width, not a guess).
+    const popW = pop.offsetWidth || 180;
+    pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - popW - 8)) + 'px';
     pop.style.top = (r.bottom + window.scrollY + 6) + 'px';
     requestAnimationFrame(() => pop.classList.add('show'));
     closePop(); openPop = pop;
