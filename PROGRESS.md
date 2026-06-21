@@ -299,6 +299,40 @@ Via ui-ux-pro-max + context-engineering + marketing. Two parts.
 ### Later / backlog
 - Add GLB models for the remaining foods.
 
+## Social feed
+
+### Phase 1 (commit 3d86519)
+Instagram/TikTok-style feed: scored "For You" ranking, 4 post types (photo
+carousel / video reel / recipe share / text tip), 6-emoji reactions, threaded
+comments, save/report/view, follow/unfollow, suggested users, create-post modal
+with multer+sharp media upload. Backend in `server.js`; UI in `feed.html` +
+`js/feed.js` + `css/feed.css`. Notifications data layer built; bell UI deferred.
+
+### Phase 2 — Full user profiles (done 2026-06-21)
+Complete profile system on `profile-social.html` + new `js/profile-social.js` +
+`css/profile.css` (builds on feed.css tokens/modals):
+- **Profile header** — uploadable cover (200px) + avatar (overlapping circle),
+  display name, @username, bio, location, website, and Posts/Followers/Following
+  stats (followers/following are clickable → list modal). Follow/Unfollow for
+  others; Edit Profile for own.
+- **Tabs** — Posts (photo+text 3-col grid), Reels (video grid), Recipes (cards),
+  Liked (own only), About (links to the nutrition dashboard at profile-view.html).
+- **Edit-profile modal** — avatar + cover upload (live preview, persists
+  immediately), name, username (unique + format check, inline errors), bio
+  (150-char counter), location, website. Full-screen on mobile (feed.css modal).
+- **Followers/Following modal** — viewer-relative follow buttons + client-side
+  search.
+- **Fullscreen post modal** — media left / info+caption+comments right, like +
+  6-emoji react, comment + threaded replies, save, share (Web Share/clipboard),
+  and prev/next navigation (arrow keys). Collapses to a single column on mobile.
+- **Feed sidebar** suggested users now refresh after you follow someone.
+- **New backend endpoints** (`server.js`): `PUT /api/users/profile`,
+  `POST /api/upload/avatar`, `POST /api/upload/cover`,
+  `GET /api/users/:id/followers|following|liked`. Avatar resized to 400² WebP,
+  cover to ≤1600px WebP via sharp (graceful fallback if sharp missing). Username
+  validated `^[a-z0-9_]{3,20}$` and unique across users. Verified end-to-end
+  (uniqueness 409, bad-format 400, follow counts, viewer flags, image upload+serve).
+
 ## Running locally
 ```bash
 npm install

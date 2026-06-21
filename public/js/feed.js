@@ -653,6 +653,9 @@ const Feed = (() => {
         try { const out = await Auth.api(`/api/users/${b.dataset.follow}/follow`, { method: 'POST' });
           b.textContent = out.following ? 'Following' : 'Follow';
           b.style.background = out.following ? 'var(--glass-2)' : ''; b.style.color = out.following ? 'var(--text-2)' : '';
+          // After following someone, surface fresh suggestions (the just-followed
+          // user drops out, new people rotate in).
+          if (out.following) setTimeout(loadSuggested, 900);
         } catch (err) { toast(err.message, 'error'); } finally { b.disabled = false; }
       }));
     } catch { host.closest('.rail-card').style.display = 'none'; }

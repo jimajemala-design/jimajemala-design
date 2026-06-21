@@ -1,0 +1,197 @@
+/* profile.css — NutriFell Phase 2: full user profiles.
+   Builds on feed.css (tokens + .feed-top/.bottom-nav/.modal-*). Adds the profile
+   header, tab grid, edit-profile modal, followers/following list modal, and the
+   fullscreen post modal. Dark glassmorphism, Instagram-inspired, mobile first. */
+
+/* ── Profile shell ───────────────────────────────────────────────────── */
+.prof-wrap { max-width: 935px; margin: 0 auto; padding-bottom: calc(var(--bottom-h) + 28px); }
+
+/* cover */
+.prof-cover {
+  position: relative; height: 200px; width: 100%;
+  background: linear-gradient(135deg, rgba(34,197,94,0.25), rgba(59,130,246,0.18));
+  background-size: cover; background-position: center;
+}
+.prof-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(8,12,20,0.55)); }
+.cover-edit {
+  position: absolute; right: 14px; bottom: 14px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 999px;
+  background: rgba(8,12,20,0.7); color: var(--text); border: 1px solid var(--line-2);
+  font-size: 13px; font-weight: 600; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  transition: background .15s, transform .12s;
+}
+.cover-edit:hover { background: rgba(8,12,20,0.9); transform: translateY(-1px); }
+
+/* header */
+.prof-head { padding: 0 18px; margin-top: -44px; position: relative; z-index: 2; }
+.prof-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.prof-avatar {
+  position: relative; width: 92px; height: 92px; border-radius: 50%; border: 4px solid var(--bg);
+  background: linear-gradient(135deg, var(--green), #16a34a); color: #04130a;
+  font-weight: 700; font-size: 38px; display: grid; place-items: center;
+  background-size: cover; background-position: center; flex: none;
+}
+.prof-avatar.editable { cursor: pointer; }
+.avatar-edit {
+  position: absolute; right: 0; bottom: 2px; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--green); color: #04130a; display: grid; place-items: center; font-size: 14px;
+  border: 3px solid var(--bg);
+}
+.prof-actions { display: flex; gap: 8px; align-items: center; padding-bottom: 6px; }
+.prof-name { font-size: 24px; font-weight: 700; margin: 12px 0 2px; word-break: break-word; overflow-wrap: anywhere; }
+.prof-handle { color: var(--text-3); font-size: 14px; }
+.prof-bio { margin: 12px 0; font-size: 15px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+.prof-meta { display: flex; gap: 16px; flex-wrap: wrap; color: var(--text-2); font-size: 13.5px; margin-bottom: 14px; }
+.prof-meta a { color: var(--info); }
+
+.prof-stats { display: flex; gap: 8px; padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.prof-stat { flex: 1; background: none; border: none; text-align: center; padding: 4px; border-radius: 10px; transition: background .15s; }
+.prof-stat:hover { background: var(--glass-2); }
+.prof-stat b { font-size: 19px; display: block; color: var(--text); }
+.prof-stat span { font-size: 12.5px; color: var(--text-3); }
+
+.prof-btn { padding: 10px 22px; border-radius: 999px; font-weight: 600; font-size: 14px; border: none; transition: transform .12s, opacity .15s, background .15s; }
+.prof-btn:hover { transform: translateY(-1px); }
+.prof-btn.follow { background: var(--green); color: #04130a; }
+.prof-btn.following { background: var(--glass-2); color: var(--text-2); border: 1px solid var(--line); }
+.prof-btn.edit { background: var(--glass-2); color: var(--text); border: 1px solid var(--line); }
+.prof-btn.icon { padding: 10px 14px; }
+
+/* ── Tabs ────────────────────────────────────────────────────────────── */
+.prof-tabs {
+  display: flex; gap: 2px; padding: 6px 8px; position: sticky; top: var(--top-h); z-index: 20;
+  background: rgba(8,12,20,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  overflow-x: auto; scrollbar-width: none;
+}
+.prof-tabs::-webkit-scrollbar { display: none; }
+.prof-tab {
+  flex: 1 0 auto; min-width: 84px; padding: 11px 10px; text-align: center; border-radius: 10px;
+  background: none; border: none; color: var(--text-3); font-weight: 600; font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background .15s, color .15s;
+}
+.prof-tab svg { width: 17px; height: 17px; }
+.prof-tab:hover { color: var(--text); }
+.prof-tab.active { background: var(--glass-2); color: var(--green-lt); }
+
+.prof-tabpanel { padding: 6px 2px 0; min-height: 220px; }
+
+/* ── Grid (Instagram 3-col) ──────────────────────────────────────────── */
+.prof-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 8px 2px; }
+.grid-tile { position: relative; aspect-ratio: 1; background: var(--glass-2); border-radius: 8px; overflow: hidden; display: grid; place-items: center; font-size: 30px; cursor: pointer; }
+.grid-tile img, .grid-tile video { width: 100%; height: 100%; object-fit: cover; }
+.grid-tile .tile-text { padding: 12px; font-size: 13px; line-height: 1.4; color: var(--text-2); text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; }
+.grid-badge { position: absolute; top: 6px; right: 6px; font-size: 13px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6)); }
+.grid-stats {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.5); color: #fff; opacity: 0;
+  display: flex; align-items: center; justify-content: center; gap: 16px; font-weight: 700; font-size: 14px;
+  transition: opacity .18s;
+}
+.grid-tile:hover .grid-stats, .grid-tile:focus-visible .grid-stats { opacity: 1; }
+
+/* ── Recipe cards tab ────────────────────────────────────────────────── */
+.recipe-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; padding: 10px 8px; }
+.recipe-card { background: var(--glass); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; cursor: pointer; transition: transform .12s, border-color .15s; }
+.recipe-card:hover { transform: translateY(-2px); border-color: var(--line-2); }
+.recipe-card-cover { width: 100%; aspect-ratio: 16/10; object-fit: cover; background: var(--glass-2); display: grid; place-items: center; font-size: 40px; }
+.recipe-card-body { padding: 12px 14px; }
+.recipe-card-body h4 { margin: 0 0 6px; font-size: 15px; }
+.recipe-card-meta { display: flex; gap: 12px; font-size: 12.5px; color: var(--text-2); }
+.recipe-card-meta .kcal { color: var(--gold); font-weight: 600; }
+
+/* ── About tab ───────────────────────────────────────────────────────── */
+.about-card { background: var(--glass); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin: 10px 8px; }
+.about-card h3 { margin: 0 0 12px; font-size: 14px; color: var(--text-2); text-transform: uppercase; letter-spacing: .05em; }
+.about-row { display: flex; gap: 10px; padding: 9px 0; font-size: 14px; border-top: 1px solid var(--line); }
+.about-row:first-of-type { border-top: none; }
+.about-row .k { color: var(--text-3); min-width: 96px; }
+.about-row a { color: var(--info); word-break: break-all; }
+.about-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 10px 16px; border-radius: 12px; background: rgba(34,197,94,0.12); color: var(--green-lt); font-weight: 600; font-size: 14px; }
+
+/* ── Edit-profile modal (extra fields beyond feed.css .modal-*) ───────── */
+.edit-cover-row { position: relative; height: 130px; border-radius: 14px; overflow: hidden; margin-bottom: 48px;
+  background: linear-gradient(135deg, rgba(34,197,94,0.25), rgba(59,130,246,0.18)); background-size: cover; background-position: center; }
+.edit-cover-btn, .edit-avatar-btn { position: absolute; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600;
+  background: rgba(8,12,20,0.75); color: var(--text); border: 1px solid var(--line-2); border-radius: 999px; padding: 7px 12px; cursor: pointer; }
+.edit-cover-btn { right: 10px; bottom: 10px; }
+.edit-avatar {
+  position: absolute; left: 16px; bottom: -36px; width: 84px; height: 84px; border-radius: 50%; border: 4px solid var(--bg-2);
+  background: linear-gradient(135deg, var(--green), #16a34a); color: #04130a; font-weight: 700; font-size: 32px;
+  display: grid; place-items: center; background-size: cover; background-position: center; cursor: pointer;
+}
+.edit-avatar .cam { position: absolute; right: -2px; bottom: -2px; width: 28px; height: 28px; border-radius: 50%; background: var(--green); color: #04130a; display: grid; place-items: center; font-size: 13px; border: 3px solid var(--bg-2); }
+.uploading { position: relative; }
+.uploading::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.45) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M12 2a10 10 0 0 1 10 10'%3E%3C/path%3E%3C/svg%3E") center / 24px no-repeat; border-radius: inherit; animation: spin .7s linear infinite; }
+.field-error { color: var(--like); font-size: 12px; margin-top: 5px; min-height: 14px; }
+
+/* ── Followers/Following list modal ──────────────────────────────────── */
+.list-search { margin: 0 0 8px; }
+.list-search input { width: 100%; height: 42px; padding: 0 14px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--line); color: var(--text); font-size: 14px; outline: none; }
+.user-row { display: flex; align-items: center; gap: 12px; padding: 10px 2px; }
+.user-row .post-avatar { width: 44px; height: 44px; font-size: 17px; flex: none; cursor: pointer; }
+.user-row-info { flex: 1; min-width: 0; cursor: pointer; }
+.user-row-info b { display: block; font-size: 14px; }
+.user-row-info span { font-size: 12.5px; color: var(--text-3); }
+.user-row-btn { flex: none; padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; border: none; background: var(--green); color: #04130a; }
+.user-row-btn.following { background: var(--glass-2); color: var(--text-2); border: 1px solid var(--line); }
+.list-body { max-height: 60dvh; overflow-y: auto; }
+
+/* ── Fullscreen post modal ───────────────────────────────────────────── */
+.post-modal { position: fixed; inset: 0; z-index: 400; display: none; background: rgba(4,7,12,0.92); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.post-modal.open { display: grid; place-items: center; }
+.pm-shell { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr); width: min(1100px, 96vw); height: min(86dvh, 760px);
+  background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); }
+.pm-media { background: #000; display: grid; place-items: center; min-width: 0; position: relative; }
+.pm-media img, .pm-media video { max-width: 100%; max-height: 100%; object-fit: contain; }
+.pm-text { padding: 32px; font-size: 18px; line-height: 1.55; color: var(--text); align-self: center; white-space: pre-wrap; word-break: break-word; }
+.pm-side { display: flex; flex-direction: column; min-width: 0; border-left: 1px solid var(--line); }
+.pm-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.pm-head .post-avatar { width: 40px; height: 40px; font-size: 16px; }
+.pm-head-id { flex: 1; min-width: 0; }
+.pm-head-id b { font-size: 14px; display: block; }
+.pm-head-id span { font-size: 12px; color: var(--text-3); }
+.pm-caption { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.pm-caption .cap-text { font-size: 14.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.pm-caption .hashtag { color: var(--green-lt); font-weight: 600; }
+.pm-comments { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.pm-actions { display: flex; align-items: center; gap: 4px; padding: 8px 12px; border-top: 1px solid var(--line); }
+.pm-compose { display: flex; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom,0px)); border-top: 1px solid var(--line); }
+.pm-compose input { flex: 1; height: 42px; padding: 0 14px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--line); color: var(--text); font-size: 14px; outline: none; }
+.pm-compose button { padding: 0 18px; border-radius: 999px; background: var(--green); color: #04130a; border: none; font-weight: 600; }
+.pm-compose button:disabled { opacity: .5; }
+.pm-close { position: absolute; top: 14px; right: 16px; z-index: 3; width: 40px; height: 40px; border-radius: 50%; background: rgba(8,12,20,0.7); border: 1px solid var(--line-2); color: var(--text); font-size: 18px; display: grid; place-items: center; }
+.pm-nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 3; width: 44px; height: 44px; border-radius: 50%; background: rgba(8,12,20,0.7); border: 1px solid var(--line-2); color: var(--text); font-size: 22px; display: grid; place-items: center; }
+.pm-nav:disabled { opacity: 0; pointer-events: none; }
+.pm-prev { left: 14px; } .pm-next { right: 14px; }
+
+/* reuse feed comment styles inside the post modal */
+.post-modal .comment { display: flex; gap: 10px; padding: 10px 0; }
+.post-modal .comment .post-avatar { width: 34px; height: 34px; font-size: 13px; }
+.post-modal .comment-main { flex: 1; min-width: 0; }
+.post-modal .comment-bubble { background: var(--glass-2); border-radius: 14px; padding: 9px 12px; }
+.post-modal .comment-bubble b { font-size: 13px; }
+.post-modal .comment-bubble p { margin: 2px 0 0; font-size: 14px; line-height: 1.45; word-break: break-word; overflow-wrap: anywhere; }
+.post-modal .comment-actions { display: flex; gap: 14px; font-size: 12px; color: var(--text-3); padding: 5px 4px 0; }
+.post-modal .comment-actions button { background: none; border: none; color: var(--text-3); font-size: 12px; font-weight: 600; }
+.post-modal .comment-actions button.liked { color: var(--like); }
+.post-modal .comment-replies { margin: 6px 0 0 16px; border-left: 1px solid var(--line); padding-left: 12px; }
+
+/* ── Phone layout ────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .prof-cover { height: 150px; }
+  .prof-head { padding: 0 14px; margin-top: -34px; }
+  .prof-avatar { width: 80px; height: 80px; font-size: 30px; border-width: 3px; }
+  .prof-name { font-size: 20px; }
+  .prof-bio { font-size: 14px; }
+  .prof-stat b { font-size: 17px; }
+  .prof-stat span { font-size: 11.5px; }
+  .prof-btn { padding: 9px 16px; font-size: 13px; }
+  .prof-grid { gap: 3px; }
+  .grid-tile { border-radius: 6px; }
+  /* post modal becomes a single scrolling column */
+  .post-modal.open { place-items: stretch; }
+  .pm-shell { grid-template-columns: 1fr; width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; border: none; grid-template-rows: auto 1fr; overflow-y: auto; }
+  .pm-media { max-height: 56dvh; }
+  .pm-side { border-left: none; border-top: 1px solid var(--line); }
+  .pm-comments { max-height: none; }
+  .pm-nav { display: none; }
+}

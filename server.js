@@ -3522,6 +3522,136 @@ app.post('/api/users/:id/follow', auth, (req, res) => {
   res.json({ following, followers: next.filter(f => f.followingId === targetId).length });
 });
 
+// ── Phase 2: full profiles (edit, image upload, followers/following, liked) ──
+
+// Compact user card for follower/following/search lists.
+function userMini(u, viewerId, viewerFollowing) {
+  return {
+    id: u.id, name: u.name, username: userHandle(u), avatar: u.avatar || null,
+    bio: (u.bio || '').slice(0, 80),
+    isFollowing: viewerFollowing ? viewerFollowing.has(u.id) : false,
+    isOwn: viewerId === u.id,
+  };
+}
+
+// Edit the social side of a profile (name/username/bio/location/website).
+// Nutrition fields stay on PUT /api/profile. Username is unique + format-checked.
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+app.put('/api/users/profile', auth, (req, res) => {
+  const users = readJSON(USERS_FILE);
+  const idx = users.findIndex(u => u.id === req.userId);
+  if (idx === -1) return res.status(404).json({ error: 'User not found' });
+  const u = users[idx];
+  const b = req.body || {};
+  if (b.name != null) {
+    const name = String(b.name).trim().slice(0, 50);
+    if (!name) return res.status(400).json({ error: 'Display name cannot be empty.' });
+    u.name = name;
+  }
+  if (b.username != null) {
+    const uname = String(b.username).trim().toLowerCase().replace(/^@/, '');
+    if (!uname) {
+      delete u.username; // revert to the derived @handle
+    } else {
+      if (!USERNAME_RE.test(uname)) return res.status(400).json({ error: 'Username must be 3–20 characters: letters, numbers or underscore.' });
+      if (users.some(x => x.id !== u.id && (x.username || '').toLowerCase() === uname)) return res.status(409).json({ error: 'That username is already taken.' });
+      u.username = uname;
+    }
+  }
+  if (b.bio != null) u.bio = String(b.bio).trim().slice(0, 150);
+  if (b.location != null) u.location = String(b.location).trim().slice(0, 80);
+  if (b.website != null) {
+    let w = String(b.website).trim().slice(0, 120);
+    if (w && !/^https?:\/\//i.test(w)) w = 'https://' + w;
+    u.website = w;
+  }
+  users[idx] = u;
+  writeJSON(USERS_FILE, users);
+  res.json(profileSummary(u, req.userId));
+});
+
+// Single-image upload (avatar/cover). Reuses sharp when present.
+const imageUpload = multer
+  ? multer({
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 12 * 1024 * 1024, files: 1 },
+      fileFilter: (req, file, cb) => {
+        const ok = /^image\/(jpe?g|png|webp)$/.test(file.mimetype);
+        cb(ok ? null : new Error('Only JPG/PNG/WebP images allowed'), ok);
+      },
+    })
+  : { single: () => (req, res, next) => next() };
+
+async function saveProfileImage(file, dir, urlBase, opts) {
+  const base = `${Date.now()}-${uuidv4().slice(0, 8)}`;
+  if (sharp) {
+    const name = `${base}.webp`;
+    let img = sharp(file.buffer).rotate();
+    img = opts.square
+      ? img.resize(opts.size, opts.size, { fit: 'cover' })
+      : img.resize({ width: opts.width, withoutEnlargement: true });
+    await img.webp({ quality: 82 }).toFile(path.join(dir, name));
+    return `${urlBase}/${name}`;
+  }
+  const ext = (file.mimetype.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+  const name = `${base}.${ext}`;
+  fs.writeFileSync(path.join(dir, name), file.buffer);
+  return `${urlBase}/${name}`;
+}
+
+function profileImageHandler(field, dir, urlBase, opts) {
+  return (req, res) => {
+    imageUpload.single('image')(req, res, async (uErr) => {
+      if (uErr) return res.status(400).json({ error: uErr.message });
+      if (!req.file) return res.status(400).json({ error: 'No image uploaded.' });
+      try {
+        const url = await saveProfileImage(req.file, dir, urlBase, opts);
+        const users = readJSON(USERS_FILE);
+        const idx = users.findIndex(u => u.id === req.userId);
+        if (idx === -1) return res.status(404).json({ error: 'User not found' });
+        users[idx][field] = url;
+        writeJSON(USERS_FILE, users);
+        res.json({ [field]: url });
+      } catch (e) {
+        console.error('Profile image upload failed:', e);
+        res.status(500).json({ error: 'Could not process that image.' });
+      }
+    });
+  };
+}
+app.post('/api/upload/avatar', auth, profileImageHandler('avatar', AVATARS_UPLOAD_DIR, '/uploads/avatars', { square: true, size: 400 }));
+app.post('/api/upload/cover', auth, profileImageHandler('cover', COVERS_UPLOAD_DIR, '/uploads/covers', { width: 1600 }));
+
+// Followers / following lists (newest first; each row carries viewer follow-state).
+function followList(targetField, idField) {
+  return (req, res) => {
+    const viewerId = optionalAuth(req);
+    const follows = readJSON(FOLLOWS_FILE);
+    const byId = new Map(readJSON(USERS_FILE).map(u => [u.id, u]));
+    const viewerFollowing = new Set(follows.filter(f => f.followerId === viewerId).map(f => f.followingId));
+    const list = follows.filter(f => f[targetField] === req.params.id)
+      .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
+      .map(f => byId.get(f[idField])).filter(Boolean)
+      .map(u => userMini(u, viewerId, viewerFollowing));
+    res.json(list);
+  };
+}
+app.get('/api/users/:id/followers', followList('followingId', 'followerId'));
+app.get('/api/users/:id/following', followList('followerId', 'followingId'));
+
+// Posts a user has reacted to (their "Liked" tab).
+app.get('/api/users/:id/liked', (req, res) => {
+  const viewerId = optionalAuth(req);
+  const reactions = readJSON(POST_REACTIONS_FILE);
+  const likedIds = new Set(reactions.filter(r => r.userId === req.params.id).map(r => r.postId));
+  const comments = readJSON(POST_COMMENTS_FILE);
+  const saves = readJSON(POST_SAVES_FILE);
+  const list = readJSON(POSTS_FILE).filter(p => likedIds.has(p.id))
+    .map(p => decoratePost(p, reactions, comments, saves, viewerId))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  res.json(list);
+});
+
 // ── Notifications (data layer ready; bell UI lands in a later phase) ──
 app.get('/api/notifications', auth, (req, res) => {
   res.json(readJSON(NOTIFICATIONS_FILE).filter(n => n.toUserId === req.userId).slice(0, 100));
