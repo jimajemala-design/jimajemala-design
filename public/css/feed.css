@@ -26,9 +26,13 @@
 }
 
 * { box-sizing: border-box; }
+/* Global overflow guard: nothing should push the page wider than the viewport
+   (prevents the mobile "zoomed-out / horizontal scroll" symptom). */
+html, body { overflow-x: hidden; max-width: 100%; }
 html { color-scheme: dark; }
 body.feed-body {
   margin: 0;
+  width: 100%;
   background:
     radial-gradient(80% 50% at 50% -5%, rgba(34, 197, 94, 0.08), transparent 60%),
     var(--bg);
@@ -37,6 +41,8 @@ body.feed-body {
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
 }
+/* Media never exceeds its container. */
+img, video { max-width: 100%; }
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 6px; }
@@ -121,8 +127,8 @@ button { font-family: inherit; cursor: pointer; }
   background-size: cover; background-position: center;
 }
 .post-id { flex: 1; min-width: 0; }
-.post-name { font-weight: 600; font-size: 14.5px; display: flex; align-items: center; gap: 6px; }
-.post-name b { font-weight: 600; }
+.post-name { font-weight: 600; font-size: 14.5px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.post-name b { font-weight: 600; overflow-wrap: anywhere; word-break: break-word; min-width: 0; }
 .post-meta { font-size: 12px; color: var(--text-3); display: flex; gap: 6px; align-items: center; }
 .post-type-badge {
   font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
@@ -306,8 +312,8 @@ button { font-family: inherit; cursor: pointer; }
 .comment .post-avatar { width: 36px; height: 36px; font-size: 14px; }
 .comment-main { flex: 1; min-width: 0; }
 .comment-bubble { background: var(--glass-2); border-radius: 14px; padding: 9px 12px; }
-.comment-bubble b { font-size: 13px; }
-.comment-bubble p { margin: 2px 0 0; font-size: 14px; line-height: 1.45; word-break: break-word; }
+.comment-bubble b { font-size: 13px; overflow-wrap: anywhere; word-break: break-word; }
+.comment-bubble p { margin: 2px 0 0; font-size: 14px; line-height: 1.45; word-break: break-word; overflow-wrap: anywhere; }
 .comment-actions { display: flex; gap: 14px; font-size: 12px; color: var(--text-3); padding: 5px 4px 0; }
 .comment-actions button { background: none; border: none; color: var(--text-3); font-size: 12px; font-weight: 600; }
 .comment-actions button.liked { color: var(--like); }
@@ -385,4 +391,53 @@ button { font-family: inherit; cursor: pointer; }
 /* keep content clear of bottom nav on mobile */
 @media (max-width: 1023px) {
   .feed-shell { padding-bottom: calc(var(--bottom-h) + 28px); }
+}
+
+/* ── Phone layout (≤640px): edge-to-edge, no horizontal overflow ───────── */
+@media (max-width: 640px) {
+  /* full-bleed feed: drop side padding so cards span the screen */
+  .feed-shell { padding-left: 0; padding-right: 0; gap: 14px; max-width: 100%; }
+  .feed-main-head, .feed-filters { padding-left: 14px; padding-right: 14px; }
+  .feed-list { gap: 10px; }
+
+  /* edge-to-edge post cards: no side margin, square corners, no shadow */
+  .post {
+    width: 100%; max-width: 100%; margin: 0;
+    border-radius: 0; border-left: none; border-right: none; box-shadow: none;
+  }
+
+  /* media fills the width, never overflows */
+  .post-media, .reel, .carousel { width: 100%; max-width: 100%; }
+  .post-photo, .carousel-slide img, .reel video { width: 100%; max-width: 100%; }
+  .carousel-slide { flex: 0 0 100%; max-width: 100%; }
+
+  /* readable, wrapping text */
+  .post-caption { font-size: 14px; word-break: break-word; overflow-wrap: anywhere; }
+  .post-text-body { font-size: 16px; padding: 22px 16px; word-break: break-word; overflow-wrap: anywhere; }
+  .post-recipe { gap: 12px; padding: 12px; }
+  .post-recipe-info { min-width: 0; }
+  .post-recipe-info h4 { font-size: 15px; word-break: break-word; }
+
+  /* action bar: wrap if needed, smaller hit targets/icons */
+  .post-actions { flex-wrap: wrap; gap: 2px; padding: 6px 8px 10px; }
+  .act { height: 36px; padding: 0 9px; font-size: 13px; gap: 5px; }
+  .act svg { width: 18px; height: 18px; }
+  .act-react .react-emoji { font-size: 18px; }
+
+  /* bottom nav: 56px tall + iPhone safe area */
+  .bottom-nav { height: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  .bn-item { height: 56px; }
+  .bn-item svg { width: 22px; height: 22px; }
+  .bn-create { width: 48px; height: 48px; }
+  .bn-create svg { width: 26px; height: 26px; }
+
+  /* create-post modal: true full screen */
+  .modal-overlay { padding: 0; }
+  .modal { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; border: none; }
+  .modal-body { padding: 16px; }
+  .type-grid { gap: 8px; }
+  .type-opt { padding: 14px 8px; }
+
+  /* comment sheet stays within the screen */
+  .sheet { max-height: 88dvh; }
 }
