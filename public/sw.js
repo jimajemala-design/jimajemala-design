@@ -6,7 +6,7 @@
 //         (rescues the display:none-at-init race) + spinner handoff fix.
 // 4.3.0 — social feed (Phase 1): precache feed assets; never-cache the
 //         per-viewer feed/posts/users/notifications APIs.
-const VERSION = '4.4.0';
+const VERSION = '4.5.0';
 const STATIC_CACHE = `nutrifell-static-${VERSION}`;
 const API_CACHE = `nutrifell-api-${VERSION}`;
 const CDN_CACHE = `nutrifell-cdn-${VERSION}`;
@@ -18,17 +18,25 @@ const PRECACHE = [
   '/index.html',
   '/fridge.html',
   '/feed.html',
+  '/messages.html',
   '/css/style.css',
   '/css/auth.css',
   '/css/features.css',
   '/css/feed.css',
   '/css/profile.css',
   '/css/phase3.css',
+  '/css/messages.css',
+  '/css/stories.css',
+  '/reels.html',
+  '/css/reels.css',
   '/js/app.js',
   '/js/auth.js',
   '/js/feed.js',
   '/js/notifications.js',
   '/js/post-modal.js',
+  '/js/messages.js',
+  '/js/stories.js',
+  '/js/reels.js',
   '/manifest.json',
 ];
 
@@ -51,9 +59,15 @@ const NEVER_CACHE = [
   '/api/recipes/rate',
   // Social feed is per-viewer and changes constantly — always hit the network.
   '/api/feed',
+  '/api/reels',
   '/api/posts',
   '/api/users',
   '/api/notifications',
+  // Direct messages are strictly per-user — never cache.
+  '/api/conversations',
+  '/api/messages',
+  // Stories are per-viewer (followers + self) and time-sensitive.
+  '/api/stories',
 ];
 const isPrivateApi = (pathname) => NEVER_CACHE.some((p) => pathname.startsWith(p));
 

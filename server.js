@@ -218,19 +218,26 @@ const POST_SAVES_FILE = path.join(DATA_DIR, 'post_saves.json');
 const POST_REPORTS_FILE = path.join(DATA_DIR, 'post_reports.json');
 const NOTIFICATIONS_FILE = path.join(DATA_DIR, 'notifications.json');
 const HASHTAG_FOLLOWS_FILE = path.join(DATA_DIR, 'hashtag_follows.json');
+// ── Social feed stores (Phase 4) ──
+const CONVERSATIONS_FILE = path.join(DATA_DIR, 'conversations.json');
+const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
+const STORIES_FILE = path.join(DATA_DIR, 'stories.json');
+const STORY_VIEWS_FILE = path.join(DATA_DIR, 'story_views.json');
 const POSTS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'posts');
 const REELS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'reels');
+const STORIES_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'stories');
 const AVATARS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'avatars');
 const COVERS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'covers');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-for (const d of [UPLOADS_DIR, POSTS_UPLOAD_DIR, REELS_UPLOAD_DIR, AVATARS_UPLOAD_DIR, COVERS_UPLOAD_DIR]) {
+for (const d of [UPLOADS_DIR, POSTS_UPLOAD_DIR, REELS_UPLOAD_DIR, STORIES_UPLOAD_DIR, AVATARS_UPLOAD_DIR, COVERS_UPLOAD_DIR]) {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 }
 for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE, LOGS_FILE, WATER_FILE,
   SMOKING_FILE, RECIPES_FILE, COMMENTS_FILE, REACTIONS_FILE, BOOKMARKS_FILE, REPORTS_FILE,
   WAITLIST_FILE, POSTS_FILE, FOLLOWS_FILE, POST_REACTIONS_FILE, POST_COMMENTS_FILE,
-  POST_SAVES_FILE, POST_REPORTS_FILE, NOTIFICATIONS_FILE, HASHTAG_FOLLOWS_FILE]) {
+  POST_SAVES_FILE, POST_REPORTS_FILE, NOTIFICATIONS_FILE, HASHTAG_FOLLOWS_FILE,
+  CONVERSATIONS_FILE, MESSAGES_FILE, STORIES_FILE, STORY_VIEWS_FILE]) {
   if (!fs.existsSync(f)) fs.writeFileSync(f, '[]', 'utf8');
 }
 
@@ -3264,6 +3271,68 @@ function decoratePost(p, reactions, comments, saves, viewerId) {
   return { ...p, reactionCounts: counts, totalReactions, commentCount, saveCount, views, score, myReaction, saved };
 }
 
+// ── Feed ranking (Phase 4D) ──────────────────────────────────────────────
+// Three modes: 'following' (reverse-chron from people you follow), 'latest'
+// (reverse-chron, everyone), 'foryou' (personalized score below; cold-start
+// for logged-out users falls back to popularity + recency). The For You score
+// replaces the old linear-decay formula with bounded exponential decay plus
+// per-viewer affinity / interest / seen signals. Weights are explainable and
+// contain no engagement dark patterns.
+const RANKING_MODES = ['foryou', 'following', 'latest'];
+
+// Precompute the viewer's affinity profile once per request: the hashtags/food
+// tags they've engaged with (high-signal interest) and the posts they've
+// already engaged with (a proxy for "seen", since post views aren't per-user).
+function buildRankingContext(viewerId, reactions, saves, comments, followingSet) {
+  const ctx = { viewerId, followingSet, interestTags: new Set(), engagedPostIds: new Set() };
+  if (!viewerId) return ctx;
+  const byId = new Map(readJSON(POSTS_FILE).map(p => [p.id, p]));
+  const harvest = (pid) => {
+    ctx.engagedPostIds.add(pid);
+    const p = byId.get(pid); if (!p) return;
+    (p.hashtags || []).forEach(t => ctx.interestTags.add(String(t).toLowerCase()));
+    (p.foodTags || []).forEach(t => ctx.interestTags.add(String(t).toLowerCase()));
+  };
+  reactions.forEach(r => { if (r.userId === viewerId) harvest(r.postId); });
+  saves.forEach(s => { if (s.userId === viewerId) harvest(s.postId); });
+  comments.forEach(c => { if (c.userId === viewerId) ctx.engagedPostIds.add(c.postId); });
+  return ctx;
+}
+
+function forYouScore(p, ctx) {
+  const engagement = p.totalReactions * 3 + p.commentCount * 5 + p.saveCount * 4 + (p.views || 0) * 0.1;
+  const hours = (Date.now() - new Date(p.createdAt).getTime()) / 3600000;
+  // Hacker-News-style gravity: bounded, always positive, freshness-aware. The
+  // +1 keeps brand-new zero-engagement posts ranked by recency.
+  let score = (engagement + 1) / Math.pow(Math.max(0, hours) + 2, 1.5);
+  if (ctx.viewerId) {
+    if (ctx.followingSet.has(p.userId)) score *= 1.6;                 // affinity boost
+    const tags = [...(p.hashtags || []), ...(p.foodTags || [])].map(t => String(t).toLowerCase());
+    const matches = tags.filter(t => ctx.interestTags.has(t)).length;
+    if (matches) score *= 1 + Math.min(matches, 4) * 0.15;            // interest match (capped)
+    if (ctx.engagedPostIds.has(p.id)) score *= 0.3;                   // seen/engaged penalty
+    if (p.userId === ctx.viewerId) score *= 0.6;                      // your own posts rank lower
+  }
+  return score;
+}
+
+// Reorder a scored list so no author appears more than twice in a row.
+function diversifyByAuthor(sorted) {
+  const pool = sorted.slice();
+  const out = [];
+  while (pool.length) {
+    let idx = 0;
+    const a = out.length >= 1 ? out[out.length - 1].userId : null;
+    const b = out.length >= 2 ? out[out.length - 2].userId : null;
+    if (a && a === b) {
+      const alt = pool.findIndex(p => p.userId !== a);
+      if (alt !== -1) idx = alt;
+    }
+    out.push(pool.splice(idx, 1)[0]);
+  }
+  return out;
+}
+
 // ── Feed (paginated, scored, works logged-out) ──
 app.get('/api/feed', (req, res) => {
   const viewerId = optionalAuth(req);
@@ -3272,11 +3341,49 @@ app.get('/api/feed', (req, res) => {
   const reactions = readJSON(POST_REACTIONS_FILE);
   const comments = readJSON(POST_COMMENTS_FILE);
   const saves = readJSON(POST_SAVES_FILE);
+  const ranking = RANKING_MODES.includes(req.query.ranking) ? req.query.ranking : 'foryou';
   let list = readJSON(POSTS_FILE).map(p => decoratePost(p, reactions, comments, saves, viewerId));
   const { type, tag, userId } = req.query;
   if (type && POST_TYPES.includes(type)) list = list.filter(p => p.type === type);
   if (tag) list = list.filter(p => (p.hashtags || []).includes(String(tag).toLowerCase()));
   if (userId) list = list.filter(p => p.userId === userId);
+
+  let followingSet = new Set();
+  if (viewerId) followingSet = new Set(readJSON(FOLLOWS_FILE).filter(f => f.followerId === viewerId).map(f => f.followingId));
+
+  if (ranking === 'latest') {
+    list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  } else if (ranking === 'following') {
+    if (viewerId) list = list.filter(p => followingSet.has(p.userId) || p.userId === viewerId);
+    list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  } else {
+    // For You — personalized score + author diversity pass.
+    const ctx = buildRankingContext(viewerId, reactions, saves, comments, followingSet);
+    list.forEach(p => { p.score = forYouScore(p, ctx); });
+    list.sort((a, b) => b.score - a.score);
+    list = diversifyByAuthor(list);
+  }
+
+  const total = list.length;
+  const start = (page - 1) * perPage;
+  const pageItems = list.slice(start, start + perPage);
+  pageItems.forEach(p => { p.isFollowingAuthor = followingSet.has(p.userId); p.isOwn = p.userId === viewerId; });
+  res.json({ posts: pageItems, page, perPage, total, ranking, hasMore: start + perPage < total });
+});
+
+// ── Reels feed (Phase 4C) — paginated, ranked video posts for the
+//    full-screen TikTok-style viewer. Same scoring + enrichment as the feed,
+//    filtered to type:'video'. ──
+app.get('/api/reels', (req, res) => {
+  const viewerId = optionalAuth(req);
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const perPage = 5;
+  const reactions = readJSON(POST_REACTIONS_FILE);
+  const comments = readJSON(POST_COMMENTS_FILE);
+  const saves = readJSON(POST_SAVES_FILE);
+  let list = readJSON(POSTS_FILE)
+    .filter(p => p.type === 'video' && p.video)
+    .map(p => decoratePost(p, reactions, comments, saves, viewerId));
   list.sort((a, b) => b.score - a.score);
   const total = list.length;
   const start = (page - 1) * perPage;
@@ -3284,7 +3391,7 @@ app.get('/api/feed', (req, res) => {
   let followingSet = new Set();
   if (viewerId) followingSet = new Set(readJSON(FOLLOWS_FILE).filter(f => f.followerId === viewerId).map(f => f.followingId));
   pageItems.forEach(p => { p.isFollowingAuthor = followingSet.has(p.userId); p.isOwn = p.userId === viewerId; });
-  res.json({ posts: pageItems, page, perPage, total, hasMore: start + perPage < total });
+  res.json({ reels: pageItems, page, perPage, total, hasMore: start + perPage < total });
 });
 
 // ── Create a post ──
@@ -3737,6 +3844,284 @@ app.put('/api/notifications/:id/read', auth, (req, res) => {
   if (!n) return res.status(404).json({ error: 'Notification not found' });
   n.read = true;
   writeJSON(NOTIFICATIONS_FILE, all);
+  res.json({ success: true });
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+// Phase 4A · Direct Messages (1:1, open to everyone)
+// Realtime is polling-based to match the notif bell; no websockets in stack.
+// DMs deliberately do NOT write notifications.json rows — unread is surfaced
+// via the dedicated /api/messages/unread-count badge to avoid feed noise.
+// ═════════════════════════════════════════════════════════════════════════
+
+// The conversation between two users (order-independent), or null.
+function findConversation(convos, a, b) {
+  return convos.find(c => c.participants.includes(a) && c.participants.includes(b)) || null;
+}
+
+// Public-safe shape of the *other* participant in a 1:1 conversation.
+function otherParticipant(convo, viewerId, users) {
+  const otherId = convo.participants.find(id => id !== viewerId) || convo.participants[0];
+  const u = users.find(x => x.id === otherId);
+  return { id: otherId, name: (u && u.name) || 'NutriFell User', username: userHandle(u), avatar: (u && u.avatar) || null };
+}
+
+// Attach a lightweight post preview to a shared-post/reel message attachment.
+function enrichMessageAttachment(m, posts) {
+  if (!m.attachment || !m.attachment.postId) return m;
+  const p = posts.find(x => x.id === m.attachment.postId);
+  if (!p) return m;
+  const thumb = (p.photos || [])[0] || p.video || (p.recipe && p.recipe.cover) || null;
+  return { ...m, attachment: { ...m.attachment, preview: { id: p.id, type: p.type, caption: (p.caption || '').slice(0, 80), thumb, authorName: p.authorName } } };
+}
+
+// Guard: load a conversation the viewer participates in, or respond 403/404.
+function loadOwnConversation(req, res) {
+  const convo = readJSON(CONVERSATIONS_FILE).find(c => c.id === req.params.id);
+  if (!convo) { res.status(404).json({ error: 'Conversation not found.' }); return null; }
+  if (!convo.participants.includes(req.userId)) { res.status(403).json({ error: 'Not your conversation.' }); return null; }
+  return convo;
+}
+
+// List the viewer's threads, newest activity first, with per-thread unread counts.
+app.get('/api/conversations', auth, (req, res) => {
+  const convos = readJSON(CONVERSATIONS_FILE).filter(c => c.participants.includes(req.userId));
+  const messages = readJSON(MESSAGES_FILE);
+  const users = readJSON(USERS_FILE);
+  const list = convos.map(c => ({
+    id: c.id,
+    user: otherParticipant(c, req.userId, users),
+    lastMessage: c.lastMessage || null,
+    lastMessageAt: c.lastMessageAt || c.createdAt,
+    unreadCount: messages.filter(m => m.conversationId === c.id && m.fromUserId !== req.userId && !m.read).length,
+  }));
+  list.sort((a, b) => String(b.lastMessageAt || '').localeCompare(String(a.lastMessageAt || '')));
+  res.json({ conversations: list });
+});
+
+// Find-or-create a 1:1 thread with { userId }.
+app.post('/api/conversations', auth, (req, res) => {
+  const otherId = String((req.body && req.body.userId) || '').trim();
+  if (!otherId) return res.status(400).json({ error: 'Recipient required.' });
+  if (otherId === req.userId) return res.status(400).json({ error: 'You cannot message yourself.' });
+  const users = readJSON(USERS_FILE);
+  if (!users.find(u => u.id === otherId)) return res.status(404).json({ error: 'User not found.' });
+  const convos = readJSON(CONVERSATIONS_FILE);
+  let convo = findConversation(convos, req.userId, otherId);
+  if (!convo) {
+    const now = new Date().toISOString();
+    convo = { id: uuidv4(), participants: [req.userId, otherId], createdAt: now, lastMessageAt: now, lastMessage: null };
+    convos.unshift(convo);
+    writeJSON(CONVERSATIONS_FILE, convos);
+  }
+  res.status(201).json({ id: convo.id, user: otherParticipant(convo, req.userId, users), lastMessage: convo.lastMessage, lastMessageAt: convo.lastMessageAt, unreadCount: 0 });
+});
+
+// Paginated messages for a thread (oldest→newest within the returned page).
+app.get('/api/conversations/:id/messages', auth, (req, res) => {
+  const convo = loadOwnConversation(req, res); if (!convo) return;
+  const perPage = 30;
+  let msgs = readJSON(MESSAGES_FILE).filter(m => m.conversationId === convo.id);
+  msgs.sort((a, b) => a.at.localeCompare(b.at));
+  if (req.query.before) msgs = msgs.filter(m => m.at < req.query.before);
+  const total = msgs.length;
+  const posts = readJSON(POSTS_FILE);
+  const users = readJSON(USERS_FILE);
+  const page = msgs.slice(Math.max(0, total - perPage)).map(m => enrichMessageAttachment(m, posts));
+  res.json({ messages: page, hasMore: total > perPage, user: otherParticipant(convo, req.userId, users) });
+});
+
+// Send a message. Attachment is an optional shared post/reel ({ kind, postId }).
+app.post('/api/conversations/:id/messages', auth, (req, res) => {
+  const convo = loadOwnConversation(req, res); if (!convo) return;
+  const text = String((req.body && req.body.text) || '').trim().slice(0, 2000);
+  let attachment = null;
+  const a = req.body && req.body.attachment;
+  if (a && (a.kind === 'post' || a.kind === 'reel') && a.postId) attachment = { kind: a.kind, postId: String(a.postId) };
+  if (!text && !attachment) return res.status(400).json({ error: 'Write a message.' });
+  const msg = { id: uuidv4(), conversationId: convo.id, fromUserId: req.userId, text, attachment, read: false, at: new Date().toISOString() };
+  const messages = readJSON(MESSAGES_FILE);
+  messages.push(msg);
+  writeJSON(MESSAGES_FILE, messages);
+  const convos = readJSON(CONVERSATIONS_FILE);
+  const c = convos.find(x => x.id === convo.id);
+  if (c) {
+    c.lastMessage = { text: text || 'Shared a post', fromUserId: req.userId, at: msg.at };
+    c.lastMessageAt = msg.at;
+    writeJSON(CONVERSATIONS_FILE, convos);
+  }
+  res.status(201).json(enrichMessageAttachment(msg, readJSON(POSTS_FILE)));
+});
+
+// Mark the other party's messages in a thread as read.
+app.put('/api/conversations/:id/read', auth, (req, res) => {
+  const convo = loadOwnConversation(req, res); if (!convo) return;
+  const messages = readJSON(MESSAGES_FILE);
+  let changed = false;
+  messages.forEach(m => { if (m.conversationId === convo.id && m.fromUserId !== req.userId && !m.read) { m.read = true; changed = true; } });
+  if (changed) writeJSON(MESSAGES_FILE, messages);
+  res.json({ success: true });
+});
+
+// Total unread across all of the viewer's threads (powers the nav DM badge).
+app.get('/api/messages/unread-count', auth, (req, res) => {
+  const convoIds = new Set(readJSON(CONVERSATIONS_FILE).filter(c => c.participants.includes(req.userId)).map(c => c.id));
+  const count = readJSON(MESSAGES_FILE).filter(m => convoIds.has(m.conversationId) && m.fromUserId !== req.userId && !m.read).length;
+  res.json({ count });
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+// Phase 4B · Stories (24h disappearing content, visible to followers + self)
+// ═════════════════════════════════════════════════════════════════════════
+const STORY_TTL = 24 * 3600 * 1000;
+
+// One image OR one short video per story. 80MB covers a ~15s clip.
+const storyUpload = multer
+  ? multer({
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 80 * 1024 * 1024, files: 1 },
+      fileFilter: (req, file, cb) => {
+        const ok = /^image\/(jpe?g|png|webp)$/.test(file.mimetype)
+          || /^video\/(mp4|webm|quicktime)$/.test(file.mimetype);
+        cb(ok ? null : new Error('Only JPG/PNG/WebP images or MP4/WebM/MOV video allowed'), ok);
+      },
+    })
+  : { single: () => (req, res, next) => next() };
+
+async function saveStoryMedia(file) {
+  const base = `${Date.now()}-${uuidv4().slice(0, 8)}`;
+  if (/^image\//.test(file.mimetype)) {
+    if (sharp) {
+      const name = `${base}.webp`;
+      await sharp(file.buffer).rotate().resize({ width: 1080, height: 1920, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 82 }).toFile(path.join(STORIES_UPLOAD_DIR, name));
+      return { type: 'image', media: `/uploads/stories/${name}` };
+    }
+    const ext = (file.mimetype.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+    const name = `${base}.${ext}`;
+    fs.writeFileSync(path.join(STORIES_UPLOAD_DIR, name), file.buffer);
+    return { type: 'image', media: `/uploads/stories/${name}` };
+  }
+  const ext = file.mimetype === 'video/quicktime' ? 'mov' : (file.mimetype.split('/')[1] || 'mp4');
+  const name = `${base}.${ext}`;
+  fs.writeFileSync(path.join(STORIES_UPLOAD_DIR, name), file.buffer);
+  return { type: 'video', media: `/uploads/stories/${name}` };
+}
+
+const isActiveStory = (s) => new Date(s.expiresAt).getTime() > Date.now();
+
+// Remove expired stories + their views, and delete the orphaned media files.
+function sweepExpiredStories() {
+  try {
+    const all = readJSON(STORIES_FILE);
+    const expired = all.filter(s => !isActiveStory(s));
+    if (!expired.length) return;
+    const live = all.filter(isActiveStory);
+    writeJSON(STORIES_FILE, live);
+    const liveIds = new Set(live.map(s => s.id));
+    writeJSON(STORY_VIEWS_FILE, readJSON(STORY_VIEWS_FILE).filter(v => liveIds.has(v.storyId)));
+    expired.forEach(s => {
+      const fp = path.join(__dirname, 'public', s.media || '');
+      try { if (s.media && fp.startsWith(STORIES_UPLOAD_DIR) && fs.existsSync(fp)) fs.unlinkSync(fp); } catch { /* ignore */ }
+    });
+  } catch (e) { console.error('Story sweep error:', e.message); }
+}
+sweepExpiredStories();
+setInterval(sweepExpiredStories, 3600 * 1000);
+
+// Create a story (multipart: field "media" + optional caption).
+app.post('/api/stories', auth, (req, res) => {
+  storyUpload.single('media')(req, res, async (uErr) => {
+    if (uErr) return res.status(400).json({ error: uErr.message });
+    if (!req.file) return res.status(400).json({ error: 'Add a photo or video.' });
+    try {
+      const { type, media } = await saveStoryMedia(req.file);
+      const now = Date.now();
+      const story = {
+        id: uuidv4(), userId: req.userId, type, media,
+        caption: String((req.body && req.body.caption) || '').trim().slice(0, 200),
+        createdAt: new Date(now).toISOString(),
+        expiresAt: new Date(now + STORY_TTL).toISOString(),
+      };
+      const all = readJSON(STORIES_FILE);
+      all.unshift(story);
+      writeJSON(STORIES_FILE, all);
+      res.status(201).json(story);
+    } catch (e) {
+      console.error('Story create error:', e.message);
+      res.status(500).json({ error: 'Could not save your story.' });
+    }
+  });
+});
+
+// Active story tray — your own + people you follow, grouped by author.
+// Order: self first, then unseen (most recent first), then fully-seen.
+app.get('/api/stories', auth, (req, res) => {
+  const followingIds = new Set(readJSON(FOLLOWS_FILE).filter(f => f.followerId === req.userId).map(f => f.followingId));
+  followingIds.add(req.userId);
+  const stories = readJSON(STORIES_FILE).filter(s => isActiveStory(s) && followingIds.has(s.userId));
+  const views = readJSON(STORY_VIEWS_FILE);
+  const seen = new Set(views.filter(v => v.userId === req.userId).map(v => v.storyId));
+  const users = readJSON(USERS_FILE);
+  const groups = {};
+  stories.forEach(s => {
+    if (!groups[s.userId]) {
+      const u = users.find(x => x.id === s.userId);
+      groups[s.userId] = {
+        user: { id: s.userId, name: (u && u.name) || 'NutriFell User', username: userHandle(u), avatar: (u && u.avatar) || null },
+        isOwn: s.userId === req.userId, stories: [], hasUnseen: false, latestAt: s.createdAt,
+      };
+    }
+    const g = groups[s.userId];
+    g.stories.push({ id: s.id, type: s.type, media: s.media, caption: s.caption, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed: seen.has(s.id) });
+    if (!seen.has(s.id)) g.hasUnseen = true;
+    if (s.createdAt > g.latestAt) g.latestAt = s.createdAt;
+  });
+  const list = Object.values(groups);
+  list.forEach(g => g.stories.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
+  list.sort((a, b) => {
+    if (a.isOwn !== b.isOwn) return a.isOwn ? -1 : 1;
+    if (a.hasUnseen !== b.hasUnseen) return a.hasUnseen ? -1 : 1;
+    return b.latestAt.localeCompare(a.latestAt);
+  });
+  res.json({ groups: list });
+});
+
+// Record that the viewer saw a story (idempotent).
+app.post('/api/stories/:id/view', auth, (req, res) => {
+  const story = readJSON(STORIES_FILE).find(s => s.id === req.params.id);
+  if (!story || !isActiveStory(story)) return res.status(404).json({ error: 'Story not found.' });
+  const views = readJSON(STORY_VIEWS_FILE);
+  if (!views.some(v => v.storyId === story.id && v.userId === req.userId)) {
+    views.push({ storyId: story.id, userId: req.userId, at: new Date().toISOString() });
+    writeJSON(STORY_VIEWS_FILE, views);
+  }
+  res.json({ success: true });
+});
+
+// Who viewed a story — owner only.
+app.get('/api/stories/:id/viewers', auth, (req, res) => {
+  const story = readJSON(STORIES_FILE).find(s => s.id === req.params.id);
+  if (!story) return res.status(404).json({ error: 'Story not found.' });
+  if (story.userId !== req.userId) return res.status(403).json({ error: 'Not your story.' });
+  const users = readJSON(USERS_FILE);
+  const viewers = readJSON(STORY_VIEWS_FILE)
+    .filter(v => v.storyId === story.id)
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .map(v => { const u = users.find(x => x.id === v.userId); return { id: v.userId, name: (u && u.name) || 'NutriFell User', username: userHandle(u), avatar: (u && u.avatar) || null, at: v.at }; });
+  res.json({ viewers, count: viewers.length });
+});
+
+// Delete your own story.
+app.delete('/api/stories/:id', auth, (req, res) => {
+  const all = readJSON(STORIES_FILE);
+  const story = all.find(s => s.id === req.params.id);
+  if (!story) return res.status(404).json({ error: 'Story not found.' });
+  if (story.userId !== req.userId) return res.status(403).json({ error: 'Not your story.' });
+  writeJSON(STORIES_FILE, all.filter(s => s.id !== story.id));
+  writeJSON(STORY_VIEWS_FILE, readJSON(STORY_VIEWS_FILE).filter(v => v.storyId !== story.id));
+  const fp = path.join(__dirname, 'public', story.media || '');
+  try { if (story.media && fp.startsWith(STORIES_UPLOAD_DIR) && fs.existsSync(fp)) fs.unlinkSync(fp); } catch { /* ignore */ }
   res.json({ success: true });
 });
 

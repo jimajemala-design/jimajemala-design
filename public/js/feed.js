@@ -29,7 +29,7 @@ const Feed = (() => {
   const REACTIONS = ['❤️', '🔥', '😋', '👏', '🤩', '💪'];
   const TYPE_BADGE = { photo: '📸 Photo', video: '🎬 Reel', recipe: '🍽️ Recipe', text: '💬 Tip' };
 
-  const state = { page: 1, hasMore: true, loading: false, filter: '', seen: new Set(), viewed: new Set() };
+  const state = { page: 1, hasMore: true, loading: false, filter: '', ranking: 'foryou', seen: new Set(), viewed: new Set() };
   let io = null, videoIO = null, sentinelIO = null;
 
   // ── helpers ──────────────────────────────────────────────────────────
@@ -151,6 +151,7 @@ const Feed = (() => {
   async function fetchPage() {
     const qs = new URLSearchParams({ page: String(state.page) });
     if (state.filter) qs.set('type', state.filter);
+    if (state.ranking) qs.set('ranking', state.ranking);
     const tag = new URLSearchParams(location.search).get('tag');
     if (tag) qs.set('tag', tag);
     return Auth.api('/api/feed?' + qs.toString());
@@ -728,8 +729,18 @@ const Feed = (() => {
     sentinelIO = new IntersectionObserver((es) => { if (es[0].isIntersecting) loadMore(); }, { rootMargin: '600px' });
     sentinelIO.observe(sentinel);
 
-    // filters
+    // ranking tabs (For You / Following / Latest)
+    document.querySelectorAll('.feed-ranking .rank-tab').forEach(t => t.addEventListener('click', () => {
+      if (t.classList.contains('active')) return;
+      document.querySelectorAll('.feed-ranking .rank-tab').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-selected', 'false'); });
+      t.classList.add('active'); t.setAttribute('aria-selected', 'true');
+      state.ranking = t.dataset.rank || 'foryou';
+      resetFeed();
+    }));
+
+    // filters — the Reels chip is a destination (immersive viewer), not a grid filter.
     document.querySelectorAll('.feed-filters .chip').forEach(c => c.addEventListener('click', () => {
+      if (c.dataset.filter === 'video') { location.href = '/reels.html'; return; }
       document.querySelectorAll('.feed-filters .chip').forEach(x => x.classList.remove('active'));
       c.classList.add('active');
       state.filter = c.dataset.filter || '';

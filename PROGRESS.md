@@ -1,6 +1,6 @@
 # NutriFell — Progress & Roadmap
 
-> Last updated: 2026-06-18
+> Last updated: 2026-06-22
 > Formerly "NutriBase Georgia" — rebranded to **NutriFell** on 2026-06-16.
 
 An interactive 3D nutrition explorer + installable PWA. Browse 74 foods with
@@ -366,6 +366,103 @@ Complete profile system on `profile-social.html` + new `js/profile-social.js` +
 - SW bumped to v4.4.0; new CSS/JS added to precache. Verified end-to-end against a
   running server (search shapes, hashtag aggregation, mention + save + like
   notifications, single/all read, pagination + filters).
+
+### Phase 4 — DMs, Stories, Reels viewer, ranking (DONE 2026-06-22) ✅
+Spec'd + built 2026-06-22. Build order **4A→4B→4C→4D**; each verified end-to-end
+against a running server. Status: **all four sub-phases done** ✅.
+SW bumped to 4.5.0 with all new html/js/css precached; new per-user/time-sensitive
+APIs (`/api/conversations`, `/api/messages`, `/api/stories`, `/api/reels`) added
+to NEVER_CACHE. NB: a stale `node server.js` can hold the port (EADDRINUSE) and
+serve old routes — kill all node procs before re-testing.
+Conventions: file-based JSON via `readJSON`/`writeJSON`; uploads = multer-memory
++ sharp WebP (video written raw, no ffmpeg); realtime = polling (no websockets;
+SSE noted as a future upgrade); new nav entries **Reels** + **Messages** in
+`side-nav` + `bottom-nav` with a `[data-dm-badge]` unread badge; `sw.js`
+VERSION → `4.5.0` with new assets precached.
+
+**Decisions locked:** DMs **open to everyone** (message-requests tier deferred);
+Stories visible to **followers + self**.
+
+**4A · Direct Messages** — ✅ built & verified 2026-06-22
+- Files: `public/messages.html` + `public/js/messages.js` + `public/css/messages.css`.
+  DM badge poller added to `js/notifications.js` (`[data-dm-bell]`/`[data-dm-badge]`,
+  30s). `feed.html` top DM icon now links to the inbox with a live badge.
+  `profile-social.js` gained a **Message** button (`?to=<userId>` deep link).
+  SW → 4.5.0; `/api/conversations` + `/api/messages` added to NEVER_CACHE.
+- Verified: static 200s; auth 401; create/dedup; send + unread 1→0; per-thread
+  read; shared-post attachment enrichment; self-message 400; unknown recipient 404.
+- Data: `conversations.json` `{ id, participants:[a,b], createdAt, lastMessageAt,
+  lastMessage:{text,fromUserId,at} }` (1:1 only, deduped by sorted pair);
+  `messages.json` `{ id, conversationId, fromUserId, text, attachment:{kind:'image'|
+  'post'|'reel', url|postId}|null, read, at }`.
+- Endpoints: `GET /api/conversations`, `POST /api/conversations` (find-or-create),
+  `GET /api/conversations/:id/messages?before=<cursor>` (participant-only, 403),
+  `POST /api/conversations/:id/messages` (rate-limited), `PUT /api/conversations/:id/read`,
+  `GET /api/messages/unread-count`.
+- DMs use a **dedicated badge**, NOT `notifications.json` rows (avoids feed noise).
+- Frontend: `messages.html` + `js/messages.js` + `css/messages.css`. Two-pane
+  desktop / list→thread mobile. Thread polls ~5s while focused; nav badge 30s.
+  Entry points: **Message** button on `profile-social.html`; **Share → Send as
+  message** from post modal + reels; story replies create a DM.
+
+**4B · Stories (24h)** — ✅ built & verified 2026-06-22
+- Files: `public/js/stories.js` (`window.Stories`) + `public/css/stories.css`;
+  tray mounted in `feed.html` (`#storyTray`, logged-in only). Composer uploads
+  via raw `fetch` (FormData) since `Auth.api` forces JSON. SW → 4.5.0 precache +
+  `/api/stories` in NEVER_CACHE.
+- Verified: image upload → WebP; follower visibility + grouping; self-first /
+  unseen-first ordering; view tracking flips seen + hasUnseen; owner-only viewers
+  list (403 for others); owner-only delete (403 for others, media file unlinked);
+  media served. NB: sharp rejects malformed test PNGs (use a real image).
+- Data: `stories.json` `{ id, userId, type:'image'|'video', media, caption?,
+  createdAt, expiresAt(+24h) }`; `story_views.json` `{ storyId, userId, at }`.
+- Uploads → new `public/uploads/stories/` (image=WebP, video=raw).
+- Endpoints: `POST /api/stories`; `GET /api/stories` (active, followers+self,
+  grouped by author, self→unseen→seen, `hasUnseen`); `POST /api/stories/:id/view`;
+  `GET /api/stories/:id/viewers` (own only); `DELETE /api/stories/:id` (own only).
+- Expiry: lazy `expiresAt > now` filter on read + boot/interval sweep deleting
+  expired media files.
+- Frontend: avatar-ring story tray atop `feed.html` (`js/stories.js`); fullscreen
+  viewer with auto-advancing progress bars (5s images / video length), tap L/R,
+  hold-to-pause, swipe-down/X close, reply box (→ DM), viewer list on own stories.
+
+**4C · Reels viewer (TikTok-style)** — ✅ built & verified 2026-06-22
+- Files: `public/reels.html` + `public/js/reels.js` + `public/css/reels.css`.
+  Entry: desktop side-nav **Reels** (feed + messages); the feed "🎬 Reels" filter
+  chip now opens the immersive viewer (`feed.js`); share/deep-link via
+  `/reels.html?post=<id>`. SW → 4.5.0 precache + `/api/reels` in NEVER_CACHE.
+- Verified: `/api/reels` shape (works logged-out), ranked video listing,
+  enrichment (author/counts/isOwn/isFollowingAuthor), and reuse of
+  like/save/comment/view endpoints. NB: video posts need a real video mimetype
+  (`-F 'media=@clip.mp4;type=video/mp4'`); server writes video raw (no transcode).
+- No new storage; reuses existing `type:'video'` posts.
+- Endpoint: `GET /api/reels?page=` (ranked via `decoratePost` + 4D scoring,
+  enriched + `hasMore`). Reuses `POST /api/posts/:id/view`.
+- Frontend: `reels.html` + `js/reels.js`. Full-screen vertical CSS scroll-snap,
+  autoplay-muted-in-view (IntersectionObserver), loop, tap pause/unmute. Right
+  rail: 6-emoji react, comment sheet, save, share-to-DM, author+follow. **DOM
+  windowing** (~3 mounted + preload next). Entry: nav **Reels**; tapping a video
+  post in feed/profile opens the viewer at that post.
+
+**4D · Feed ranking improvements** — ✅ built & verified 2026-06-22
+- Files: `server.js` (`buildRankingContext`, `forYouScore`, `diversifyByAuthor`,
+  refactored `/api/feed` with `?ranking=`). `feed.html` ranking tabs +
+  `feed.js` (`state.ranking`) + `.feed-ranking`/`.rank-tab` in `feed.css`.
+  `decoratePost`'s legacy `score` kept intact (reels/hashtags still use it);
+  For You scoring is computed in the feed handler only.
+- Verified: mode echoed in response; Latest = reverse-chron; Following =
+  followed+own only (flags correct); For You personalizes; logged-out cold-start
+  works. Seen penalty uses engaged-post proxy (no per-user post-view store exists).
+- Replaces global `likes×3 + comments×5 + saves×4 + views×0.1 − hours×0.5`.
+- Three modes via `?ranking=foryou|following|latest` surfaced as feed tabs:
+  Following (reverse-chron from follows), Latest (reverse-chron all), For You
+  (personalized; logged-out/cold-start = popularity+recency).
+- For You score: **exponential HN-style decay** `engagement / (hours+2)^1.5`
+  (bounded, positive) + **following affinity** boost + **interest match** boost
+  (post hashtags/foodTags vs viewer's recently engaged tags/foods) + **seen
+  penalty** (downrank already-viewed so refresh advances) + **author diversity**
+  pass (max 2 consecutive posts per author). Weights documented inline; honest
+  and explainable, no dark patterns.
 
 ## Running locally
 ```bash

@@ -106,7 +106,8 @@
 
     const actionBtn = u.isOwn
       ? '<button class="prof-btn edit" id="openEdit">Edit Profile</button>'
-      : `<button class="prof-btn ${u.isFollowing ? 'following' : 'follow'}" id="followBtn">${u.isFollowing ? 'Following' : 'Follow'}</button>`;
+      : `<button class="prof-btn ${u.isFollowing ? 'following' : 'follow'}" id="followBtn">${u.isFollowing ? 'Following' : 'Follow'}</button>` +
+        `<a class="prof-btn message" id="messageBtn" href="/messages.html?to=${esc(u.id)}">Message</a>`;
 
     const tabs = [
       ['posts', '📸 Posts'],

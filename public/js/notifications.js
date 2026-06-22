@@ -74,6 +74,20 @@ const Notif = (() => {
     try { const d = await Auth.api('/api/notifications/count'); setBadges(d.count || 0); } catch { /* offline */ }
   }
 
+  // ── DM unread badge (Phase 4A) — separate poll so messages never crowd the
+  //    notifications feed. Updates any [data-dm-badge]; [data-dm-bell] routes
+  //    to the inbox. ─────────────────────────────────────────────────────────
+  function setDMBadges(count) {
+    document.querySelectorAll('[data-dm-badge]').forEach(b => {
+      if (count > 0) { b.textContent = count > 99 ? '99+' : count; b.hidden = false; }
+      else { b.hidden = true; }
+    });
+  }
+  async function refreshDMCount() {
+    if (!authed()) return;
+    try { const d = await Auth.api('/api/messages/unread-count'); setDMBadges(d.count || 0); } catch { /* offline */ }
+  }
+
   // ── Dropdown ─────────────────────────────────────────────────────────
   let panel = null, open = false;
   function buildPanel() {
@@ -115,13 +129,16 @@ const Notif = (() => {
   function init() {
     document.querySelectorAll('[data-notif-bell]').forEach(b =>
       b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggle(); }));
+    document.querySelectorAll('[data-dm-bell]').forEach(b =>
+      b.addEventListener('click', (e) => { e.preventDefault(); location.href = '/messages.html'; }));
     document.addEventListener('click', () => { if (open) closePanel(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && open) closePanel(); });
     refreshCount();
-    setInterval(refreshCount, 30000);
+    refreshDMCount();
+    setInterval(() => { refreshCount(); refreshDMCount(); }, 30000);
   }
 
-  return { init, rowHTML, wireRows, fetchPage, markAll, markOne, refreshCount, timeAgo, TYPE_ICON };
+  return { init, rowHTML, wireRows, fetchPage, markAll, markOne, refreshCount, refreshDMCount, timeAgo, TYPE_ICON };
 })();
 
 if (document.readyState !== 'loading') Notif.init();

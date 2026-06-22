@@ -107,6 +107,16 @@ button { font-family: inherit; cursor: pointer; }
   margin: 0 0 16px;
 }
 .feed-title { font-size: 22px; font-weight: 700; margin: 0; }
+.sr-only-title { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* Ranking tabs (Phase 4D): For You / Following / Latest */
+.feed-ranking { flex: 1; display: flex; gap: 4px; background: var(--glass-2); border: 1px solid var(--line); border-radius: 999px; padding: 4px; max-width: 380px; }
+.rank-tab {
+  flex: 1; padding: 8px 16px; border-radius: 999px; font-size: 14px; font-weight: 600;
+  background: transparent; border: 0; color: var(--text-2); cursor: pointer; white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+.rank-tab:hover { color: var(--text); }
+.rank-tab.active { background: var(--green); color: #04130a; }
 .feed-filters { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
 .feed-filters::-webkit-scrollbar { display: none; }
 .chip {
@@ -378,6 +388,7 @@ button { font-family: inherit; cursor: pointer; }
   .side-item:hover { background: var(--glass-2); color: var(--text); }
   .side-item.active { background: rgba(34,197,94,0.12); color: var(--green-lt); }
   .side-item svg { width: 22px; height: 22px; }
+  .side-dm-badge { margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--green); color: #04210f; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
   .side-create { margin-top: 10px; justify-content: center; background: var(--green); color: #04130a; }
   .side-create:hover { background: var(--green-lt); color: #04130a; }
   /* 2-column masonry feed */

@@ -1,0 +1,186 @@
+/* messages.css — NutriFell Phase 4A: Direct Messages two-pane UI.
+   Builds on feed.css tokens (--bg, --green, --glass, --line, --radius…).
+   Mobile-first: single column with a list→thread slide; desktop two-pane. */
+
+/* The DM page locks the document to the viewport so only the message list
+   scrolls (chat-app feel), instead of the whole page scrolling. */
+.dm-body { overflow: hidden; }
+
+.dm-shell-wrap {
+  height: calc(100dvh - var(--top-h));
+  padding-top: 14px; padding-bottom: 0;
+  align-items: stretch;
+}
+
+/* Two-pane container */
+.dm-shell {
+  min-width: 0; min-height: 0;
+  display: grid; grid-template-columns: 1fr;
+  background: var(--glass); border: 1px solid var(--line);
+  border-radius: var(--radius); overflow: hidden;
+}
+
+/* ── Conversation list ─────────────────────────────────────────────── */
+.dm-list { display: flex; flex-direction: column; min-height: 0; }
+.dm-list-head { padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+.dm-list-head h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.dm-convos { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
+
+.dm-convo {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 14px; background: transparent;
+  border: 0; cursor: pointer; text-align: left; color: var(--text);
+  transition: background .15s; min-height: 60px;
+}
+.dm-convo:hover { background: var(--glass-2); }
+.dm-convo.active { background: rgba(34, 197, 94, 0.12); }
+.dm-convo-av, .dm-convo-main { pointer-events: none; }
+.dm-convo-av {
+  width: 48px; height: 48px; border-radius: 50%; flex: none;
+  background: var(--bg-2); background-size: cover; background-position: center;
+  display: grid; place-items: center; font-weight: 700; color: var(--green-lt);
+  border: 1px solid var(--line-2);
+}
+.dm-convo-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dm-convo-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.dm-convo-top b { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-convo-top time { font-size: 11.5px; color: var(--text-3); flex: none; }
+.dm-convo-prev { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-convo.unread .dm-convo-prev { color: var(--text); font-weight: 600; }
+.dm-convo.unread .dm-convo-top b { font-weight: 700; }
+.dm-convo-dot {
+  flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: var(--green); color: #04210f; font-size: 11px; font-weight: 700;
+  display: grid; place-items: center;
+}
+
+.dm-list-empty, .dm-skeleton { padding: 28px 18px; color: var(--text-2); text-align: center; }
+.dm-list-empty .em { font-size: 30px; display: block; margin-bottom: 8px; }
+.dm-skel-row { height: 60px; border-radius: 14px; margin-bottom: 8px; }
+
+/* ── Thread ────────────────────────────────────────────────────────── */
+.dm-thread { display: none; min-height: 0; flex-direction: column; border-left: 1px solid var(--line); }
+
+.dm-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 40px 28px; gap: 6px;
+}
+.dm-empty .em { font-size: 48px; }
+.dm-empty h2 { font-size: 20px; font-weight: 700; }
+.dm-empty p { color: var(--text-2); max-width: 360px; line-height: 1.55; }
+.dm-empty .btn-post { margin-top: 14px; }
+
+.dm-active { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+
+.dm-thread-head {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-bottom: 1px solid var(--line); flex: none;
+}
+.dm-back { display: none; }
+.dm-peer { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--text); }
+.dm-peer-av {
+  width: 38px; height: 38px; border-radius: 50%; flex: none; background: var(--bg-2);
+  background-size: cover; background-position: center; display: grid; place-items: center;
+  font-weight: 700; color: var(--green-lt); border: 1px solid var(--line-2);
+}
+.dm-peer-meta { display: flex; flex-direction: column; min-width: 0; }
+.dm-peer-meta b { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-peer-meta small { font-size: 12px; color: var(--text-3); }
+
+.dm-messages {
+  flex: 1; min-height: 0; overflow-y: auto; padding: 18px 16px;
+  display: flex; flex-direction: column; gap: 8px; scroll-behavior: smooth;
+}
+.dm-thread-empty { margin: auto; color: var(--text-3); text-align: center; padding: 30px; }
+
+.dm-row { display: flex; max-width: 100%; }
+.dm-row.mine { justify-content: flex-end; }
+.dm-row.theirs { justify-content: flex-start; }
+.dm-bubble {
+  max-width: 76%; padding: 9px 13px 6px; border-radius: 18px; font-size: 14.5px;
+  line-height: 1.45; word-break: break-word; position: relative;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.dm-row.mine .dm-bubble {
+  background: linear-gradient(135deg, var(--green), #16a34a); color: #04210f;
+  border-bottom-right-radius: 6px;
+}
+.dm-row.theirs .dm-bubble {
+  background: var(--glass-2); border: 1px solid var(--line); color: var(--text);
+  border-bottom-left-radius: 6px;
+}
+.dm-bubble time { font-size: 10.5px; opacity: 0.7; align-self: flex-end; }
+.dm-row.theirs .dm-bubble time { color: var(--text-3); opacity: 1; }
+.dm-bubble .mention { color: inherit; font-weight: 600; text-decoration: underline; }
+.dm-row.theirs .dm-bubble .mention { color: var(--green-lt); text-decoration: none; }
+
+/* Shared-post attachment card inside a bubble */
+.dm-att {
+  display: flex; align-items: center; gap: 10px; padding: 8px;
+  border-radius: 12px; background: rgba(0,0,0,0.18); color: inherit; max-width: 260px;
+}
+.dm-row.theirs .dm-att { background: rgba(255,255,255,0.04); }
+.dm-att-thumb {
+  width: 44px; height: 44px; border-radius: 8px; flex: none; background-size: cover;
+  background-position: center; background-color: var(--bg-2);
+  display: grid; place-items: center; font-size: 20px;
+}
+.dm-att-meta { display: flex; flex-direction: column; min-width: 0; }
+.dm-att-meta b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-att-meta small { font-size: 12px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Composer ──────────────────────────────────────────────────────── */
+.dm-compose {
+  flex: none; display: flex; align-items: flex-end; gap: 10px;
+  padding: 12px 14px; border-top: 1px solid var(--line);
+}
+.dm-compose textarea {
+  flex: 1; resize: none; max-height: 120px; min-height: 44px; padding: 11px 14px;
+  border-radius: 22px; border: 1px solid var(--line-2); background: var(--bg-2);
+  color: var(--text); font: inherit; font-size: 14.5px; line-height: 1.4;
+}
+.dm-compose textarea:focus { outline: none; border-color: var(--green); }
+.dm-compose textarea::placeholder { color: var(--text-3); }
+.dm-send {
+  flex: none; width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--green); color: #04210f; display: grid; place-items: center;
+  transition: transform .12s, opacity .15s;
+}
+.dm-send svg { width: 20px; height: 20px; }
+.dm-send:not(:disabled):hover { transform: scale(1.06); }
+.dm-send:not(:disabled):active { transform: scale(0.94); }
+.dm-send:disabled { opacity: 0.4; cursor: default; }
+
+.side-dm-badge {
+  margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--green); color: #04210f; font-size: 11px; font-weight: 700;
+  display: grid; place-items: center;
+}
+
+/* ── Desktop two-pane ──────────────────────────────────────────────── */
+@media (min-width: 1024px) {
+  .dm-shell-wrap { grid-template-columns: 220px minmax(0, 1fr); }
+  .dm-shell { grid-template-columns: 340px minmax(0, 1fr); }
+  .dm-thread { display: flex; }
+}
+
+/* ── Mobile: list ⇄ thread slide ───────────────────────────────────── */
+@media (max-width: 1023px) {
+  .dm-shell-wrap { max-width: 720px; }
+  .dm-shell { position: relative; }
+  .dm-list { width: 100%; }
+  .dm-thread {
+    display: flex; position: absolute; inset: 0; background: var(--bg);
+    transform: translateX(100%); transition: transform .25s ease;
+    border-left: 0; z-index: 2;
+  }
+  .dm-shell.show-thread .dm-thread { transform: translateX(0); }
+  .dm-back { display: grid; }
+  /* leave room for the fixed bottom nav under the composer */
+  .dm-compose { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dm-thread { transition: none; }
+  .dm-messages { scroll-behavior: auto; }
+}

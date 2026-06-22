@@ -55,6 +55,7 @@
 .prof-btn.follow { background: var(--green); color: #04130a; }
 .prof-btn.following { background: var(--glass-2); color: var(--text-2); border: 1px solid var(--line); }
 .prof-btn.edit { background: var(--glass-2); color: var(--text); border: 1px solid var(--line); }
+.prof-btn.message { background: var(--glass-2); color: var(--text); border: 1px solid var(--line); display: inline-grid; place-items: center; }
 .prof-btn.icon { padding: 10px 14px; }
 
 /* ── Tabs ────────────────────────────────────────────────────────────── */

@@ -1,0 +1,107 @@
+/* reels.css — NutriFell Phase 4C: full-screen vertical reels viewer.
+   Builds on feed.css tokens + the shared .sheet comment component. */
+
+.reels-body { background: #000; color: #fff; overflow: hidden; height: 100dvh; }
+
+/* Top overlay */
+.reels-top {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 30; height: 54px;
+  display: flex; align-items: center; gap: 12px; padding: 0 14px;
+  padding-top: env(safe-area-inset-top);
+  background: linear-gradient(180deg, rgba(0,0,0,0.55), transparent);
+}
+.reels-top h1 { font-size: 18px; font-weight: 700; flex: 1; }
+.reels-back, .reels-mute {
+  width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(0,0,0,0.3);
+  color: #fff; display: grid; place-items: center; cursor: pointer;
+}
+.reels-back svg, .reels-mute svg { width: 22px; height: 22px; }
+.reels-mute.on { background: var(--green); color: #04210f; }
+
+/* Snap feed */
+.reels-container {
+  height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.reels-container::-webkit-scrollbar { display: none; }
+
+.reel {
+  position: relative; height: 100dvh; scroll-snap-align: start; scroll-snap-stop: always;
+  display: grid; place-items: center; background: #000; overflow: hidden;
+}
+.reel-video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.reel-tap { position: absolute; inset: 0; z-index: 5; }
+.reel-shade {
+  position: absolute; inset: 0; z-index: 6; pointer-events: none;
+  background: linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.6) 100%);
+}
+
+.reel-paused {
+  position: absolute; z-index: 7; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 74px; height: 74px; border-radius: 50%; background: rgba(0,0,0,0.4);
+  display: grid; place-items: center; pointer-events: none; color: #fff;
+}
+.reel-paused svg { width: 34px; height: 34px; margin-left: 3px; }
+
+/* Right action rail */
+.reel-rail {
+  position: absolute; right: 10px; bottom: calc(var(--bottom-h) + 18px); z-index: 10;
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+}
+.reel-author-link { position: relative; margin-bottom: 4px; }
+.reel-av {
+  width: 46px; height: 46px; border-radius: 50%; background: var(--bg-2); background-size: cover;
+  background-position: center; display: grid; place-items: center; font-weight: 700;
+  color: var(--green-lt); border: 2px solid #fff;
+}
+.reel-follow {
+  position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid #000; background: var(--green);
+  color: #04210f; font-size: 15px; font-weight: 700; cursor: pointer; display: grid; place-items: center; line-height: 1;
+}
+.reel-action {
+  background: none; border: 0; color: #fff; cursor: pointer; display: flex;
+  flex-direction: column; align-items: center; gap: 4px; font: inherit;
+}
+.reel-action svg { width: 32px; height: 32px; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)); }
+.reel-action b { font-size: 12px; font-weight: 600; }
+.reel-action.liked { color: var(--like); }
+.reel-action.saved { color: var(--gold); }
+
+/* Bottom-left info */
+.reel-info {
+  position: absolute; left: 14px; right: 84px; bottom: calc(var(--bottom-h) + 18px); z-index: 10;
+}
+.reel-handle { color: #fff; font-weight: 700; font-size: 15px; }
+.reel-caption { margin-top: 6px; font-size: 14px; line-height: 1.4; color: rgba(255,255,255,0.92); text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
+.reel-caption a, .reel-handle { text-decoration: none; }
+.reel-caption a { color: var(--green-lt); font-weight: 600; }
+
+.reels-loading { height: 100dvh; display: grid; place-items: center; }
+.reels-empty {
+  height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 8px; padding: 30px; color: rgba(255,255,255,0.85);
+}
+.reels-empty .em { font-size: 52px; }
+.reels-empty h2 { font-size: 22px; font-weight: 700; color: #fff; }
+.reels-empty .btn-post { margin-top: 12px; }
+
+/* Comment rows inside the shared .sheet */
+.cm-row { display: flex; gap: 10px; padding: 10px 4px; }
+.cm-av {
+  width: 36px; height: 36px; border-radius: 50%; flex: none; background: var(--bg-2);
+  background-size: cover; background-position: center; display: grid; place-items: center;
+  font-weight: 700; color: var(--green-lt); font-size: 14px;
+}
+.cm-row b { font-size: 13.5px; }
+.cm-row p { font-size: 14px; color: var(--text); margin-top: 2px; line-height: 1.4; }
+
+/* Keep the bottom nav legible over video */
+.reels-bottom { background: rgba(8,12,20,0.82); backdrop-filter: blur(8px); }
+
+/* Desktop: center a portrait column */
+@media (min-width: 700px) {
+  .reel-video { width: auto; max-width: min(460px, 52vh * 9 / 16 * 1.78); }
+  .reel-rail { right: calc(50% - 250px); }
+  .reel-info { left: calc(50% - 230px); right: auto; max-width: 360px; }
+}
