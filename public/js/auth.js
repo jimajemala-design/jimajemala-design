@@ -371,10 +371,13 @@ function renderNav() {
       location.href = '/profile-view.html';
     });
   } else {
-    navRight.innerHTML = `<a class="nb-login-link" href="/login.html">Login</a>`;
+    navRight.innerHTML = `<a class="nb-login-link" href="/login.html" data-i18n="nav_login">Login</a>`;
   }
 
   _buildSidebar(user);
+
+  // The nav/sidebar are built after i18n's first pass, so re-localize them now.
+  if (window.i18n) i18n.applyToPage();
 }
 
 function _buildSidebar(user) {
@@ -389,15 +392,15 @@ function _buildSidebar(user) {
         <div class="nb-sidebar-head" id="nbSidebarHead"></div>
         <div class="nb-streak" id="nbStreak" hidden aria-live="polite"></div>
         <nav class="nb-sidebar-nav">
-          <a class="nb-nav-item" href="/">🏠 Home</a>
-          <a class="nb-nav-item" href="/feed.html">📱 Social Feed</a>
-          <a class="nb-nav-item" href="/#gallery">🥗 Food Database</a>
-          <a class="nb-nav-item" href="/fridge.html">🧊 My Fridge</a>
-          <a class="nb-nav-item" href="/water.html">💧 Water Tracker</a>
-          <a class="nb-nav-item" href="/quit-smoking.html">🚭 Quit Smoking</a>
-          <a class="nb-nav-item" href="/recipes.html">👨‍🍳 Recipes</a>
-          <a class="nb-nav-item" href="/profile-view.html">👤 My Profile</a>
-          <a class="nb-nav-item" href="/pricing.html">💎 Pricing</a>
+          <a class="nb-nav-item" href="/">🏠 <span data-i18n="nav_home">Home</span></a>
+          <a class="nb-nav-item" href="/feed.html">📱 <span data-i18n="nav_feed">Social Feed</span></a>
+          <a class="nb-nav-item" href="/#gallery">🥗 <span data-i18n="nav_database">Food Database</span></a>
+          <a class="nb-nav-item" href="/fridge.html">🧊 <span data-i18n="nav_fridge">My Fridge</span></a>
+          <a class="nb-nav-item" href="/water.html">💧 <span data-i18n="nav_water">Water Tracker</span></a>
+          <a class="nb-nav-item" href="/quit-smoking.html">🚭 <span data-i18n="nav_smoking">Quit Smoking</span></a>
+          <a class="nb-nav-item" href="/recipes.html">👨‍🍳 <span data-i18n="nav_recipes">Recipes</span></a>
+          <a class="nb-nav-item" href="/profile-view.html">👤 <span data-i18n="nav_profile">My Profile</span></a>
+          <a class="nb-nav-item" href="/pricing.html">💎 <span data-i18n="nav_pricing">Pricing</span></a>
           <div class="nb-nav-item nb-nav-disabled">⚙️ Settings <span class="nb-soon">Soon</span></div>
         </nav>
         <div class="nb-sidebar-foot" id="nbSidebarFoot"></div>
@@ -441,7 +444,7 @@ function _buildSidebar(user) {
         <div class="nb-sidebar-goal">🎯 ${goalLabel}</div>
       </div>`;
     foot.innerHTML = `
-      <button class="nb-logout-btn" id="nbLogoutBtn">⏻ Logout</button>
+      <button class="nb-logout-btn" id="nbLogoutBtn">⏻ <span data-i18n="nav_logout">Logout</span></button>
       <div class="nb-version">NutriFell v1.0</div>`;
     const logoutBtn = document.getElementById('nbLogoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', () => { _closeSidebar(); Auth.logout(); });
@@ -450,8 +453,8 @@ function _buildSidebar(user) {
       <div class="nb-sidebar-welcome">
         <div class="nb-welcome-title">Welcome to NutriFell</div>
         <div class="nb-welcome-sub">Track nutrition. Reach your goals.</div>
-        <a class="btn-primary nb-sidebar-cta" href="/login.html">Login</a>
-        <a class="nb-register-link" href="/register.html">Create free account</a>
+        <a class="btn-primary nb-sidebar-cta" href="/login.html" data-i18n="nav_login">Login</a>
+        <a class="nb-register-link" href="/register.html" data-i18n="nav_register">Create free account</a>
       </div>`;
     foot.innerHTML = `<div class="nb-version">NutriFell v1.0</div>`;
   }

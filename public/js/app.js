@@ -6,6 +6,12 @@ const App = (() => {
   let sceneReady = false;
   let activeCategory = 'all';
   let searchQuery = '';
+  let currentDetailId = null;
+
+  // Localized food name / description: Georgian when active and available,
+  // otherwise English. Keeps every display string in one place.
+  const fname = (f) => (window.i18n && i18n.lang === 'ka' && f && f.nameKa) ? f.nameKa : (f ? f.name : '');
+  const fdesc = (f) => (window.i18n && i18n.lang === 'ka' && f && f.descriptionKa) ? f.descriptionKa : (f ? (f.description || '') : '');
 
   const $ = id => document.getElementById(id);
   const delay = ms => new Promise(r => setTimeout(r, ms));
@@ -88,7 +94,7 @@ const App = (() => {
     const track = $('tickerTrack');
     if (!track || !foods.length) return;
     const items = foods.map(f =>
-      `<span class="ticker-item">${f.emoji} ${f.name}</span>`).join('');
+      `<span class="ticker-item">${f.emoji} ${fname(f)}</span>`).join('');
     track.innerHTML = items + items; // duplicate for seamless -50% loop
   }
 
@@ -160,7 +166,7 @@ const App = (() => {
     const q = searchQuery.toLowerCase();
     return foods.filter(f => {
       const matchCat = activeCategory === 'all' || (CATEGORIES[f.id] || 'fruit') === activeCategory;
-      const matchSearch = !q || f.name.toLowerCase().includes(q);
+      const matchSearch = !q || f.name.toLowerCase().includes(q) || (f.nameKa || '').toLowerCase().includes(q);
       return matchCat && matchSearch;
     });
   }
@@ -208,13 +214,13 @@ const App = (() => {
              role="button"
              tabindex="0"
              data-id="${f.id}"
-             aria-label="Explore ${f.name} — ${f.calories} kcal">
+             aria-label="Explore ${fname(f)} — ${f.calories} kcal">
           <div class="card-top">
             <span class="card-num">${num}</span>
             <span class="card-badge ${cat}">${CATEGORY_LABELS[cat]}</span>
           </div>
           <span class="card-emoji" aria-hidden="true">${f.emoji}</span>
-          <div class="card-name">${f.name}</div>
+          <div class="card-name">${fname(f)}</div>
           <span class="card-cal">${f.calories} KCAL <span class="card-cal-unit">/ 100g</span></span>
           <div class="card-macros">
             <span>P <b>${n.protein}g</b></span>
@@ -293,6 +299,7 @@ const App = (() => {
   async function openDetail(id) {
     const food = foods.find(f => f.id === id);
     if (!food) return;
+    currentDetailId = id;
 
     pushRecent(id);
     trackView(id);
@@ -302,7 +309,7 @@ const App = (() => {
       $('detailSection').removeAttribute('style');
 
       const bc = $('bcCurrent');
-      if (bc) bc.textContent = food.name.toUpperCase();
+      if (bc) bc.textContent = fname(food).toUpperCase();
 
       renderMacros(food);
       renderInfo(food);
@@ -441,7 +448,7 @@ const App = (() => {
       factHtml = `
         <div class="food-fact">
           <span class="food-fact-ico" aria-hidden="true">💡</span>
-          <span><b>${food.name}</b> covers <b>${Math.round(bestPct)}%</b> of your daily ${labels[bestKey] || bestKey} in a ${food.serving}.</span>
+          <span><b>${fname(food)}</b> covers <b>${Math.round(bestPct)}%</b> of your daily ${labels[bestKey] || bestKey} in a ${food.serving}.</span>
         </div>`;
     }
 
@@ -466,7 +473,7 @@ const App = (() => {
             <span class="food-tag-dot"></span>
             ${CATEGORY_LABELS[cat]} · SPECIMEN PROFILE
           </div>
-          <h2 class="food-name">${food.name}</h2>
+          <h2 class="food-name">${fname(food)}</h2>
           <span class="food-serving">VALUES PER ${food.serving}</span>
         </div>
         <div class="calorie-box">
@@ -475,7 +482,7 @@ const App = (() => {
         </div>
       </div>
 
-      ${food.description ? `<p class="food-description">${food.description}</p>` : ''}
+      ${fdesc(food) ? `<p class="food-description">${fdesc(food)}</p>` : ''}
 
       <div class="energy-bar-wrap">
         <div class="energy-bar-header">
@@ -547,9 +554,9 @@ const App = (() => {
     const food = foods[dayOfYear(new Date()) % foods.length];
     if (!food) return;
 
-    const note = (food.description || food.benefits?.[0] || '').toString();
+    const note = (fdesc(food) || food.benefits?.[0] || '').toString();
     $('fotdEmoji').textContent = food.emoji;
-    $('fotd-heading').textContent = food.name;
+    $('fotd-heading').textContent = fname(food);
     $('fotdNote').textContent = note;
     $('fotdCal').textContent = `${food.calories} KCAL / 100G`;
     $('fotdCard').style.setProperty('--glow', hexToGlow(food.color));
@@ -588,9 +595,9 @@ const App = (() => {
     row.innerHTML = items.map(f => `
       <button class="recent-chip" type="button" role="listitem"
               style="--glow:${hexToGlow(f.color)}"
-              data-id="${f.id}" aria-label="Open ${f.name}">
+              data-id="${f.id}" aria-label="Open ${fname(f)}">
         <span class="recent-emoji" aria-hidden="true">${f.emoji}</span>
-        <span class="recent-name">${f.name}</span>
+        <span class="recent-name">${fname(f)}</span>
         <span class="recent-cal">${f.calories}</span>
       </button>`).join('');
 
@@ -635,10 +642,10 @@ const App = (() => {
     row.innerHTML = ranked.map((x, i) => `
       <button class="recent-chip trend-chip" type="button" role="listitem"
               style="--glow:${hexToGlow(x.food.color)}"
-              data-id="${x.food.id}" aria-label="Open ${x.food.name}, ${x.c} views this week">
+              data-id="${x.food.id}" aria-label="Open ${fname(x.food)}, ${x.c} views this week">
         <span class="trend-rank">${i + 1}</span>
         <span class="recent-emoji" aria-hidden="true">${x.food.emoji}</span>
-        <span class="recent-name">${x.food.name}</span>
+        <span class="recent-name">${fname(x.food)}</span>
         <span class="recent-cal">${x.c} view${x.c === 1 ? '' : 's'}</span>
       </button>`).join('');
 
@@ -742,6 +749,28 @@ const App = (() => {
     initReveal();
     initPromoVideo();
     $('backBtn').addEventListener('click', showGrid);
+
+    // Re-render localized food content when the language switches (i18n.js fires
+    // `languagechange`). Grid/recent/trending rebind on fresh nodes, so this is
+    // safe to call repeatedly; FotD text is updated without rebinding its click.
+    document.addEventListener('languagechange', () => {
+      initTicker();
+      renderGrid(filteredFoods());
+      renderRecent();
+      renderTrending();
+      const fw = $('fotd');
+      if (fw && !fw.hidden && foods.length) {
+        const fd = foods[dayOfYear(new Date()) % foods.length];
+        if (fd) { $('fotd-heading').textContent = fname(fd); $('fotdNote').textContent = (fdesc(fd) || fd.benefits?.[0] || ''); }
+      }
+      if (currentDetailId && $('gridView') && $('gridView').style.display === 'none') {
+        const food = foods.find(f => f.id === currentDetailId);
+        if (food) {
+          const bc = $('bcCurrent'); if (bc) bc.textContent = fname(food).toUpperCase();
+          renderMacros(food); renderInfo(food);
+        }
+      }
+    });
   }
 
   return { init };

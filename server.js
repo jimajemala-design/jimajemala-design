@@ -412,6 +412,7 @@ const foods = [
   {
     id: 'apple',
     name: 'Apple',
+    nameKa: "ვაშლი",
     emoji: '🍎',
     color: '#e74c3c',
     calories: 52,
@@ -430,11 +431,13 @@ const foods = [
       'Acidic — can affect tooth enamel'
     ],
     description: "Crisp and juicy with a refreshing sweet-tart snap, the apple is built for satisfying, low-effort snacking. Its pectin fiber feeds the gut while quercetin and other antioxidants support heart health. With more than 7,500 varieties grown worldwide, no two apples have to taste quite the same.",
+    descriptionKa: "მკვრივი და გამაგრილებლად მოტკბო-მომჟავო, ვაშლი იდეალურია მსუბუქი წასახემსებლად. მისი პექტინის ბოჭკო კვებავს ნაწლავებს, ხოლო კვერცეტინი და სხვა ანტიოქსიდანტები გულის ჯანმრთელობას უჭერენ მხარს. მსოფლიოში 7500-ზე მეტი ჯიში არსებობს.",
     serving: '100g'
   },
   {
     id: 'banana',
     name: 'Banana',
+    nameKa: "ბანანი",
     emoji: '🍌',
     color: '#f1c40f',
     calories: 89,
@@ -453,11 +456,13 @@ const foods = [
       'Unripe bananas can cause bloating'
     ],
     description: "Soft, creamy, and naturally sweet, a ripe banana is nature's grab-and-go fuel. Each one delivers around 376mg of potassium plus vitamin B6 to support heart and muscle function. Botanically they are berries, and they grow pointing up toward the sun rather than hanging down.",
+    descriptionKa: "რბილი, ნაღებისებური და ბუნებრივად ტკბილი, მომწიფებული ბანანი იდეალური სწრაფი ენერგიის წყაროა. თითოეული შეიცავს დაახლოებით 376 მგ კალიუმს და B6 ვიტამინს გულისა და კუნთების მხარდასაჭერად. ბოტანიკურად ბანანი კენკრაა.",
     serving: '100g'
   },
   {
     id: 'chicken',
     name: 'Chicken Breast',
+    nameKa: "მთელი ქათმის მკერდი",
     emoji: '🍗',
     color: '#f39c12',
     calories: 165,
@@ -476,11 +481,13 @@ const foods = [
       'Minimal micronutrient diversity'
     ],
     description: "Lean, mild, and endlessly adaptable, chicken breast is the clean canvas of the protein world. It offers one of the highest protein-to-calorie ratios of any common meat, 31g per 100g, with very little fat. That blank-slate flavor is exactly why it anchors cuisines on every continent.",
+    descriptionKa: "მჭლე, რბილი და მრავალმხრივი, ქათმის მკერდი ცილის სუფთა წყაროა. მას ერთ-ერთი საუკეთესო ცილა-კალორიის თანაფარდობა აქვს, 100 გრამზე 31 გრამი ცილა და ძალიან ცოტა ცხიმი. სწორედ ამიტომ გვხვდება იგი მსოფლიოს ყველა სამზარეულოში.",
     serving: '100g'
   },
   {
     id: 'fish',
     name: 'Fish (Salmon)',
+    nameKa: "ორაგული",
     emoji: '🐟',
     color: '#e67e22',
     calories: 208,
@@ -499,11 +506,13 @@ const foods = [
       'Allergenic for fish-sensitive individuals'
     ],
     description: "Rich, buttery, and tender with a savory depth, salmon is the fish even skeptics enjoy. It is one of the best dietary sources of omega-3 fats, which calm inflammation and support the brain and heart, plus an exceptional dose of vitamin D. Its pink flesh comes from the same antioxidant family that turns flamingos pink.",
+    descriptionKa: "მდიდარი, ნაღებისებური და ნაზი, ორაგული ცხიმიანი თევზია გამორჩეული გემოთი. ის ომეგა-3 ცხიმოვანი მჟავების ერთ-ერთი საუკეთესო წყაროა, რომელიც ანთებას ამცირებს და ტვინსა და გულს უჭერს მხარს, ასევე D ვიტამინით მდიდარია. მისი ვარდისფერი ხორცი იმავე ანტიოქსიდანტისგან მოდის, რომელიც ფლამინგოს აფერადებს.",
     serving: '100g'
   },
   {
     id: 'almond',
     name: 'Almond',
+    nameKa: "ნუში",
     emoji: '🥜',
     color: '#8B6914',
     calories: 579,
@@ -522,11 +531,13 @@ const foods = [
       'Phytic acid can reduce mineral absorption'
     ],
     description: "Rich, crunchy, and subtly sweet, almonds are the snack that feels good to reach for. They are an outstanding source of vitamin E, an antioxidant that protects your cells, plus heart-healthy fats and magnesium. Almonds are not true nuts but the seeds of a fruit related to peaches.",
+    descriptionKa: "მდიდარი, ხრაშუნა და ოდნავ ტკბილი, ნუში სასიამოვნო და სასარგებლო საუზმობელია. ის E ვიტამინის შესანიშნავი წყაროა, ანტიოქსიდანტის, რომელიც უჯრედებს იცავს, ასევე გულისთვის სასარგებლო ცხიმებითა და მაგნიუმით მდიდარია. ნუში ნამდვილი კაკალი არ არის, ის ატმის ნათესავი ხილის თესლია.",
     serving: '100g'
   },
   {
     id: 'egg',
     name: 'Eggs',
+    nameKa: "კვერცხი",
     emoji: '🥚',
     color: '#F5E6C8',
     calories: 155,
@@ -545,11 +556,13 @@ const foods = [
       'Factory-farmed eggs lower in omega-3 than pasture-raised'
     ],
     description: "Creamy, rich, and infinitely versatile, eggs are a kitchen staple for good reason. They are a complete protein with all nine essential amino acids and one of the best sources of choline, a nutrient vital for memory. A whole egg is also one of the most affordable high-quality proteins you can buy.",
+    descriptionKa: "ნაღებისებური, მკვებავი და მრავალმხრივი, კვერცხი სამზარეულოს საფუძველია. ის სრულყოფილი ცილაა ცხრავე აუცილებელი ამინომჟავით და ქოლინის ერთ-ერთი საუკეთესო წყაროა, რომელიც მეხსიერებას უჭერს მხარს. ამავე დროს ეს ერთ-ერთი ყველაზე იაფი მაღალხარისხიანი ცილაა.",
     serving: '100g'
   },
   {
     id: 'sweetpotato',
     name: 'Sweet Potato',
+    nameKa: "ტკბილი კარტოფილი",
     emoji: '🍠',
     color: '#E8611A',
     calories: 86,
@@ -568,10 +581,11 @@ const foods = [
       'Oxalates may be a concern for kidney stone prone individuals'
     ],
     description: "Naturally sweet and creamy when roasted, sweet potato is comfort with a nutritional backbone. A single serving provides well over a day's worth of vitamin A as beta-carotene, plus steady fiber and complex carbs. Despite the name, it is not closely related to the regular potato at all.",
+    descriptionKa: "ბუნებრივად ტკბილი და ნაზი შეწვისას, ტკბილი კარტოფილი მკვებავი კომფორტის საკვებია. ერთი პორცია დღიურ ნორმაზე მეტ A ვიტამინს იძლევა ბეტა-კაროტინის სახით, ასევე ბოჭკოსა და რთულ ნახშირწყლებს. სახელის მიუხედავად, ის ჩვეულებრივ კარტოფილს ნათესავად არ უკავშირდება.",
     serving: '100g'
   },
   {
-    id: 'broccoli', name: 'Broccoli', emoji: '🥦', color: '#22863a', calories: 34,
+    id: 'broccoli', name: 'Broccoli', nameKa: "ბროკოლი", emoji: '🥦', color: '#22863a', calories: 34,
     nutrition: { protein: 2.8, carbs: 7, fiber: 2.6, fat: 0.4, vitaminC: 80.1, vitaminK: 92.4, folate: 56 },
     benefits: [
       'Cancer-fighting sulforaphane compound',
@@ -586,10 +600,11 @@ const foods = [
       'Bitter taste when overcooked'
     ],
     description: "Fresh and grassy with a satisfying crunch raw and a tender bite cooked, broccoli rewards good cooking. It is famous for sulforaphane, a compound studied for cancer protection, and it delivers more vitamin C than an orange. Broccoli is a human invention, bred from wild cabbage over 2,000 years ago.",
+    descriptionKa: "სუფთა, ხრაშუნა და გემრიელი, ბროკოლი ანტიოქსიდანტებით მდიდარი ბოსტნეულია. ის ცნობილია სულფორაფანით, ნაერთით, რომელსაც კიბოსგან დაცვისთვის სწავლობენ, და ფორთოხალზე მეტ C ვიტამინს შეიცავს. ბროკოლი ადამიანის შექმნილია, გამოყვანილი ველური კომბოსტოსგან 2000 წელზე მეტი ხნის წინ.",
     serving: '100g'
   },
   {
-    id: 'avocado', name: 'Avocado', emoji: '🥑', color: '#355e3b', calories: 160,
+    id: 'avocado', name: 'Avocado', nameKa: "ავოკადო", emoji: '🥑', color: '#355e3b', calories: 160,
     nutrition: { protein: 2, carbs: 9, fiber: 7, fat: 15, vitaminK: 31.2, folate: 80, vitaminB6: 0.22 },
     benefits: [
       'Rich in heart-healthy monounsaturated fats',
@@ -607,7 +622,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'blueberry', name: 'Blueberries', emoji: '🫐', color: '#4b3b8c', calories: 57,
+    id: 'blueberry', name: 'Blueberries', nameKa: "მოცვი", emoji: '🫐', color: '#4b3b8c', calories: 57,
     nutrition: { protein: 0.7, carbs: 14, fiber: 2.4, fat: 0.3, vitaminC: 14.4, vitaminK: 28.8, manganese: 0.39 },
     benefits: [
       'Highest antioxidant content of all common fruits',
@@ -622,10 +637,11 @@ const foods = [
       'Expensive when out of season'
     ],
     description: "Tiny and plump with a sweet-tart burst, blueberries are one of the easiest superfoods to love. They carry the highest antioxidant content of any common fruit, led by anthocyanins linked to sharper memory. That deep blue-purple skin is where most of those antioxidants live.",
+    descriptionKa: "პატარა და წვნიანი, მოტკბო-მომჟავო აფეთქებით, მოცვი ერთ-ერთი ყველაზე საყვარელი სუპერსაკვებია. მას ნებისმიერ გავრცელებულ ხილს შორის ყველაზე მაღალი ანტიოქსიდანტური შემცველობა აქვს, განსაკუთრებით ანთოციანინებით, რომლებიც მეხსიერებას უკავშირდება. სწორედ მუქ ლურჯ კანშია ამ ანტიოქსიდანტების უმეტესობა.",
     serving: '100g'
   },
   {
-    id: 'spinach', name: 'Spinach', emoji: '🥬', color: '#2d6a2f', calories: 23,
+    id: 'spinach', name: 'Spinach', nameKa: "ისპანახი", emoji: '🥬', color: '#2d6a2f', calories: 23,
     nutrition: { protein: 2.9, carbs: 3.6, fiber: 2.2, fat: 0.4, vitaminK: 552, vitaminA: 1692, folate: 196, vitaminC: 42.3 },
     benefits: [
       'Extraordinary vitamin K content for bone health',
@@ -640,10 +656,11 @@ const foods = [
       'Can contribute to kidney stones in excess'
     ],
     description: "Mild and faintly earthy, spinach wilts into almost anything and vanishes into smoothies. It is extraordinarily high in vitamin K for bone health, with more than four times a day's worth in 100g, plus eye-protecting lutein. Cooking shrinks it dramatically, so a huge handful becomes a few concentrated bites.",
+    descriptionKa: "რბილი და ოდნავ მიწიერი გემოს, ისპანახი თითქმის ნებისმიერ კერძში ერწყმის. ის უაღრესად მდიდარია K ვიტამინით ძვლების ჯანმრთელობისთვის, 100 გრამში დღიური ნორმის ოთხჯერ მეტი, ასევე თვალისთვის სასარგებლო ლუტეინით. მოხარშვისას ის მკვეთრად მცირდება.",
     serving: '100g'
   },
   {
-    id: 'greekyogurt', name: 'Greek Yogurt', emoji: '🍦', color: '#f0ede6', calories: 59,
+    id: 'greekyogurt', name: 'Greek Yogurt', nameKa: "ბერძნული იოგურტი", emoji: '🍦', color: '#f0ede6', calories: 59,
     nutrition: { protein: 10, carbs: 3.6, fiber: 0, fat: 0.4, vitaminB12: 0.31, calcium: 110, phosphorus: 90 },
     benefits: [
       'Extremely high protein — twice that of regular yogurt',
@@ -658,10 +675,11 @@ const foods = [
       'More expensive than regular yogurt'
     ],
     description: "Thick, tangy, and luxuriously creamy, Greek yogurt is comfort food that loves you back. Straining gives it about double the protein of regular yogurt, around 10g per 100g, plus probiotics that support gut health. It takes roughly four cups of milk to make a single cup.",
+    descriptionKa: "სქელი, მომჟავო და ნაღებისებური, ბერძნული იოგურტი სასარგებლო კომფორტის საკვებია. გაფილტვრის წყალობით მას ჩვეულებრივ იოგურტზე ორჯერ მეტი ცილა აქვს, 100 გრამზე დაახლოებით 10 გრამი, ასევე პრობიოტიკები ნაწლავების ჯანმრთელობისთვის. ერთი ჭიქის დასამზადებლად დაახლოებით ოთხი ჭიქა რძეა საჭირო.",
     serving: '100g'
   },
   {
-    id: 'carrot', name: 'Carrot', emoji: '🥕', color: '#f97316', calories: 41,
+    id: 'carrot', name: 'Carrot', nameKa: "სტაფილო", emoji: '🥕', color: '#f97316', calories: 41,
     nutrition: { protein: 0.9, carbs: 10, fiber: 2.8, fat: 0.2, vitaminA: 3006, vitaminK: 15.6, vitaminB6: 0.14 },
     benefits: [
       'Extraordinary beta-carotene source for vision and immune health',
@@ -676,10 +694,11 @@ const foods = [
       'Low in complete protein'
     ],
     description: "Sweet, crisp, and snappy, carrots are the crunchy snack that doubles as one of the best sources of beta-carotene. Your body converts that pigment into vitamin A, which supports healthy vision. The familiar orange carrot is a fairly recent creation, as early carrots were purple, white, or yellow.",
+    descriptionKa: "ტკბილი, მკვრივი და ხრაშუნა, სტაფილო ბეტა-კაროტინის ერთ-ერთი საუკეთესო წყაროა. ორგანიზმი ამ პიგმენტს A ვიტამინად გარდაქმნის, რომელიც მხედველობას უჭერს მხარს. ნაცნობი ნარინჯისფერი სტაფილო შედარებით ახალია, ადრე ის იისფერი, თეთრი ან ყვითელი იყო.",
     serving: '100g'
   },
   {
-    id: 'oats', name: 'Oats', emoji: '🥣', color: '#d4a853', calories: 389,
+    id: 'oats', name: 'Oats', nameKa: "შვრია", emoji: '🥣', color: '#d4a853', calories: 389,
     nutrition: { protein: 17, carbs: 66, fiber: 10.6, fat: 7, manganese: 5.66, phosphorus: 520, magnesium: 185 },
     benefits: [
       'Beta-glucan fiber clinically proven to lower LDL cholesterol',
@@ -694,10 +713,11 @@ const foods = [
       'Phytic acid can reduce mineral absorption if not soaked'
     ],
     description: "Warm, creamy, and comforting, a bowl of oats is the definition of a steady morning. They are rich in beta-glucan, a soluble fiber clinically shown to lower cholesterol, and they release energy slowly to keep you full. Oats are naturally gluten-free, though they are often processed alongside wheat.",
+    descriptionKa: "თბილი, ნაზი და დამამშვიდებელი, შვრიის ფაფა მშვიდი დილის სიმბოლოა. ის მდიდარია ბეტა-გლუკანით, ხსნადი ბოჭკოთი, რომელიც ქოლესტერინს ამცირებს, და ენერგიას ნელა გასცემს. შვრია ბუნებრივად უგლუტენოა, თუმცა ხშირად ხორბალთან ერთად მუშავდება.",
     serving: '100g'
   },
   {
-    id: 'lemon', name: 'Lemon', emoji: '🍋', color: '#fde047', calories: 29,
+    id: 'lemon', name: 'Lemon', nameKa: "ლიმონი", emoji: '🍋', color: '#fde047', calories: 29,
     nutrition: { protein: 1.1, carbs: 9, fiber: 2.8, fat: 0.3, vitaminC: 79.2, vitaminB6: 0.1, folate: 12 },
     benefits: [
       'High vitamin C strengthens immune system',
@@ -712,10 +732,11 @@ const foods = [
       'Needs to be combined — too sour to eat alone'
     ],
     description: "Bright, mouth-puckering, and intensely tart, lemon wakes up everything it touches. A single one packs about 79mg of vitamin C, close to a full day's worth, to power the immune system. Curiously, despite its sharp acidity, lemon has an alkalizing effect on the body once metabolized.",
+    descriptionKa: "კაშკაშა და ძალიან მჟავე, ლიმონი ყველაფერს ამძაფრებს გემოს. ერთი ლიმონი დაახლოებით 79 მგ C ვიტამინს შეიცავს, თითქმის დღიურ ნორმას, იმუნიტეტის გასაძლიერებლად. საინტერესოა, რომ მჟავიანობის მიუხედავად, ლიმონს ორგანიზმში ტუტოვანი ეფექტი აქვს.",
     serving: '100g'
   },
   {
-    id: 'walnut', name: 'Walnuts', emoji: '🫘', color: '#8b5e3c', calories: 654,
+    id: 'walnut', name: 'Walnuts', nameKa: "კაკალი", emoji: '🫘', color: '#8b5e3c', calories: 654,
     nutrition: { protein: 15, carbs: 14, fiber: 6.7, fat: 65, omega3: 9, manganese: 3.75, copper: 0.7 },
     benefits: [
       'Highest omega-3 content of all tree nuts',
@@ -730,10 +751,11 @@ const foods = [
       'Oxalates can contribute to kidney stones'
     ],
     description: "Rich and buttery with a pleasant edge of bitterness, walnuts bring complexity to every bite. They hold the highest omega-3 content of any tree nut, fats linked to better brain health. Fittingly, the wrinkled walnut even looks a little like the brain it helps support.",
+    descriptionKa: "მდიდარი და ნაღებისებური, ოდნავ მომწარო გემოთი, კაკალი ყოველ ლუკმას სიღრმეს მატებს. მას ყველა კაკალს შორის ყველაზე მაღალი ომეგა-3 შემცველობა აქვს, ცხიმები, რომლებიც ტვინის ჯანმრთელობას უკავშირდება. შესაბამისად, დანაოჭებული კაკალი ცოტათი თავად ტვინსაც კი ჰგავს.",
     serving: '100g'
   },
   {
-    id: 'tomato', name: 'Tomato', emoji: '🍅', color: '#dc2626', calories: 18,
+    id: 'tomato', name: 'Tomato', nameKa: "პომიდორი", emoji: '🍅', color: '#dc2626', calories: 18,
     nutrition: { protein: 0.9, carbs: 3.9, fiber: 1.2, fat: 0.2, vitaminC: 20.7, vitaminK: 9.6, lycopene: 2.6, vitaminA: 72 },
     benefits: [
       'Lycopene is a powerful antioxidant linked to cancer prevention',
@@ -751,7 +773,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'garlic', name: 'Garlic', emoji: '🧄', color: '#f5f0e0', calories: 149,
+    id: 'garlic', name: 'Garlic', nameKa: "ნიორი", emoji: '🧄', color: '#f5f0e0', calories: 149,
     nutrition: { protein: 6.4, carbs: 33, fiber: 2.1, fat: 0.5, vitaminB6: 1.62, vitaminC: 34.2, manganese: 1.68 },
     benefits: [
       'Allicin compound has potent antibacterial and antiviral effects',
@@ -770,7 +792,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'darkchocolate', name: 'Dark Chocolate', emoji: '🍫', color: '#3d1a0a', calories: 598,
+    id: 'darkchocolate', name: 'Dark Chocolate', nameKa: "შავი შოკოლადი", emoji: '🍫', color: '#3d1a0a', calories: 598,
     nutrition: { protein: 7.8, carbs: 46, fiber: 10.9, fat: 43, iron: 12.06, magnesium: 244, copper: 0.8, manganese: 2.25 },
     benefits: [
       'Richest food source of antioxidant flavonoids',
@@ -786,10 +808,11 @@ const foods = [
       'Sugar content varies significantly by brand'
     ],
     description: "Intense, bittersweet, and smooth as it melts, dark chocolate is indulgence with genuine upside. It is one of the richest food sources of flavonoid antioxidants and supplies real iron and magnesium. It is calorie-dense, so a square or two is plenty to enjoy the benefit.",
+    descriptionKa: "ინტენსიური, მომწარო-მოტკბო და დნება პირში, შავი შოკოლადი ნამდვილი სარგებლის მქონე განებივრებაა. ის ფლავონოიდური ანტიოქსიდანტების ერთ-ერთი უმდიდრესი წყაროა და შეიცავს რკინასა და მაგნიუმს. ის კალორიულია, ამიტომ ერთი-ორი ნაჭერი საკმარისია სარგებლის მისაღებად.",
     serving: '100g'
   },
   {
-    id: 'kiwi', name: 'Kiwi', emoji: '🥝', color: '#4d7c0f', calories: 61,
+    id: 'kiwi', name: 'Kiwi', nameKa: "კივი", emoji: '🥝', color: '#4d7c0f', calories: 61,
     nutrition: { protein: 1.1, carbs: 15, fiber: 3, fat: 0.5, vitaminC: 138.6, vitaminK: 48, vitaminE: 1.5 },
     benefits: [
       'Higher vitamin C per gram than oranges',
@@ -807,7 +830,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'quinoa', name: 'Quinoa', emoji: '🌾', color: '#d4c5a0', calories: 368,
+    id: 'quinoa', name: 'Quinoa', nameKa: "კინოა", emoji: '🌾', color: '#d4c5a0', calories: 368,
     nutrition: { protein: 14, carbs: 64, fiber: 7, fat: 6, manganese: 2.14, phosphorus: 590, magnesium: 206 },
     benefits: [
       'One of the few plant foods containing all 9 essential amino acids',
@@ -823,10 +846,11 @@ const foods = [
       'High oxalate content'
     ],
     description: "Nutty and fluffy with a tiny satisfying pop, quinoa cooks up light and adaptable. It is one of the few plant foods that is a complete protein, with all nine essential amino acids, and it is naturally gluten-free. Technically quinoa is a seed, not a grain, related to spinach and beets.",
+    descriptionKa: "კაკლისებური და ფუმფულა, კინოა მსუბუქი და მრავალმხრივია. ის იმ მცირერიცხოვან მცენარეულ საკვებთა შორისაა, რომელიც სრულყოფილი ცილაა, ცხრავე აუცილებელი ამინომჟავით, და ბუნებრივად უგლუტენოა. ტექნიკურად კინოა თესლია და არა მარცვალი, ისპანახისა და ჭარხლის ნათესავი.",
     serving: '100g'
   },
   {
-    id: 'ginger', name: 'Ginger', emoji: '🫚', color: '#c8a96e', calories: 80,
+    id: 'ginger', name: 'Ginger', nameKa: "კოჭა", emoji: '🫚', color: '#c8a96e', calories: 80,
     nutrition: { protein: 1.8, carbs: 18, fiber: 2, fat: 0.8, vitaminB6: 0.19, magnesium: 42, potassium: 329 },
     benefits: [
       'Gingerol is a uniquely potent anti-inflammatory compound',
@@ -845,7 +869,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'whiterice', name: 'White Rice', emoji: '🍚', color: '#f5f5f0', calories: 130,
+    id: 'whiterice', name: 'White Rice', nameKa: "თეთრი ბრინჯი", emoji: '🍚', color: '#f5f5f0', calories: 130,
     nutrition: { protein: 2.7, carbs: 28, fat: 0.3, fiber: 0.4, manganese: 0.32, thiamine: 0.12, niacin: 1.28 },
     benefits: [
       'Fast, easily accessible energy source',
@@ -864,7 +888,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'brownrice', name: 'Brown Rice', emoji: '🍚', color: '#b08d57', calories: 111,
+    id: 'brownrice', name: 'Brown Rice', nameKa: "ყავისფერი ბრინჯი", emoji: '🍚', color: '#b08d57', calories: 111,
     nutrition: { protein: 2.6, carbs: 23, fat: 0.9, fiber: 1.8, manganese: 1.04, magnesium: 46, phosphorus: 80 },
     benefits: [
       'Much higher fiber than white rice',
@@ -883,7 +907,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'wholewheatbread', name: 'Whole Wheat Bread', emoji: '🍞', color: '#b5793a', calories: 247,
+    id: 'wholewheatbread', name: 'Whole Wheat Bread', nameKa: "მთლიანი ხორბლის პური", emoji: '🍞', color: '#b5793a', calories: 247,
     nutrition: { protein: 13, carbs: 41, fat: 3.4, fiber: 7, manganese: 3.75, selenium: 34.1, thiamine: 0.46 },
     benefits: [
       'Higher fiber than refined white bread',
@@ -902,7 +926,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'pasta', name: 'Pasta', emoji: '🍝', color: '#e8cd6d', calories: 158,
+    id: 'pasta', name: 'Pasta', nameKa: "მაკარონი", emoji: '🍝', color: '#e8cd6d', calories: 158,
     nutrition: { protein: 5.8, carbs: 31, fat: 0.9, fiber: 1.8, selenium: 14.3, manganese: 0.37, folate: 28 },
     benefits: [
       'Reliable energy source for active days',
@@ -922,7 +946,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'corn', name: 'Corn', emoji: '🌽', color: '#f5c542', calories: 86,
+    id: 'corn', name: 'Corn', nameKa: "სიმინდი", emoji: '🌽', color: '#f5c542', calories: 86,
     nutrition: { protein: 3.2, carbs: 19, fat: 1.2, fiber: 2.4, thiamine: 0.18, vitaminB6: 0.14, folate: 28 },
     benefits: [
       'Rich in eye-protecting antioxidants lutein and zeaxanthin',
@@ -942,7 +966,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'lentils', name: 'Lentils', emoji: '🫘', color: '#6b8e23', calories: 116,
+    id: 'lentils', name: 'Lentils', nameKa: "ოსპი", emoji: '🫘', color: '#6b8e23', calories: 116,
     nutrition: { protein: 9, carbs: 20, fat: 0.4, fiber: 7.9, folate: 180, manganese: 0.58, iron: 3.42 },
     benefits: [
       'Extraordinarily high in dietary fiber',
@@ -958,10 +982,11 @@ const foods = [
       'Lower in some essential amino acids'
     ],
     description: "Earthy, hearty, and comforting, lentils turn soups and stews into a meal. They are an excellent plant protein and one of the best legume sources of fiber and plant iron. Unlike dried beans, lentils need no soaking and cook in about 20 minutes.",
+    descriptionKa: "მიწიერი და მაძღრობელი, ოსპი სუპებსა და ჩაშუშულებს სრულ კერძად აქცევს. ის შესანიშნავი მცენარეული ცილაა და ბოჭკოსა და რკინის ერთ-ერთი საუკეთესო წყარო პარკოსნებს შორის. მშრალი ლობიოსგან განსხვავებით, ოსპი დაზელვას არ საჭიროებს და დაახლოებით 20 წუთში იხარშება.",
     serving: '100g'
   },
   {
-    id: 'blackbeans', name: 'Black Beans', emoji: '🫘', color: '#2a2a2e', calories: 132,
+    id: 'blackbeans', name: 'Black Beans', nameKa: "შავი ლობიო", emoji: '🫘', color: '#2a2a2e', calories: 132,
     nutrition: { protein: 8.9, carbs: 24, fat: 0.5, fiber: 8.7, folate: 148, manganese: 0.51, thiamine: 0.19 },
     benefits: [
       'Powerful fiber-plus-protein combination',
@@ -980,7 +1005,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'chickpeas', name: 'Chickpeas', emoji: '🫛', color: '#e3c79a', calories: 164,
+    id: 'chickpeas', name: 'Chickpeas', nameKa: "ნუტი", emoji: '🫛', color: '#e3c79a', calories: 164,
     nutrition: { protein: 8.9, carbs: 27, fat: 2.6, fiber: 7.6, folate: 172, manganese: 1.2, copper: 0.16 },
     benefits: [
       'High in both fiber and plant protein',
@@ -999,7 +1024,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'corntortilla', name: 'Corn Tortilla', emoji: '🫓', color: '#ecd9a0', calories: 218,
+    id: 'corntortilla', name: 'Corn Tortilla', nameKa: "სიმინდის ტორტილა", emoji: '🫓', color: '#ecd9a0', calories: 218,
     nutrition: { protein: 5.7, carbs: 46, fat: 2.5, fiber: 6.7, calcium: 90, iron: 1.98, magnesium: 34 },
     benefits: [
       'Naturally gluten-free',
@@ -1018,7 +1043,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'buckwheat', name: 'Buckwheat', emoji: '🌾', color: '#a8825a', calories: 92,
+    id: 'buckwheat', name: 'Buckwheat', nameKa: "წიწიბურა", emoji: '🌾', color: '#a8825a', calories: 92,
     nutrition: { protein: 3.4, carbs: 20, fat: 0.6, fiber: 2.7, manganese: 0.46, copper: 0.06, magnesium: 29 },
     benefits: [
       'A complete protein with all essential amino acids',
@@ -1037,7 +1062,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'millet', name: 'Millet', emoji: '🌾', color: '#e6cf6a', calories: 119,
+    id: 'millet', name: 'Millet', nameKa: "ფეტვი", emoji: '🌾', color: '#e6cf6a', calories: 119,
     nutrition: { protein: 3.5, carbs: 23, fat: 1, fiber: 1.3, manganese: 0.32, phosphorus: 100, magnesium: 38 },
     benefits: [
       'Gluten-free ancient grain',
@@ -1056,7 +1081,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'barley', name: 'Barley', emoji: '🌾', color: '#d8c89a', calories: 123,
+    id: 'barley', name: 'Barley', nameKa: "ქერი", emoji: '🌾', color: '#d8c89a', calories: 123,
     nutrition: { protein: 2.3, carbs: 28, fat: 0.4, fiber: 3.8, selenium: 6.05, manganese: 0.25, phosphorus: 60 },
     benefits: [
       'Beta-glucan fiber lowers cholesterol like oats',
@@ -1075,7 +1100,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'tuna', name: 'Tuna', emoji: '🐟', color: '#c8554d', calories: 116,
+    id: 'tuna', name: 'Tuna', nameKa: "ტუნა", emoji: '🐟', color: '#c8554d', calories: 116,
     nutrition: { protein: 26, carbs: 0, fat: 1, fiber: 0, vitaminB12: 1.97, selenium: 41.8, niacin: 8.64, vitaminD: 112 },
     benefits: [
       'Extremely high protein with minimal fat',
@@ -1094,7 +1119,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'turkey', name: 'Turkey Breast', emoji: '🦃', color: '#e8c4a0', calories: 135,
+    id: 'turkey', name: 'Turkey Breast', nameKa: "ინდაურის მკერდი", emoji: '🦃', color: '#e8c4a0', calories: 135,
     nutrition: { protein: 30, carbs: 0, fat: 1, fiber: 0, vitaminB6: 0.99, vitaminB12: 0.58, selenium: 25.3, niacin: 8 },
     benefits: [
       'One of the leanest high-protein meats',
@@ -1112,7 +1137,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'cottagecheese', name: 'Cottage Cheese', emoji: '🧀', color: '#f5f3ee', calories: 98,
+    id: 'cottagecheese', name: 'Cottage Cheese', nameKa: "კოტეჯ ყველი", emoji: '🧀', color: '#f5f3ee', calories: 98,
     nutrition: { protein: 11, carbs: 3.4, fat: 4.3, fiber: 0, vitaminB12: 0.38, selenium: 7.7, calcium: 80, phosphorus: 160 },
     benefits: [
       'High in slow-release casein protein',
@@ -1131,7 +1156,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'beef', name: 'Beef', emoji: '🥩', color: '#8b3a2f', calories: 250,
+    id: 'beef', name: 'Beef', nameKa: "საქონლის ხორცი", emoji: '🥩', color: '#8b3a2f', calories: 250,
     nutrition: { protein: 26, carbs: 0, fat: 17, fiber: 0, vitaminB12: 2.35, zinc: 6.27, iron: 2.7, selenium: 16.5, niacin: 4.8 },
     benefits: [
       'Complete protein with all essential amino acids',
@@ -1150,7 +1175,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'pork', name: 'Pork Tenderloin', emoji: '🥓', color: '#e0a99a', calories: 143,
+    id: 'pork', name: 'Pork Tenderloin', nameKa: "ღორის ფილე", emoji: '🥓', color: '#e0a99a', calories: 143,
     nutrition: { protein: 26, carbs: 0, fat: 3.5, fiber: 0, thiamine: 0.65, vitaminB6: 0.63, vitaminB12: 0.43, selenium: 22, niacin: 6.24 },
     benefits: [
       'Lean cut with high-quality protein',
@@ -1168,7 +1193,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'shrimp', name: 'Shrimp', emoji: '🦐', color: '#f08070', calories: 99,
+    id: 'shrimp', name: 'Shrimp', nameKa: "კრევეტი", emoji: '🦐', color: '#f08070', calories: 99,
     nutrition: { protein: 24, carbs: 0.2, fat: 0.3, fiber: 0, selenium: 26.4, vitaminB12: 0.38, iodine: 52.5, phosphorus: 200 },
     benefits: [
       'Very high protein for very few calories',
@@ -1187,7 +1212,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'whey', name: 'Whey Protein', emoji: '🥛', color: '#f0ede6', calories: 400,
+    id: 'whey', name: 'Whey Protein', nameKa: "შრატის ცილა", emoji: '🥛', color: '#f0ede6', calories: 400,
     nutrition: { protein: 80, carbs: 8, fat: 5, fiber: 0, calcium: 200, riboflavin: 0.33, vitaminB12: 0.72, leucine: 8 },
     benefits: [
       'Fastest-absorbing protein source',
@@ -1206,7 +1231,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'edamame', name: 'Edamame', emoji: '🫛', color: '#7cb342', calories: 121,
+    id: 'edamame', name: 'Edamame', nameKa: "ედამამე", emoji: '🫛', color: '#7cb342', calories: 121,
     nutrition: { protein: 11, carbs: 8.9, fat: 5.2, fiber: 5.2, folate: 312, vitaminK: 31.2, manganese: 1.1, iron: 2.34 },
     benefits: [
       'A complete plant protein',
@@ -1225,7 +1250,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'sardines', name: 'Sardines', emoji: '🐠', color: '#c0c4cc', calories: 208,
+    id: 'sardines', name: 'Sardines', nameKa: "სარდინი", emoji: '🐠', color: '#c0c4cc', calories: 208,
     nutrition: { protein: 25, carbs: 0, fat: 11, fiber: 0, vitaminB12: 3.58, selenium: 28.6, calcium: 380, vitaminD: 96, omega3: 1.5 },
     benefits: [
       'One of the richest B12 sources',
@@ -1244,7 +1269,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'tempeh', name: 'Tempeh', emoji: '🧆', color: '#b08850', calories: 193,
+    id: 'tempeh', name: 'Tempeh', nameKa: "ტემპე", emoji: '🧆', color: '#b08850', calories: 193,
     nutrition: { protein: 19, carbs: 9.4, fat: 11, fiber: 0, manganese: 1.24, phosphorus: 210, magnesium: 58.8, riboflavin: 0.18 },
     benefits: [
       'A complete fermented plant protein',
@@ -1263,7 +1288,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'lamb', name: 'Lamb', emoji: '🐑', color: '#9b3b30', calories: 294,
+    id: 'lamb', name: 'Lamb', nameKa: "ბატკნის ხორცი", emoji: '🐑', color: '#9b3b30', calories: 294,
     nutrition: { protein: 25, carbs: 0, fat: 21, fiber: 0, vitaminB12: 1.87, zinc: 5.06, iron: 2.16, selenium: 14.3, niacin: 4 },
     benefits: [
       'Rich in B12 and bioavailable zinc',
@@ -1282,7 +1307,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'cannedsalmon', name: 'Canned Salmon', emoji: '🥫', color: '#f08a5d', calories: 139,
+    id: 'cannedsalmon', name: 'Canned Salmon', nameKa: "დაკონსერვებული ორაგული", emoji: '🥫', color: '#f08a5d', calories: 139,
     nutrition: { protein: 21, carbs: 0, fat: 6.1, fiber: 0, vitaminB12: 3.19, vitaminD: 728, selenium: 19.8, omega3: 1.2, calcium: 180 },
     benefits: [
       'Exceptionally high in vitamin D and B12',
@@ -1301,7 +1326,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'tofu', name: 'Tofu', emoji: '🧈', color: '#f5f2e8', calories: 144,
+    id: 'tofu', name: 'Tofu', nameKa: "ტოფუ", emoji: '🧈', color: '#f5f2e8', calories: 144,
     nutrition: { protein: 17, carbs: 3, fat: 8.7, fiber: 0.3, calcium: 350, manganese: 0.71, selenium: 7.7, iron: 2.7 },
     benefits: [
       'A complete plant protein',
@@ -1320,7 +1345,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'octopus', name: 'Octopus', emoji: '🐙', color: '#c97a8e', calories: 164,
+    id: 'octopus', name: 'Octopus', nameKa: "რვაფეხა", emoji: '🐙', color: '#c97a8e', calories: 164,
     nutrition: { protein: 30, carbs: 4.4, fat: 2.1, fiber: 0, vitaminB12: 12.24, iron: 9.18, selenium: 38.5, copper: 0.9 },
     benefits: [
       'Extraordinary B12 content',
@@ -1339,7 +1364,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'duck', name: 'Duck Breast', emoji: '🦆', color: '#8a4a3a', calories: 201,
+    id: 'duck', name: 'Duck Breast', nameKa: "იხვის მკერდი", emoji: '🦆', color: '#8a4a3a', calories: 201,
     nutrition: { protein: 19, carbs: 0, fat: 13, fiber: 0, vitaminB12: 0.5, iron: 3.06, zinc: 1.65, selenium: 11, vitaminB6: 0.31 },
     benefits: [
       'Rich, flavorful protein',
@@ -1358,7 +1383,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'hempseeds', name: 'Hemp Seeds', emoji: '🌱', color: '#b5b08a', calories: 553,
+    id: 'hempseeds', name: 'Hemp Seeds', nameKa: "კანაფის თესლი", emoji: '🌱', color: '#b5b08a', calories: 553,
     nutrition: { protein: 31, carbs: 8.7, fat: 49, fiber: 4, manganese: 8.33, phosphorus: 830, magnesium: 294, omega3: 8.7 },
     benefits: [
       'A complete plant protein',
@@ -1377,7 +1402,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'pumpkinseeds', name: 'Pumpkin Seeds', emoji: '🎃', color: '#c5d18a', calories: 559,
+    id: 'pumpkinseeds', name: 'Pumpkin Seeds', nameKa: "გოგრის თესლი", emoji: '🎃', color: '#c5d18a', calories: 559,
     nutrition: { protein: 30, carbs: 10.7, fat: 49, fiber: 6, manganese: 5.22, phosphorus: 920, magnesium: 386, zinc: 7.59, iron: 8.1 },
     benefits: [
       'Among the richest food sources of magnesium',
@@ -1396,7 +1421,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'beefliver', name: 'Beef Liver', emoji: '🫀', color: '#6b3528', calories: 175,
+    id: 'beefliver', name: 'Beef Liver', nameKa: "საქონლის ღვიძლი", emoji: '🫀', color: '#6b3528', calories: 175,
     nutrition: { protein: 27, carbs: 5, fat: 5, fiber: 0, vitaminB12: 83.04, copper: 12.47, vitaminA: 7740, folate: 260, iron: 7.02 },
     benefits: [
       'Among the most nutrient-dense foods on earth',
@@ -1415,7 +1440,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'mussels', name: 'Mussels', emoji: '🦪', color: '#3a4a6b', calories: 172,
+    id: 'mussels', name: 'Mussels', nameKa: "მიდია", emoji: '🦪', color: '#3a4a6b', calories: 172,
     nutrition: { protein: 24, carbs: 7.4, fat: 4.5, fiber: 0, vitaminB12: 8.16, selenium: 52.8, manganese: 5.7, iron: 6.66, omega3: 0.7 },
     benefits: [
       'Extraordinary B12 and selenium content',
@@ -1434,7 +1459,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'spirulina', name: 'Spirulina', emoji: '🌀', color: '#1a6b5a', calories: 290,
+    id: 'spirulina', name: 'Spirulina', nameKa: "სპირულინა", emoji: '🌀', color: '#1a6b5a', calories: 290,
     nutrition: { protein: 57, carbs: 24, fat: 7.7, fiber: 3.6, riboflavin: 2.77, iron: 28.4, copper: 0.77, thiamine: 2.48, gla: 1.3 },
     benefits: [
       'The highest protein density of any food',
@@ -1453,7 +1478,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'mango', name: 'Mango', emoji: '🥭', color: '#f5a623', calories: 60,
+    id: 'mango', name: 'Mango', nameKa: "მანგო", emoji: '🥭', color: '#f5a623', calories: 60,
     nutrition: { protein: 0.8, carbs: 15, fat: 0.4, fiber: 1.6, vitaminC: 39.6, vitaminA: 486, vitaminB6: 0.15, folate: 44 },
     benefits: [
       'High in both vitamin C and vitamin A',
@@ -1472,7 +1497,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'pineapple', name: 'Pineapple', emoji: '🍍', color: '#e8c84a', calories: 50,
+    id: 'pineapple', name: 'Pineapple', nameKa: "ანანასი", emoji: '🍍', color: '#e8c84a', calories: 50,
     nutrition: { protein: 0.5, carbs: 13, fat: 0.1, fiber: 1.4, vitaminC: 71.1, manganese: 1.01, vitaminB6: 0.12, thiamine: 0.07 },
     benefits: [
       'Bromelain enzyme aids protein digestion',
@@ -1491,7 +1516,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'strawberry', name: 'Strawberry', emoji: '🍓', color: '#e63946', calories: 32,
+    id: 'strawberry', name: 'Strawberry', nameKa: "მარწყვი", emoji: '🍓', color: '#e63946', calories: 32,
     nutrition: { protein: 0.7, carbs: 7.7, fat: 0.3, fiber: 2, vitaminC: 88.2, manganese: 0.41, folate: 24, vitaminK: 3.6 },
     benefits: [
       'Extremely high in vitamin C',
@@ -1507,10 +1532,11 @@ const foods = [
       'Allergenic for some people'
     ],
     description: "Sweet, fragrant, and lightly tart, sun-ripe strawberries are one of summer's great pleasures. Ounce for ounce they are among the richest vitamin C sources of any fruit, with about 88mg per 100g. They are also the only fruit that wears its seeds on the outside, roughly 200 of them each.",
+    descriptionKa: "ტკბილი, სურნელოვანი და ოდნავ მჟავე, მზეზე მომწიფებული მარწყვი ზაფხულის ერთ-ერთი სიამოვნებაა. ის C ვიტამინის ერთ-ერთი უმდიდრესი წყაროა ხილს შორის, 100 გრამზე დაახლოებით 88 მგ. ეს ერთადერთი ხილია, რომელსაც თესლი გარეთ აქვს, თითო ცალზე დაახლოებით 200.",
     serving: '100g'
   },
   {
-    id: 'watermelon', name: 'Watermelon', emoji: '🍉', color: '#f0506a', calories: 30,
+    id: 'watermelon', name: 'Watermelon', nameKa: "საზამთრო", emoji: '🍉', color: '#f0506a', calories: 30,
     nutrition: { protein: 0.6, carbs: 7.6, fat: 0.2, fiber: 0.4, vitaminC: 11.7, vitaminA: 99, lycopene: 4.5, vitaminB6: 0.07 },
     benefits: [
       'Exceptionally hydrating (about 92% water)',
@@ -1529,7 +1555,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'grapes', name: 'Grapes', emoji: '🍇', color: '#6b3fa0', calories: 69,
+    id: 'grapes', name: 'Grapes', nameKa: "ყურძენი", emoji: '🍇', color: '#6b3fa0', calories: 69,
     nutrition: { protein: 0.7, carbs: 18, fat: 0.2, fiber: 0.9, vitaminK: 16.8, vitaminC: 5.4, vitaminB6: 0.09, resveratrol: 2 },
     benefits: [
       'Resveratrol is a powerful antioxidant',
@@ -1549,7 +1575,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'peach', name: 'Peach', emoji: '🍑', color: '#f5b08a', calories: 39,
+    id: 'peach', name: 'Peach', nameKa: "ატამი", emoji: '🍑', color: '#f5b08a', calories: 39,
     nutrition: { protein: 0.9, carbs: 9.5, fat: 0.3, fiber: 1.5, vitaminC: 9.9, vitaminA: 54, vitaminK: 6, niacin: 0.8 },
     benefits: [
       'Low in calories',
@@ -1568,7 +1594,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'pear', name: 'Pear', emoji: '🍐', color: '#c8d44a', calories: 57,
+    id: 'pear', name: 'Pear', nameKa: "მსხალი", emoji: '🍐', color: '#c8d44a', calories: 57,
     nutrition: { protein: 0.4, carbs: 15, fat: 0.1, fiber: 3.1, vitaminK: 4.8, vitaminC: 6.3, copper: 0.04, vitaminB6: 0.03 },
     benefits: [
       'High in fiber, especially pectin',
@@ -1587,7 +1613,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'orange', name: 'Orange', emoji: '🍊', color: '#f5921e', calories: 47,
+    id: 'orange', name: 'Orange', nameKa: "ფორთოხალი", emoji: '🍊', color: '#f5921e', calories: 47,
     nutrition: { protein: 0.9, carbs: 12, fat: 0.1, fiber: 2.4, vitaminC: 79.2, folate: 32, thiamine: 0.1, potassium: 188 },
     benefits: [
       'Very high in vitamin C',
@@ -1603,10 +1629,11 @@ const foods = [
       'Juicing strips the fiber'
     ],
     description: "Bright, sweet, and classically citrusy, the orange is the fruit people reach for at the first sign of a cold. One delivers about 79mg of vitamin C to fuel the immune system, plus folate and fiber. Oranges are technically a type of berry, and most turn sweeter after a cool night.",
+    descriptionKa: "კაშკაშა, ტკბილი და კლასიკურად ციტრუსოვანი, ფორთოხალი პირველი არჩევანია გაციების დროს. ერთი ფორთოხალი დაახლოებით 79 მგ C ვიტამინს იძლევა იმუნიტეტისთვის, ასევე ფოლიუმის მჟავასა და ბოჭკოს. ბოტანიკურად ფორთოხალი კენკრის სახეობაა.",
     serving: '100g'
   },
   {
-    id: 'pomegranate', name: 'Pomegranate', emoji: '🔴', color: '#b71c2b', calories: 83,
+    id: 'pomegranate', name: 'Pomegranate', nameKa: "ბროწეული", emoji: '🔴', color: '#b71c2b', calories: 83,
     nutrition: { protein: 1.7, carbs: 19, fat: 1.2, fiber: 4, vitaminK: 19.2, vitaminC: 10.8, folate: 40, punicalagins: 15 },
     benefits: [
       'Punicalagins are exceptionally powerful antioxidants',
@@ -1625,7 +1652,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'cherry', name: 'Cherry', emoji: '🍒', color: '#9b1c31', calories: 63,
+    id: 'cherry', name: 'Cherry', nameKa: "ბალი", emoji: '🍒', color: '#9b1c31', calories: 63,
     nutrition: { protein: 1.1, carbs: 16, fat: 0.2, fiber: 2.1, vitaminC: 10.8, vitaminK: 3.6, potassium: 235, anthocyanins: 30 },
     benefits: [
       'A natural source of melatonin for sleep',
@@ -1644,7 +1671,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'papaya', name: 'Papaya', emoji: '🟠', color: '#f5832a', calories: 43,
+    id: 'papaya', name: 'Papaya', nameKa: "პაპაია", emoji: '🟠', color: '#f5832a', calories: 43,
     nutrition: { protein: 0.5, carbs: 11, fat: 0.3, fiber: 1.7, vitaminC: 92.7, vitaminA: 198, folate: 40, vitaminK: 3.6, papain: 8 },
     benefits: [
       'Papain enzyme aids protein digestion',
@@ -1663,7 +1690,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'fig', name: 'Fig', emoji: '🟣', color: '#7a4a8c', calories: 74,
+    id: 'fig', name: 'Fig', nameKa: "ლეღვი", emoji: '🟣', color: '#7a4a8c', calories: 74,
     nutrition: { protein: 0.8, carbs: 19, fat: 0.3, fiber: 2.9, vitaminK: 4.8, vitaminB6: 0.1, copper: 0.03, manganese: 0.14 },
     benefits: [
       'High in dietary fiber',
@@ -1682,7 +1709,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'raspberries', name: 'Raspberries', emoji: '🔴', color: '#d11e4a', calories: 52,
+    id: 'raspberries', name: 'Raspberries', nameKa: "ჟოლო", emoji: '🔴', color: '#d11e4a', calories: 52,
     nutrition: { protein: 1.2, carbs: 12, fat: 0.7, fiber: 6.5, vitaminC: 38.7, vitaminK: 8.4, manganese: 0.74, folate: 20 },
     benefits: [
       'One of the highest-fiber common fruits',
@@ -1701,7 +1728,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'blackberries', name: 'Blackberries', emoji: '⚫', color: '#2e1a3a', calories: 43,
+    id: 'blackberries', name: 'Blackberries', nameKa: "მაყვალი", emoji: '⚫', color: '#2e1a3a', calories: 43,
     nutrition: { protein: 1.4, carbs: 10, fat: 0.5, fiber: 5.3, vitaminK: 22.8, vitaminC: 31.5, manganese: 0.67, folate: 24 },
     benefits: [
       'Very high in dietary fiber',
@@ -1720,7 +1747,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'apricot', name: 'Apricot', emoji: '🟧', color: '#f0a04a', calories: 48,
+    id: 'apricot', name: 'Apricot', nameKa: "გარგარი", emoji: '🟧', color: '#f0a04a', calories: 48,
     nutrition: { protein: 1.4, carbs: 11, fat: 0.4, fiber: 2, vitaminA: 234, vitaminC: 10.8, vitaminK: 4.8, vitaminE: 0.9, betacarotene: 1090 },
     benefits: [
       'High in beta-carotene for eye health',
@@ -1739,7 +1766,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'plum', name: 'Plum', emoji: '🟪', color: '#5e2a6b', calories: 46,
+    id: 'plum', name: 'Plum', nameKa: "ქლიავი", emoji: '🟪', color: '#5e2a6b', calories: 46,
     nutrition: { protein: 0.7, carbs: 11, fat: 0.3, fiber: 1.4, vitaminC: 14.4, vitaminK: 7.2, vitaminA: 45, riboflavin: 0.04 },
     benefits: [
       'Sorbitol acts as a natural laxative',
@@ -1758,7 +1785,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'lychee', name: 'Lychee', emoji: '🌸', color: '#f06a8a', calories: 66,
+    id: 'lychee', name: 'Lychee', nameKa: "ლიჩი", emoji: '🌸', color: '#f06a8a', calories: 66,
     nutrition: { protein: 0.8, carbs: 17, fat: 0.4, fiber: 1.3, vitaminC: 107.1, vitaminB6: 0.14, copper: 0.08, potassium: 235 },
     benefits: [
       'Extremely high in vitamin C',
@@ -1777,7 +1804,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'passionfruit', name: 'Passion Fruit', emoji: '🟣', color: '#6b2a8c', calories: 97,
+    id: 'passionfruit', name: 'Passion Fruit', nameKa: "გრენადილა", emoji: '🟣', color: '#6b2a8c', calories: 97,
     nutrition: { protein: 2.2, carbs: 23, fat: 0.7, fiber: 10.4, vitaminA: 225, vitaminC: 27, iron: 2.16, potassium: 376 },
     benefits: [
       'Exceptionally high in dietary fiber',
@@ -1796,7 +1823,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'coconut', name: 'Coconut', emoji: '🥥', color: '#d8c8a8', calories: 354,
+    id: 'coconut', name: 'Coconut', nameKa: "ქოქოსი", emoji: '🥥', color: '#d8c8a8', calories: 354,
     nutrition: { protein: 3.3, carbs: 15, fat: 33, fiber: 9, manganese: 1.73, copper: 0.2, selenium: 7.7, iron: 2.34 },
     benefits: [
       'MCT fats provide quick energy',
@@ -1815,7 +1842,7 @@ const foods = [
     serving: '100g'
   },
   {
-    id: 'dragonfruit', name: 'Dragon Fruit', emoji: '🐉', color: '#e84a8c', calories: 60,
+    id: 'dragonfruit', name: 'Dragon Fruit', nameKa: "დრაკონის ხილი", emoji: '🐉', color: '#e84a8c', calories: 60,
     nutrition: { protein: 1.2, carbs: 13, fat: 0, fiber: 3, vitaminC: 8.1, iron: 1.44, magnesium: 29.4, betalains: 9 },
     benefits: [
       'Betalain antioxidants fight inflammation',
@@ -1959,6 +1986,14 @@ app.post('/api/login', async (req, res) => {
   res.json({ token, user: publicUser(user) });
 });
 
+// i18n: detect a sensible default language from the Accept-Language header
+// (used by the client on first visit when no preference is stored yet).
+app.get('/api/i18n/detect', (req, res) => {
+  const al = String(req.headers['accept-language'] || '').toLowerCase();
+  const prefersKa = al.split(',').some(part => part.trim().startsWith('ka'));
+  res.json({ lang: prefersKa ? 'ka' : 'en', acceptLanguage: al || null });
+});
+
 app.get('/api/profile', auth, (req, res) => {
   const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
@@ -1970,8 +2005,9 @@ app.put('/api/profile', auth, (req, res) => {
   const idx = users.findIndex(u => u.id === req.userId);
   if (idx === -1) return res.status(404).json({ error: 'User not found' });
   const u = users[idx];
-  const { name, age, weight, currentWeight, targetWeight, height, gender, goal, timeline, activityLevel } = req.body || {};
+  const { name, age, weight, currentWeight, targetWeight, height, gender, goal, timeline, activityLevel, language } = req.body || {};
   if (name != null) u.name = String(name).trim();
+  if (language != null && ['en', 'ka'].includes(String(language))) u.language = String(language);
   if (age != null) u.age = Number(age);
   const cw = currentWeight != null ? currentWeight : weight;
   if (cw != null) u.weight = Number(cw);
