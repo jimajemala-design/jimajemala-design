@@ -475,6 +475,8 @@ const App = (() => {
         </div>
       </div>
 
+      ${food.description ? `<p class="food-description">${food.description}</p>` : ''}
+
       <div class="energy-bar-wrap">
         <div class="energy-bar-header">
           <span class="energy-bar-label">Energy density</span>

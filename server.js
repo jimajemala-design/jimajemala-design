@@ -429,7 +429,7 @@ const foods = [
       'Pesticide residue risk if non-organic',
       'Acidic — can affect tooth enamel'
     ],
-    description: 'A crisp, sweet fruit packed with fiber and vitamin C.',
+    description: "Crisp and juicy with a refreshing sweet-tart snap, the apple is built for satisfying, low-effort snacking. Its pectin fiber feeds the gut while quercetin and other antioxidants support heart health. With more than 7,500 varieties grown worldwide, no two apples have to taste quite the same.",
     serving: '100g'
   },
   {
@@ -452,7 +452,7 @@ const foods = [
       'Not ideal for low-carb diets',
       'Unripe bananas can cause bloating'
     ],
-    description: 'A tropical fruit rich in potassium and natural energy.',
+    description: "Soft, creamy, and naturally sweet, a ripe banana is nature's grab-and-go fuel. Each one delivers around 376mg of potassium plus vitamin B6 to support heart and muscle function. Botanically they are berries, and they grow pointing up toward the sun rather than hanging down.",
     serving: '100g'
   },
   {
@@ -475,7 +475,7 @@ const foods = [
       'Low in omega-3 fatty acids',
       'Minimal micronutrient diversity'
     ],
-    description: 'Lean protein powerhouse ideal for muscle growth and repair.',
+    description: "Lean, mild, and endlessly adaptable, chicken breast is the clean canvas of the protein world. It offers one of the highest protein-to-calorie ratios of any common meat, 31g per 100g, with very little fat. That blank-slate flavor is exactly why it anchors cuisines on every continent.",
     serving: '100g'
   },
   {
@@ -498,7 +498,7 @@ const foods = [
       'Expensive compared to other proteins',
       'Allergenic for fish-sensitive individuals'
     ],
-    description: 'Omega-3 rich fatty fish with exceptional cardiovascular benefits.',
+    description: "Rich, buttery, and tender with a savory depth, salmon is the fish even skeptics enjoy. It is one of the best dietary sources of omega-3 fats, which calm inflammation and support the brain and heart, plus an exceptional dose of vitamin D. Its pink flesh comes from the same antioxidant family that turns flamingos pink.",
     serving: '100g'
   },
   {
@@ -521,7 +521,7 @@ const foods = [
       'Common allergen (tree nut)',
       'Phytic acid can reduce mineral absorption'
     ],
-    description: 'Nutrient-dense tree nut rich in healthy fats and vitamin E.',
+    description: "Rich, crunchy, and subtly sweet, almonds are the snack that feels good to reach for. They are an outstanding source of vitamin E, an antioxidant that protects your cells, plus heart-healthy fats and magnesium. Almonds are not true nuts but the seeds of a fruit related to peaches.",
     serving: '100g'
   },
   {
@@ -544,7 +544,7 @@ const foods = [
       'Must be cooked properly to avoid Salmonella risk',
       'Factory-farmed eggs lower in omega-3 than pasture-raised'
     ],
-    description: "Nature's most complete food — affordable, versatile, and nutritionally dense.",
+    description: "Creamy, rich, and infinitely versatile, eggs are a kitchen staple for good reason. They are a complete protein with all nine essential amino acids and one of the best sources of choline, a nutrient vital for memory. A whole egg is also one of the most affordable high-quality proteins you can buy.",
     serving: '100g'
   },
   {
@@ -567,7 +567,7 @@ const foods = [
       'Can cause bloating and gas if eaten in large amounts',
       'Oxalates may be a concern for kidney stone prone individuals'
     ],
-    description: 'An orange root vegetable loaded with beta-carotene, fiber, and complex carbs.',
+    description: "Naturally sweet and creamy when roasted, sweet potato is comfort with a nutritional backbone. A single serving provides well over a day's worth of vitamin A as beta-carotene, plus steady fiber and complex carbs. Despite the name, it is not closely related to the regular potato at all.",
     serving: '100g'
   },
   {
@@ -585,7 +585,7 @@ const foods = [
       'Goitrogens may interfere with thyroid if eaten raw in large amounts',
       'Bitter taste when overcooked'
     ],
-    description: 'A cruciferous vegetable powerhouse loaded with cancer-fighting sulforaphane.',
+    description: "Fresh and grassy with a satisfying crunch raw and a tender bite cooked, broccoli rewards good cooking. It is famous for sulforaphane, a compound studied for cancer protection, and it delivers more vitamin C than an orange. Broccoli is a human invention, bred from wild cabbage over 2,000 years ago.",
     serving: '100g'
   },
   {
@@ -603,7 +603,7 @@ const foods = [
       'Expensive and seasonal',
       'High fat content (though mostly healthy)'
     ],
-    description: 'A creamy, nutrient-rich fruit packed with heart-healthy fats and folate.',
+    description: "Buttery and rich with a smooth, almost custardy flesh, avocado feels like an indulgence that happens to be good for you. It is loaded with heart-healthy monounsaturated fat and 7g of fiber per 100g, and that fat helps your body absorb vitamins from the foods you eat alongside it. Despite the savory profile, it is botanically a berry.",
     serving: '100g'
   },
   {
@@ -621,7 +621,7 @@ const foods = [
       'High in natural sugars',
       'Expensive when out of season'
     ],
-    description: 'A small but mighty berry with the highest antioxidant capacity of any common fruit.',
+    description: "Tiny and plump with a sweet-tart burst, blueberries are one of the easiest superfoods to love. They carry the highest antioxidant content of any common fruit, led by anthocyanins linked to sharper memory. That deep blue-purple skin is where most of those antioxidants live.",
     serving: '100g'
   },
   {
@@ -639,7 +639,7 @@ const foods = [
       'High vitamin K interacts with blood thinners',
       'Can contribute to kidney stones in excess'
     ],
-    description: 'One of the most nutrient-dense foods on earth — extremely high vitamin K with near-zero calories.',
+    description: "Mild and faintly earthy, spinach wilts into almost anything and vanishes into smoothies. It is extraordinarily high in vitamin K for bone health, with more than four times a day's worth in 100g, plus eye-protecting lutein. Cooking shrinks it dramatically, so a huge handful becomes a few concentrated bites.",
     serving: '100g'
   },
   {
@@ -657,7 +657,7 @@ const foods = [
       'Flavored versions often loaded with added sugar',
       'More expensive than regular yogurt'
     ],
-    description: 'A strained yogurt with double the protein of regular yogurt and powerful probiotic benefits.',
+    description: "Thick, tangy, and luxuriously creamy, Greek yogurt is comfort food that loves you back. Straining gives it about double the protein of regular yogurt, around 10g per 100g, plus probiotics that support gut health. It takes roughly four cups of milk to make a single cup.",
     serving: '100g'
   },
   {
@@ -675,7 +675,7 @@ const foods = [
       'Excessive consumption can turn skin orange (carotenemia)',
       'Low in complete protein'
     ],
-    description: 'An orange root packed with beta-carotene — one of the best plant sources of vitamin A.',
+    description: "Sweet, crisp, and snappy, carrots are the crunchy snack that doubles as one of the best sources of beta-carotene. Your body converts that pigment into vitamin A, which supports healthy vision. The familiar orange carrot is a fairly recent creation, as early carrots were purple, white, or yellow.",
     serving: '100g'
   },
   {
@@ -693,7 +693,7 @@ const foods = [
       'Risk of gluten cross-contamination for celiac disease',
       'Phytic acid can reduce mineral absorption if not soaked'
     ],
-    description: 'The gold standard breakfast grain — beta-glucan fiber actively lowers cholesterol.',
+    description: "Warm, creamy, and comforting, a bowl of oats is the definition of a steady morning. They are rich in beta-glucan, a soluble fiber clinically shown to lower cholesterol, and they release energy slowly to keep you full. Oats are naturally gluten-free, though they are often processed alongside wheat.",
     serving: '100g'
   },
   {
@@ -711,7 +711,7 @@ const foods = [
       'Can trigger acid reflux in sensitive individuals',
       'Needs to be combined — too sour to eat alone'
     ],
-    description: 'A tangy citrus powerhouse with high vitamin C and powerful digestive benefits.',
+    description: "Bright, mouth-puckering, and intensely tart, lemon wakes up everything it touches. A single one packs about 79mg of vitamin C, close to a full day's worth, to power the immune system. Curiously, despite its sharp acidity, lemon has an alkalizing effect on the body once metabolized.",
     serving: '100g'
   },
   {
@@ -729,7 +729,7 @@ const foods = [
       'Expensive compared to other nuts',
       'Oxalates can contribute to kidney stones'
     ],
-    description: 'Brain-shaped and brain-boosting — the richest nut source of plant-based omega-3.',
+    description: "Rich and buttery with a pleasant edge of bitterness, walnuts bring complexity to every bite. They hold the highest omega-3 content of any tree nut, fats linked to better brain health. Fittingly, the wrinkled walnut even looks a little like the brain it helps support.",
     serving: '100g'
   },
   {
@@ -747,7 +747,7 @@ const foods = [
       'Nightshade sensitivity in some individuals',
       'Lycopene bioavailability is highest only when cooked'
     ],
-    description: 'A lycopene-rich red fruit with powerful cancer-preventive antioxidant properties.',
+    description: "Juicy and savory with a gentle sweet-acid balance, the tomato brings a hit of umami to nearly any dish. It is rich in lycopene, an antioxidant tied to heart health and cancer prevention. Cooking actually makes that lycopene easier to absorb, so a simmered sauce can be more potent than raw.",
     serving: '100g'
   },
   {
@@ -766,7 +766,7 @@ const foods = [
       'Blood-thinning interaction with medications',
       'Very pungent flavor requires careful culinary use'
     ],
-    description: 'The original medicine — allicin makes garlic one of the most powerful natural antibiotics.',
+    description: "Pungent and aromatic raw, mellow and savory once cooked, garlic is the backbone of kitchens worldwide. Crushing it releases allicin, a compound with genuine antibacterial power that may help lower blood pressure. That allicin only forms when the clove is cut or crushed, so chopping is what unlocks it.",
     serving: '100g'
   },
   {
@@ -785,7 +785,7 @@ const foods = [
       'High fat content despite being healthy fat',
       'Sugar content varies significantly by brand'
     ],
-    description: 'Luxury nutrition — high-cacao dark chocolate is one of the best antioxidant foods on earth.',
+    description: "Intense, bittersweet, and smooth as it melts, dark chocolate is indulgence with genuine upside. It is one of the richest food sources of flavonoid antioxidants and supplies real iron and magnesium. It is calorie-dense, so a square or two is plenty to enjoy the benefit.",
     serving: '100g'
   },
   {
@@ -803,7 +803,7 @@ const foods = [
       'Oxalates can aggravate kidney stone risk',
       'Can be expensive depending on region'
     ],
-    description: 'A furry brown fruit hiding extraordinary vitamin C and sleep-improving compounds.',
+    description: "Sweet and tangy with a tropical, almost berry-like flavor, kiwi hides a vivid green interior flecked with edible black seeds. Gram for gram it holds more vitamin C than an orange, and compounds in it may help improve sleep quality. The fuzzy skin is edible too, and it adds a fiber boost.",
     serving: '100g'
   },
   {
@@ -822,7 +822,7 @@ const foods = [
       'More expensive than rice or pasta',
       'High oxalate content'
     ],
-    description: 'The complete plant protein — one of only a few plant foods with all essential amino acids.',
+    description: "Nutty and fluffy with a tiny satisfying pop, quinoa cooks up light and adaptable. It is one of the few plant foods that is a complete protein, with all nine essential amino acids, and it is naturally gluten-free. Technically quinoa is a seed, not a grain, related to spinach and beets.",
     serving: '100g'
   },
   {
@@ -841,7 +841,7 @@ const foods = [
       'Very strong spicy flavor requires careful dosing',
       'Not safe in large medicinal doses during pregnancy'
     ],
-    description: 'A knobby root with extraordinary anti-inflammatory power from its active compound gingerol.',
+    description: "Warming, zingy, and a little spicy, ginger adds brightness and heat to sweet and savory dishes alike. Its active compound gingerol is a potent anti-inflammatory and a proven remedy for nausea. Ginger is not a root but an underground stem called a rhizome.",
     serving: '100g'
   },
   {
@@ -860,7 +860,7 @@ const foods = [
       'Nutrient-poor relative to brown rice',
       'Minimal protein and micronutrient density'
     ],
-    description: 'A fluffy, easily digestible staple grain — quick energy that pairs with everything.',
+    description: "Soft, fluffy, and clean-tasting, white rice is the easygoing staple that pairs with everything. It digests quickly and offers fast, accessible energy, which makes it a favorite before and after hard training. Rice feeds more than half the world's population every single day.",
     serving: '100g'
   },
   {
@@ -879,7 +879,7 @@ const foods = [
       'Can contain trace arsenic from the bran layer',
       'Shorter shelf life due to natural oils'
     ],
-    description: 'The whole-grain rice — bran and germ intact for far more fiber and minerals.',
+    description: "Nutty, chewy, and a little more rustic, brown rice is white rice with its wholesome layers left on. Keeping the bran and germ gives it far more fiber and minerals like magnesium, plus steadier energy. It is simply the same grain with only the inedible hull removed.",
     serving: '100g'
   },
   {
@@ -898,7 +898,7 @@ const foods = [
       'Some commercial brands add sugar',
       'Calorie-dense if eaten in large amounts'
     ],
-    description: 'Whole-grain bread with intact bran — far more fiber and B vitamins than white.',
+    description: "Hearty and robust with a satisfying chew, whole wheat bread is everyday bread with more to offer. Made from the whole grain, it brings far more fiber and B vitamins than refined white bread. The intact bran and germ are exactly what give it that deeper color and nuttier flavor.",
     serving: '100g'
   },
   {
@@ -918,7 +918,7 @@ const foods = [
       'Very easy to overeat large portions',
       'Low nutrient density unless whole-grain'
     ],
-    description: 'A beloved energy staple — high in selenium and endlessly versatile.',
+    description: "Comforting, satisfying, and endlessly adaptable, pasta is the dish almost everyone comes home to. It is a reliable source of energy and surprisingly high in selenium, an antioxidant mineral. There are more than 350 recognized pasta shapes, each designed to hold sauce a little differently.",
     serving: '100g'
   },
   {
@@ -938,7 +938,7 @@ const foods = [
       'Lower-quality protein profile',
       'Can cause bloating in some people'
     ],
-    description: 'A sweet, antioxidant-rich grain vegetable loaded with eye-protecting carotenoids.',
+    description: "Sweet, juicy, and tender, fresh corn pops with summer flavor straight off the cob. It supplies fiber along with lutein and zeaxanthin, two antioxidants that help protect your eyes. Corn is a grass, and a single ear carries roughly 800 kernels arranged in 16 rows.",
     serving: '100g'
   },
   {
@@ -957,7 +957,7 @@ const foods = [
       'Requires longer cooking time',
       'Lower in some essential amino acids'
     ],
-    description: 'A fiber-and-protein powerhouse legume — one of the best plant iron sources.',
+    description: "Earthy, hearty, and comforting, lentils turn soups and stews into a meal. They are an excellent plant protein and one of the best legume sources of fiber and plant iron. Unlike dried beans, lentils need no soaking and cook in about 20 minutes.",
     serving: '100g'
   },
   {
@@ -976,7 +976,7 @@ const foods = [
       'High in carbohydrates',
       'Incomplete protein on its own'
     ],
-    description: 'A glossy antioxidant-rich legume delivering an exceptional fiber-and-protein combo.',
+    description: "Rich, creamy, and mildly sweet, black beans are a satisfying staple across the Americas. They pair nearly 9g of protein with almost 9g of fiber per 100g, a combination that keeps blood sugar steady. Their glossy dark skin is full of anthocyanins, the same antioxidants found in blueberries.",
     serving: '100g'
   },
   {
@@ -995,7 +995,7 @@ const foods = [
       'Contains antinutrients',
       'Not a complete protein on its own'
     ],
-    description: 'A versatile, mineral-dense legume — the protein-packed foundation of hummus.',
+    description: "Nutty, buttery, and pleasantly firm, chickpeas are as happy roasted crunchy as they are blended smooth. They deliver a solid combination of plant protein and fiber that keeps you full for hours. Mashed with tahini and lemon, they become hummus, a dish eaten for well over a thousand years.",
     serving: '100g'
   },
   {
@@ -1014,7 +1014,7 @@ const foods = [
       'Low in protein',
       'Often made from refined corn masa'
     ],
-    description: 'A traditional gluten-free flatbread — light, foldable, and endlessly versatile.',
+    description: "Light, soft, and lightly toasty, the corn tortilla is a naturally gluten-free staple built for folding and filling. A traditional process called nixtamalization makes its calcium more available to your body. That same ancient technique, soaking corn in an alkaline solution, also unlocks more of its B vitamins.",
     serving: '100g'
   },
   {
@@ -1033,7 +1033,7 @@ const foods = [
       'Can trigger allergies in sensitive people',
       'Strong flavor dominates mild dishes'
     ],
-    description: 'A gluten-free pseudo-grain that is a rare complete plant protein, rich in rutin.',
+    description: "Earthy and robust with a hearty, toasty flavor, buckwheat eats like a grain but breaks the rules. It is a complete plant protein, naturally gluten-free, and rich in rutin, an antioxidant that supports circulation. Despite the name, buckwheat is not wheat at all, it is related to rhubarb.",
     serving: '100g'
   },
   {
@@ -1052,7 +1052,7 @@ const foods = [
       'Not widely known or used',
       'Bland flavor on its own'
     ],
-    description: 'A tiny gluten-free ancient grain — alkaline-forming and gentle to digest.',
+    description: "Mild, fluffy, and slightly sweet, millet is a tiny ancient grain that cooks up tender and light. It is gluten-free, gentle on digestion, and one of the few grains that is mildly alkaline-forming. Millet has fed civilizations for thousands of years and still sustains millions across Africa and Asia.",
     serving: '100g'
   },
   {
@@ -1071,7 +1071,7 @@ const foods = [
       'High in carbohydrates',
       'Requires long cooking time'
     ],
-    description: 'A chewy whole grain whose beta-glucan fiber actively lowers cholesterol.',
+    description: "Chewy and nutty with a pleasantly hearty texture, barley adds satisfying body to soups and grain bowls. Like oats, it is rich in beta-glucan fiber that actively helps lower cholesterol. Barley is one of the first grains humans ever farmed, cultivated for over 10,000 years.",
     serving: '100g'
   },
   {
@@ -1090,7 +1090,7 @@ const foods = [
       'Overfishing and sustainability concerns',
       'Not recommended in large amounts for pregnant women'
     ],
-    description: 'A lean, protein-dense fish loaded with B12 and selenium.',
+    description: "Clean, meaty, and satisfying, tuna delivers serious protein with almost no fat. At 26g of protein per 100g plus a big hit of selenium and B12, it is a lean-eating favorite. Tuna are warm-blooded ocean athletes that can swim faster than 40 miles per hour.",
     serving: '100g'
   },
   {
@@ -1108,7 +1108,7 @@ const foods = [
       'Milder flavor than chicken',
       'Often most available seasonally'
     ],
-    description: 'The leanest of the poultry proteins — high protein with almost no fat.',
+    description: "Mild, lean, and lightly savory, turkey breast is a feel-good protein for any day, not just holidays. It is one of the leanest high-protein meats and contains tryptophan, an amino acid your body uses to make mood and sleep chemicals. The tryptophan is real, though that post-dinner drowsiness owes more to the size of the meal.",
     serving: '100g'
   },
   {
@@ -1127,7 +1127,7 @@ const foods = [
       'Bland on its own',
       'Short refrigerated shelf life'
     ],
-    description: 'A curd cheese rich in slow-digesting casein — perfect for overnight recovery.',
+    description: "Mild, milky, and pleasantly creamy with soft curds, cottage cheese is quietly one of the best high-protein snacks. It is especially rich in casein, a slow-digesting protein that drip-feeds your muscles overnight. That makes a bowl before bed a genuine recovery tool.",
     serving: '100g'
   },
   {
@@ -1146,7 +1146,7 @@ const foods = [
       'Excess linked to colorectal cancer risk',
       'More expensive than poultry'
     ],
-    description: 'A complete protein and the richest everyday source of B12, zinc, and iron.',
+    description: "Deeply savory and satisfying, beef is rich, hearty, and full of flavor. It is a complete protein and one of the best everyday sources of vitamin B12, zinc, and easily absorbed iron. The heme iron in red meat is taken up far more efficiently than the iron in plants.",
     serving: '100g'
   },
   {
@@ -1164,7 +1164,7 @@ const foods = [
       'Less popular than other cuts',
       'Costs more than chicken'
     ],
-    description: 'A lean pork cut with the highest thiamine content of any meat.',
+    description: "Tender, mild, and lean, pork tenderloin is the most delicate cut of the pig. It rivals chicken breast for leanness while delivering the highest thiamine of any meat, a B vitamin key to turning food into energy. The tenderloin is a muscle that does almost no work, which is why it stays so soft.",
     serving: '100g'
   },
   {
@@ -1183,7 +1183,7 @@ const foods = [
       'Farming can carry environmental concerns',
       'Highly perishable'
     ],
-    description: 'A lean shellfish delivering big protein and thyroid-supporting iodine for few calories.',
+    description: "Sweet, delicate, and lightly briny, shrimp cook in minutes and please almost everyone. They pack 24g of protein per 100g with barely any fat, plus iodine to support thyroid function. Shrimp turn from gray to pink as they cook, thanks to a pigment released by the heat.",
     serving: '100g'
   },
   {
@@ -1202,7 +1202,7 @@ const foods = [
       'Relatively expensive per serving',
       'May cause digestive discomfort in some'
     ],
-    description: 'The gold-standard fast protein — concentrated, complete, and leucine-rich.',
+    description: "Clean and neutral with a smooth, milky finish, whey protein is the fitness world's go-to powder. It is the fastest-absorbing protein available and exceptionally high in leucine, the amino acid that flips the switch on muscle growth. Whey is the liquid left over from cheesemaking, once discarded and now prized.",
     serving: '100g'
   },
   {
@@ -1221,7 +1221,7 @@ const foods = [
       'Much soy is genetically modified',
       'Contains antinutrients'
     ],
-    description: 'Young soybeans — a complete plant protein exceptionally high in folate.',
+    description: "Fresh, nutty, and faintly sweet, edamame are young soybeans you pop straight from the pod. They are a complete plant protein and remarkably high in folate, a nutrient especially important during pregnancy. The name simply means immature soybeans, harvested while still green and tender.",
     serving: '100g'
   },
   {
@@ -1240,7 +1240,7 @@ const foods = [
       'Soft edible bones unappealing to some',
       'An acquired taste'
     ],
-    description: 'A tiny powerhouse fish — extraordinary B12 plus calcium and D from edible bones.',
+    description: "Bold, savory, and richly oily, sardines bring big flavor in a small package. Eaten whole with their soft bones, they are an outstanding source of calcium and vitamin D plus B12 and omega-3s. Because they are small and short-lived, sardines are also among the lowest-mercury fish you can choose.",
     serving: '100g'
   },
   {
@@ -1259,7 +1259,7 @@ const foods = [
       'Less widely available',
       'Contains phytoestrogens'
     ],
-    description: 'A firm fermented-soy cake — a complete plant protein with gut-friendly probiotics.',
+    description: "Firm, chewy, and nutty with a savory, earthy depth, tempeh holds up to grilling, slicing, and searing. Fermenting whole soybeans makes it a complete protein that is easier to digest and rich in gut-friendly probiotics. It originated in Indonesia, where it has been made by hand for centuries.",
     serving: '100g'
   },
   {
@@ -1278,7 +1278,7 @@ const foods = [
       'Expensive cut of meat',
       'High in calories'
     ],
-    description: 'A rich red meat packed with B12, zinc, and the beneficial fatty acid CLA.',
+    description: "Rich, distinctive, and pleasantly gamey, lamb is a red meat with real character. It is high in B12 and zinc and naturally contains CLA, a fatty acid studied for its health benefits. Grass-fed lamb tends to carry even more of those beneficial omega-3 and CLA fats.",
     serving: '100g'
   },
   {
@@ -1297,7 +1297,7 @@ const foods = [
       'Less appealing than fresh',
       'Softer, flakier texture'
     ],
-    description: 'An affordable pantry protein with sky-high vitamin D and B12.',
+    description: "Convenient and richly savory, canned salmon brings the buttery taste of salmon straight from the pantry. It is exceptionally high in vitamin D and B12, with soft edible bones that add a calcium boost. Ounce for ounce it can rival fresh fillets for omega-3 at a fraction of the cost.",
     serving: '100g'
   },
   {
@@ -1316,7 +1316,7 @@ const foods = [
       'Bland without seasoning',
       'Contains some antinutrients'
     ],
-    description: 'A versatile soy curd — a complete plant protein and a top plant calcium source.',
+    description: "Mild and neutral with a tender, custardy bite, tofu soaks up whatever flavors you give it. It is a complete plant protein and, when set with calcium, one of the best plant sources of that mineral. Tofu has been made from curdled soy milk for more than 2,000 years.",
     serving: '100g'
   },
   {
@@ -1335,7 +1335,7 @@ const foods = [
       'Tricky to prepare well',
       'Raises ethical concerns for some'
     ],
-    description: 'A lean cephalopod protein with off-the-charts B12 and brain-supporting copper.',
+    description: "Tender when cooked well, meaty, and subtly sweet, octopus is a prized delicacy worldwide. It is a very lean protein with an extraordinary amount of vitamin B12 and copper, which support the nerves and brain. Octopuses are famously intelligent, with three hearts and blue, copper-based blood.",
     serving: '100g'
   },
   {
@@ -1354,7 +1354,7 @@ const foods = [
       'Less commonly cooked at home',
       'Higher calorie than chicken'
     ],
-    description: 'A rich, flavorful poultry protein with good iron and immune-supporting zinc.',
+    description: "Rich, indulgent, and deeply flavorful with a satisfying layer of fat, duck breast eats more like red meat than poultry. It is a good source of heme iron and immune-supporting zinc. Cooked well, the rendered fat crisps the skin while keeping the meat tender.",
     serving: '100g'
   },
   {
@@ -1373,7 +1373,7 @@ const foods = [
       'Distinct earthy flavor',
       'Very high fat content'
     ],
-    description: 'Tiny complete-protein seeds with an ideal omega-3 to omega-6 balance.',
+    description: "Soft, nutty, and mild, hemp seeds scatter a gentle crunch over almost anything. They are a complete plant protein with a near-ideal balance of omega-3 to omega-6 fats. Despite coming from the cannabis plant, hemp seeds contain virtually no THC.",
     serving: '100g'
   },
   {
@@ -1392,7 +1392,7 @@ const foods = [
       'Easy to overeat',
       'Can be expensive'
     ],
-    description: 'Crunchy green seeds that are one of nature\'s richest sources of magnesium.',
+    description: "Crunchy, earthy, and nutty, pumpkin seeds are a satisfying handful with real staying power. They are among the richest food sources of magnesium, a mineral most people fall short on, plus plenty of zinc and iron. Roasting deepens their flavor, but raw seeds keep the most magnesium intact.",
     serving: '100g'
   },
   {
@@ -1411,7 +1411,7 @@ const foods = [
       'High in cholesterol',
       'Filters toxins as the body\'s detox organ'
     ],
-    description: 'Arguably the most nutrient-dense food on earth — staggering B12, copper, and vitamin A.',
+    description: "Intense, rich, and minerally, beef liver is a bold, old-fashioned superfood. It is among the most nutrient-dense foods on earth, with staggering vitamin B12, copper, and vitamin A in a single serving. A small portion goes a long way, in flavor and in nutrition alike.",
     serving: '100g'
   },
   {
@@ -1430,7 +1430,7 @@ const foods = [
       'Strong oceanic taste',
       'Very perishable'
     ],
-    description: 'A sustainable shellfish delivering massive B12, selenium, and manganese.',
+    description: "Briny, sweet, and tender, mussels taste of the sea and cook in the time it takes to steam them open. They are loaded with vitamin B12 and selenium and offer high protein for very few calories. Farmed mussels are also one of the most sustainable animal proteins, needing no feed at all.",
     serving: '100g'
   },
   {
@@ -1449,7 +1449,7 @@ const foods = [
       'Expensive',
       'Not widely available'
     ],
-    description: 'A blue-green algae with the highest protein density of any known food.',
+    description: "Bold, earthy, and intensely savory, spirulina is a deep blue-green powder with serious nutritional density. It has the highest protein density of any food, around 57g per 100g, with a complete amino acid profile. Spirulina is not a plant at all but a microscopic cyanobacteria, one of the oldest life forms on earth.",
     serving: '100g'
   },
   {
@@ -1468,7 +1468,7 @@ const foods = [
       'Can trigger allergies in sensitive people',
       'Higher calorie than many fruits'
     ],
-    description: 'A lush tropical fruit rich in vitamins C and A plus digestive enzymes.',
+    description: "Lush, fragrant, and dripping with tropical sweetness, ripe mango tastes like sunshine. It pairs high vitamin C with vitamin A and natural enzymes that aid digestion. Mango is the most widely eaten fruit on earth and has been cultivated for over 4,000 years.",
     serving: '100g'
   },
   {
@@ -1487,7 +1487,7 @@ const foods = [
       'Bromelain can irritate the mouth',
       'High glycemic for diabetics'
     ],
-    description: 'A tangy tropical fruit packed with vitamin C and the digestive enzyme bromelain.',
+    description: "Bright, tangy, and tropical with a sweetness that tingles, pineapple is impossible to ignore. It is rich in vitamin C and bromelain, an enzyme that breaks down protein and may ease inflammation. That same enzyme is why fresh pineapple makes your tongue tingle, it is gently digesting you back.",
     serving: '100g'
   },
   {
@@ -1506,7 +1506,7 @@ const foods = [
       'Mildly acidic',
       'Allergenic for some people'
     ],
-    description: 'A vitamin-C powerhouse berry — one of the richest sources per calorie.',
+    description: "Sweet, fragrant, and lightly tart, sun-ripe strawberries are one of summer's great pleasures. Ounce for ounce they are among the richest vitamin C sources of any fruit, with about 88mg per 100g. They are also the only fruit that wears its seeds on the outside, roughly 200 of them each.",
     serving: '100g'
   },
   {
@@ -1525,7 +1525,7 @@ const foods = [
       'High in natural sugar',
       'Can cause bloating in some'
     ],
-    description: 'The ultimate hydrating fruit — 92% water with heart-healthy lycopene.',
+    description: "Crisp, cooling, and dripping with refreshment, watermelon is the taste of a hot day. At roughly 92% water it hydrates beautifully while still delivering heart-friendly lycopene. It is both a fruit and a vegetable, and a relative of the cucumber.",
     serving: '100g'
   },
   {
@@ -1545,7 +1545,7 @@ const foods = [
       'High pesticide residue',
       'Very easy to overeat'
     ],
-    description: 'Bite-sized antioxidant bombs rich in heart-protective resveratrol.',
+    description: "Juicy and bite-sized with a sweet, slightly tart pop, grapes are effortless snacking. Their skins supply resveratrol, an antioxidant studied for heart and brain protection. Grapes are one of the oldest cultivated fruits on earth, grown for wine for more than 8,000 years.",
     serving: '100g'
   },
   {
@@ -1564,7 +1564,7 @@ const foods = [
       'Moderate sugar content',
       'High pesticide residue'
     ],
-    description: 'A juicy stone fruit with skin-supporting vitamins C and A.',
+    description: "Soft, fragrant, and floral with sweet juice that runs down your chin, a ripe peach is pure summer. It is light in calories yet supplies vitamins C and A to support glowing skin. Peaches belong to the rose family, alongside apples, cherries, and almonds.",
     serving: '100g'
   },
   {
@@ -1583,7 +1583,7 @@ const foods = [
       'High glycemic when very ripe',
       'Bruises easily'
     ],
-    description: 'A high-fiber fruit loaded with gut-friendly pectin.',
+    description: "Delicately sweet with a tender, slightly grainy bite, pears are gentle and easy to enjoy. They are especially high in pectin, a soluble fiber that supports smooth digestion and gut health. Pears ripen from the inside out, which is why they can feel firm outside while perfectly ready within.",
     serving: '100g'
   },
   {
@@ -1602,7 +1602,7 @@ const foods = [
       'Can erode tooth enamel',
       'Juicing strips the fiber'
     ],
-    description: 'The classic immune-boosting citrus, brimming with vitamin C.',
+    description: "Bright, sweet, and classically citrusy, the orange is the fruit people reach for at the first sign of a cold. One delivers about 79mg of vitamin C to fuel the immune system, plus folate and fiber. Oranges are technically a type of berry, and most turn sweeter after a cool night.",
     serving: '100g'
   },
   {
@@ -1621,7 +1621,7 @@ const foods = [
       'Can interact with medications like grapefruit',
       'High in natural sugar'
     ],
-    description: 'Ruby arils packed with punicalagins — among the most potent food antioxidants.',
+    description: "Sweet-tart and jewel-like, pomegranate arils burst with crisp juice and a satisfying crunch. They are loaded with punicalagins, among the most powerful antioxidants found in any food. A single fruit can hold more than 600 of these ruby seeds.",
     serving: '100g'
   },
   {
@@ -1640,7 +1640,7 @@ const foods = [
       'Expensive',
       'Pits must be removed'
     ],
-    description: 'A sleep-supporting stone fruit rich in melatonin and anthocyanins.',
+    description: "Deeply sweet with a hint of tartness, cherries are small, glossy, and hard to stop eating. They are one of the few natural sources of melatonin, the hormone that helps regulate sleep, alongside anti-inflammatory anthocyanins. Sweet and sour cherries are actually different species, bred for snacking or for baking.",
     serving: '100g'
   },
   {
@@ -1659,7 +1659,7 @@ const foods = [
       'High in natural sugar',
       'Laxative effect in excess'
     ],
-    description: 'A tropical fruit with the digestive enzyme papain and over a day of vitamin C.',
+    description: "Soft, buttery, and tropical with a mellow musky sweetness, papaya melts in the mouth. It carries the enzyme papain, which helps break down protein, plus a full day's worth of vitamin C. Papaya plants can fruit within a year of planting, unusually fast for a tropical fruit.",
     serving: '100g'
   },
   {
@@ -1678,7 +1678,7 @@ const foods = [
       'Calorie-dense, especially dried',
       'Very short fresh shelf life'
     ],
-    description: 'A honeyed, fiber-rich fruit that supports bone health and digestion.',
+    description: "Honey-sweet and jammy with a soft, seedy crunch, fresh figs taste almost like dessert. They are a good source of fiber and minerals that support bone health. Figs are one of the oldest cultivated fruits, grown around the Mediterranean for thousands of years.",
     serving: '100g'
   },
   {
@@ -1697,7 +1697,7 @@ const foods = [
       'Seedy texture',
       'Very short shelf life'
     ],
-    description: 'A delicate berry boasting more fiber than almost any other fruit.',
+    description: "Intensely flavored, sweet, and tart with a tender, hollow center, raspberries feel like a small luxury. They are one of the highest-fiber fruits you can eat, with 6.5g per 100g, yet they stay low in sugar. Each berry is actually a cluster of tiny fruitlets called drupelets.",
     serving: '100g'
   },
   {
@@ -1716,7 +1716,7 @@ const foods = [
       'Seedy texture',
       'Expensive out of season'
     ],
-    description: 'A dark, antioxidant-rich berry high in fiber and bone-supporting vitamin K.',
+    description: "Dark, plump, and richly sweet with an earthy tartness, blackberries stain your fingers and your memory. They deliver plenty of fiber along with vitamin K for bone health and anthocyanins for the brain. Blackberries are not true berries botanically, they are aggregates of many tiny drupelets.",
     serving: '100g'
   },
   {
@@ -1735,7 +1735,7 @@ const foods = [
       'Moderate sugar content',
       'Dried versions are much higher in sugar'
     ],
-    description: 'A golden stone fruit loaded with eye-protecting beta-carotene.',
+    description: "Velvety-skinned and gently sweet with a soft, floral tartness, apricots are a delicate late-summer treat. They are exceptionally rich in beta-carotene, which the body turns into vision-supporting vitamin A. Apricots are kin to peaches and plums, and their kernels lend amaretto its almond flavor.",
     serving: '100g'
   },
   {
@@ -1754,7 +1754,7 @@ const foods = [
       'Pesticide residue',
       'Short season'
     ],
-    description: 'A juicy stone fruit with antioxidants and gentle digestive benefits.',
+    description: "Juicy and richly sweet with a tart skin that snaps as you bite, plums are refreshing and a little bold. They contain sorbitol, a natural compound that gently supports digestion, plus bone-friendly vitamin K. Dried into prunes, the very same fruit becomes a classic remedy for regularity.",
     serving: '100g'
   },
   {
@@ -1773,7 +1773,7 @@ const foods = [
       'Unripe fruit can be toxic',
       'Short season'
     ],
-    description: 'A fragrant tropical fruit with more vitamin C than an orange.',
+    description: "Floral and perfumed with a sweet, grape-like juiciness, lychee is a fragrant gem beneath a bumpy red shell. It is remarkably high in vitamin C, offering more in a serving than an orange provides. Lychee has been prized in China for over 2,000 years, once rushed to emperors by horseback.",
     serving: '100g'
   },
   {
@@ -1792,7 +1792,7 @@ const foods = [
       'Expensive',
       'Not widely available'
     ],
-    description: 'A tart tropical fruit with extraordinary fiber and calming compounds.',
+    description: "Intensely tart and aromatic with crunchy edible seeds, passion fruit packs a tropical punch in a small shell. It is one of the highest-fiber fruits around, at over 10g per 100g, and contains compounds with calming, sleep-supporting effects. The fruit grows on a dramatic flowering vine whose blooms can open and close in a single day.",
     serving: '100g'
   },
   {
@@ -1811,7 +1811,7 @@ const foods = [
       'Some health claims are overstated',
       'Fiber can slow digestion'
     ],
-    description: 'A rich tropical fruit high in fiber and quick-energy MCT fats.',
+    description: "Rich, nutty, and subtly sweet, fresh coconut is creamy and satisfying. It is high in fiber and supplies MCT fats, which the body can quickly turn into energy. Botanically a coconut is a drupe, not a nut, and a single one can float across oceans to take root on a new shore.",
     serving: '100g'
   },
   {
@@ -1830,7 +1830,7 @@ const foods = [
       'Short shelf life',
       'Limited availability'
     ],
-    description: 'A striking tropical fruit with gut-friendly fiber and betalain antioxidants.',
+    description: "Mildly sweet and refreshing with a texture like soft kiwi, dragon fruit is as gentle on the palate as it is striking to look at. Its tiny black seeds add prebiotic fiber for gut health, while betalain pigments fight inflammation. It grows on a climbing cactus whose flowers bloom only at night.",
     serving: '100g'
   }
 ];

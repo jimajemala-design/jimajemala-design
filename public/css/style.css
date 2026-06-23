@@ -712,6 +712,22 @@ body {
   margin-top: 8px;
 }
 
+/* Appetizing specimen description — sits below the name, above the data.
+   Italic, muted, and fades up just after the header for a staggered entrance. */
+.food-description {
+  margin: 18px 0 4px;
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2);
+  max-width: 60ch;
+  opacity: 0;
+  animation: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.12s forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .food-description { animation: none; opacity: 1; }
+}
+
 .calorie-box {
   display: flex; flex-direction: column; align-items: flex-end;
   flex-shrink: 0;
