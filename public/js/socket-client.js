@@ -61,7 +61,10 @@ window.Live = (() => {
     // ── Live feed ─────────────────────────────────────────────────────
     socket.on('feed:new_post', (data) => { if (window.Feed && Feed.onNewPost) Feed.onNewPost(data); });
     socket.on('post:reaction', (data) => { if (window.Feed && Feed.onReaction) Feed.onReaction(data); });
-    socket.on('post:comment', (data) => { if (window.Feed && Feed.onComment) Feed.onComment(data); });
+    // post:comment is a global count bump; comment:new carries the full comment
+    // and only reaches subscribers of that post's room (the open comment sheet).
+    socket.on('post:comment', (data) => { if (window.Feed && Feed.onCommentCount) Feed.onCommentCount(data); });
+    socket.on('comment:new', (data) => { if (window.Feed && Feed.onComment) Feed.onComment(data); });
 
     // ── Live stories ──────────────────────────────────────────────────
     socket.on('story:viewed', (data) => { if (window.Stories && Stories.onViewed) Stories.onViewed(data); });

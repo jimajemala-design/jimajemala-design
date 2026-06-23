@@ -29,7 +29,7 @@ const Feed = (() => {
   const REACTIONS = ['❤️', '🔥', '😋', '👏', '🤩', '💪'];
   const TYPE_BADGE = { photo: '📸 Photo', video: '🎬 Reel', recipe: '🍽️ Recipe', text: '💬 Tip' };
 
-  const state = { page: 1, hasMore: true, loading: false, filter: '', ranking: 'foryou', seen: new Set(), viewed: new Set() };
+  const state = { page: 1, hasMore: true, loading: false, filter: '', ranking: 'foryou', seen: new Set(), viewed: new Set(), pendingNew: new Set() };
   let io = null, videoIO = null, sentinelIO = null;
 
   // ── helpers ──────────────────────────────────────────────────────────
@@ -183,6 +183,8 @@ const Feed = (() => {
 
   function resetFeed() {
     state.page = 1; state.hasMore = true; state.seen = new Set();
+    state.pendingNew.clear();
+    document.getElementById('feedNewBanner')?.classList.remove('show');
     const list = document.getElementById('feedList');
     list.innerHTML = '';
     document.getElementById('feedEnd')?.remove();
@@ -458,6 +460,7 @@ const Feed = (() => {
   let sheetPostId = null;
   function openComments(id) {
     sheetPostId = id;
+    if (window.Live && Live.subscribePost) Live.subscribePost(id); // live comment:new
     document.getElementById('sheetOverlay').classList.add('open');
     document.getElementById('commentSheet').classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -473,6 +476,7 @@ const Feed = (() => {
     document.getElementById('sheetOverlay').classList.remove('open');
     document.getElementById('commentSheet').classList.remove('open');
     document.body.style.overflow = '';
+    if (sheetPostId && window.Live && Live.unsubscribePost) Live.unsubscribePost(sheetPostId);
     sheetPostId = null;
   }
   function commentHTML(c) {
@@ -516,6 +520,126 @@ const Feed = (() => {
   function bumpCommentCount(id, n) {
     const el = document.querySelector(`.post[data-id="${id}"] [data-comment-count]`);
     if (el) el.textContent = n ? nFmt(n) : '';
+  }
+
+  // ══ Live feed handlers (Phase 5) ═════════════════════════════════════
+  // Driven by socket-client.js → window.Live events. All are defensive: they
+  // no-op when the target post/sheet isn't on screen.
+
+  // 1) feed:new_post — accumulate a "N new posts" banner; load on tap.
+  function ensureNewBanner() {
+    let b = document.getElementById('feedNewBanner');
+    if (!b) {
+      b = document.createElement('button');
+      b.id = 'feedNewBanner';
+      b.type = 'button';
+      b.className = 'feed-new-banner';
+      b.addEventListener('click', loadPendingNew);
+      const list = document.getElementById('feedList');
+      if (list && list.parentNode) list.parentNode.insertBefore(b, list);
+    }
+    return b;
+  }
+  function renderNewBanner() {
+    const n = state.pendingNew.size;
+    if (!n) { document.getElementById('feedNewBanner')?.classList.remove('show'); return; }
+    const b = ensureNewBanner();
+    b.textContent = `🔥 ${n} new post${n > 1 ? 's' : ''} · tap to load`;
+    b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); // replay slide-in
+  }
+  function onNewPost(data) {
+    if (!data || !data.postId) return;
+    if (data.author && data.author.id === (me().id || '')) return;       // my own post
+    if (state.seen.has(data.postId) || state.pendingNew.has(data.postId)) return;
+    state.pendingNew.add(data.postId);
+    renderNewBanner();
+  }
+  async function loadPendingNew() {
+    const ids = Array.from(state.pendingNew);
+    if (!ids.length) return;
+    state.pendingNew.clear();
+    document.getElementById('feedNewBanner')?.classList.remove('show');
+    const list = document.getElementById('feedList');
+    if (!list) return;
+    // Fetch each new post (decorated for this viewer), then prepend oldest-first
+    // so the very newest lands on top.
+    const fetched = [];
+    for (const id of ids) {
+      try { const p = await Auth.api('/api/posts/' + id); if (p && p.id && !state.seen.has(p.id)) fetched.push(p); }
+      catch { /* gone/forbidden — skip */ }
+    }
+    fetched.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    document.getElementById('feedEmpty')?.remove();
+    fetched.forEach(p => {
+      state.seen.add(p.id);
+      list.insertAdjacentHTML('afterbegin', postHTML(p));
+      const el = list.firstElementChild;
+      el.classList.add('post-enter');
+      requestAnimationFrame(() => el.classList.add('post-enter-active'));
+      setTimeout(() => el.classList.remove('post-enter', 'post-enter-active'), 650);
+    });
+    bindNewPosts();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // 2) post:reaction — refresh a card's reaction count/summary live (does NOT
+  //    touch my own reaction state, which is per-viewer).
+  function onReaction(data) {
+    if (!data || !data.postId) return;
+    const card = document.querySelector(`.post[data-id="${data.postId}"]`);
+    if (!card) return;
+    const countEl = card.querySelector('.act-react [data-react-count]');
+    if (countEl) {
+      const next = data.total ? nFmt(data.total) : '';
+      if (countEl.textContent !== next) {
+        countEl.textContent = next;
+        countEl.classList.remove('count-pop'); void countEl.offsetWidth; countEl.classList.add('count-pop');
+      }
+    }
+    let summary = card.querySelector('.react-summary');
+    if (data.total > 0) {
+      const top = Object.entries(data.counts || {}).filter(([, c]) => c > 0)
+        .sort((a, b) => b[1] - a[1]).slice(0, 3).map(([e]) => e).join('') || '❤️';
+      if (!summary) { summary = document.createElement('div'); summary.className = 'react-summary'; card.querySelector('.post-actions').before(summary); }
+      summary.innerHTML = `<span class="em">${top}</span><span>${nFmt(data.total)}</span>`;
+    } else if (summary) summary.remove();
+    const topEmoji = (Object.entries(data.counts || {}).sort((a, b) => b[1] - a[1])[0] || ['❤️'])[0];
+    reactionBurst(card, topEmoji);
+  }
+  function reactionBurst(card, emoji) {
+    const btn = card.querySelector('.act-react');
+    if (!btn) return;
+    const fly = document.createElement('span');
+    fly.className = 'react-fly'; fly.textContent = emoji || '❤️';
+    btn.appendChild(fly);
+    setTimeout(() => fly.remove(), 850);
+  }
+
+  // 3a) comment:new — full comment to a post we're subscribed to; live-prepend
+  //     into the open sheet (and bump the card count).
+  function onComment(data) {
+    if (!data || !data.postId || !data.comment) return;
+    if (sheetPostId === data.postId) {
+      const body = document.getElementById('sheetBody');
+      body.querySelector('.feed-end')?.remove(); // clear "loading"/"no comments"
+      if (!body.querySelector(`.comment[data-cid="${data.comment.id}"]`)) {
+        body.insertAdjacentHTML('afterbegin', commentHTML(data.comment));
+        const el = body.firstElementChild;
+        el.classList.add('comment-enter');
+        requestAnimationFrame(() => el.classList.add('comment-enter-active'));
+        setTimeout(() => el.classList.remove('comment-enter', 'comment-enter-active'), 500);
+        const cEl = document.getElementById('sheetCount');
+        const cur = parseInt(cEl.textContent, 10) || 0;
+        cEl.textContent = (cur + 1) + ' comments';
+        body.scrollTop = 0;
+      }
+    }
+  }
+  // 3b) post:comment — global count bump for any visible card (covers posts
+  //     whose room we're not subscribed to).
+  function onCommentCount(data) {
+    if (!data || !data.postId) return;
+    bumpCommentCount(data.postId, data.total);
   }
 
   function requireLogin() {
@@ -900,7 +1024,7 @@ const Feed = (() => {
     catch (err) { toast(err.message, 'error'); }
   }
 
-  return { init, openCreate, ICONS: I };
+  return { init, openCreate, ICONS: I, onNewPost, onReaction, onComment, onCommentCount };
 })();
 
 document.addEventListener('DOMContentLoaded', () => {

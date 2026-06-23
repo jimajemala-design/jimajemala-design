@@ -466,9 +466,11 @@ Stories visible to **followers + self**.
 
 ### Phase 5 — Real-time (socket.io) + video transcoding (DONE 2026-06-24) ✅
 Upgraded the social platform from polling to true real-time, and added a proper
-video pipeline for reels. Verified end-to-end against a running server with two
-scripted clients (`scripts/verify-phase5.js`) + the video flow
-(`scripts/verify-video.js`) — all checks green.
+video pipeline for reels. Verified end-to-end against a running server with
+scripted socket clients: real-time DMs/notifications/presence
+(`scripts/verify-phase5.js`), the video flow (`scripts/verify-video.js`), and the
+live-feed event contract incl. `comment:new` room scoping
+(`scripts/verify-feed-live.js`) — all checks green.
 
 **New deps:** `socket.io` + `socket.io-client` (real-time); `fluent-ffmpeg` +
 `@ffmpeg-installer/ffmpeg` + `@ffprobe-installer/ffprobe` (transcoding). All
@@ -502,6 +504,15 @@ transcoding 503) and the client degrades to the existing polling.
 - `messages.js` now shows live incoming messages, typing dots, blue-tick read
   receipts, and online dots/"Active now" header (presence). `notifications.js`
   gained `prependLive`.
+- **Live feed handlers (`feed.js`)** — `onNewPost` accumulates a sticky
+  "🔥 N new posts · tap to load" banner that fetches + slides the new cards in
+  from the top (own posts filtered, deduped against `seen`); `onReaction`
+  live-updates a card's count + summary emojis with a count-pop + emoji-burst
+  (without touching the viewer's own reaction); `onCommentCount` bumps the card
+  comment count from the `post:comment` broadcast, while `onComment` live-prepends
+  the full comment into the open sheet (the sheet subscribes via
+  `Live.subscribePost` on open, unsubscribes on close, since `comment:new` is
+  post-room scoped). Animations + reduced-motion guards in `feed.css`.
 
 **Video transcoding pipeline**
 - `POST /api/upload/video` (multipart, auth) → returns `{ jobId }` (202) and

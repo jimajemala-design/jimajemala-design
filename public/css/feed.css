@@ -370,6 +370,40 @@ button { font-family: inherit; cursor: pointer; }
 .vid-progress small { display: block; margin-top: 4px; font-size: 11px; color: #fff; }
 .vid-progress.error .vid-progress-bar span { background: #ef4444; }
 .vid-progress.error small { color: #fca5a5; }
+
+/* ── Live feed (Phase 5) ─────────────────────────────────────────────── */
+/* "N new posts" banner — sticky, slides down from the top of the column. */
+.feed-new-banner {
+  position: sticky; top: 8px; z-index: 30; display: block; margin: 0 auto 10px;
+  padding: 9px 18px; border: none; border-radius: 999px; cursor: pointer;
+  background: var(--brand, #22c55e); color: #06210f; font: inherit; font-weight: 700;
+  font-size: 13.5px; box-shadow: 0 6px 18px rgba(34,197,94,0.35);
+  opacity: 0; transform: translateY(-14px); pointer-events: none;
+  transition: opacity .3s ease, transform .3s ease;
+}
+.feed-new-banner.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.feed-new-banner:hover { filter: brightness(1.05); }
+
+/* New post sliding in from the top. */
+.post-enter { opacity: 0; transform: translateY(-22px); }
+.post-enter-active { opacity: 1; transform: translateY(0); transition: opacity .55s ease, transform .55s cubic-bezier(.22,1,.36,1); }
+
+/* Live reaction count tick + emoji burst off the react button. */
+.count-pop { display: inline-block; animation: countPop .4s ease; }
+@keyframes countPop { 0% { transform: scale(1); } 35% { transform: scale(1.4); color: var(--brand, #22c55e); } 100% { transform: scale(1); } }
+.act-react { position: relative; }
+.react-fly { position: absolute; left: 50%; top: -2px; transform: translateX(-50%); font-size: 16px; pointer-events: none; animation: reactFly .85s ease-out forwards; }
+@keyframes reactFly { 0% { opacity: 0; transform: translate(-50%, 0) scale(.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -28px) scale(1.25); } }
+
+/* New comment sliding into the open sheet. */
+.comment-enter { opacity: 0; transform: translateY(-12px); }
+.comment-enter-active { opacity: 1; transform: translateY(0); transition: opacity .45s ease, transform .45s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-new-banner, .post-enter-active, .comment-enter-active { transition-duration: .01ms; }
+  .post-enter, .comment-enter { transform: none; }
+  .count-pop, .react-fly { animation-duration: .01ms; }
+}
 .modal textarea { width: 100%; min-height: 90px; resize: vertical; padding: 12px 14px; border-radius: 14px; background: var(--glass-2); border: 1px solid var(--line); color: var(--text); font-family: inherit; font-size: 14.5px; outline: none; }
 .modal textarea:focus { border-color: rgba(34,197,94,0.4); }
 .modal-field { margin-bottom: 14px; }
