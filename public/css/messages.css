@@ -180,7 +180,34 @@
   .dm-compose { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
 }
 
+/* ── Real-time (Phase 5): presence, ticks, typing ──────────────────── */
+.dm-bubble .dm-meta { display: inline-flex; align-items: center; gap: 4px; align-self: flex-end; }
+.dm-ticks { font-size: 11px; opacity: 0.75; }
+.dm-row.mine .dm-bubble .dm-ticks.read { color: #2563eb; opacity: 1; }
+
+/* online dot on the thread-header avatar + conversation rows */
+.dm-peer-av { position: relative; }
+.dm-presence-dot {
+  position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--green); border: 2px solid var(--bg);
+}
+.dm-peer-meta small.online { color: var(--green-lt); }
+.dm-convo-av { position: relative; }
+.dm-convo.is-online .dm-convo-av::after {
+  content: ''; position: absolute; right: 0; bottom: 0; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--green); border: 2px solid var(--bg);
+}
+
+/* typing indicator */
+.dm-typing-row { display: flex; align-items: center; gap: 8px; padding: 4px 18px 10px; color: var(--text-2); font-size: 13px; }
+.dm-typing-dots { display: inline-flex; gap: 3px; }
+.dm-typing-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); animation: dmTypeBlink 1.2s infinite ease-in-out; }
+.dm-typing-dots i:nth-child(2) { animation-delay: .2s; }
+.dm-typing-dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes dmTypeBlink { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+
 @media (prefers-reduced-motion: reduce) {
   .dm-thread { transition: none; }
   .dm-messages { scroll-behavior: auto; }
+  .dm-typing-dots i { animation: none; }
 }

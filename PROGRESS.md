@@ -1,6 +1,6 @@
 # NutriFell — Progress & Roadmap
 
-> Last updated: 2026-06-22
+> Last updated: 2026-06-24
 > Formerly "NutriBase Georgia" — rebranded to **NutriFell** on 2026-06-16.
 
 An interactive 3D nutrition explorer + installable PWA. Browse 74 foods with
@@ -463,6 +463,63 @@ Stories visible to **followers + self**.
   penalty** (downrank already-viewed so refresh advances) + **author diversity**
   pass (max 2 consecutive posts per author). Weights documented inline; honest
   and explainable, no dark patterns.
+
+### Phase 5 — Real-time (socket.io) + video transcoding (DONE 2026-06-24) ✅
+Upgraded the social platform from polling to true real-time, and added a proper
+video pipeline for reels. Verified end-to-end against a running server with two
+scripted clients (`scripts/verify-phase5.js`) + the video flow
+(`scripts/verify-video.js`) — all checks green.
+
+**New deps:** `socket.io` + `socket.io-client` (real-time); `fluent-ffmpeg` +
+`@ffmpeg-installer/ffmpeg` + `@ffprobe-installer/ffprobe` (transcoding). All
+loaded defensively — if any are missing the server still boots (real-time off /
+transcoding 503) and the client degrades to the existing polling.
+
+**Real-time server (`server.js`)**
+- The HTTP server now wraps Express so socket.io shares the port; falls back to
+  plain `app.listen` when socket.io is absent. Boot log states `(real-time on/off)`.
+- **Handshake JWT auth** (`io.use`) — anonymous sockets rejected; `socket.userId`
+  set from the token. Each socket joins a `user:<id>` room.
+- **Presence** — in-memory `onlineUsers` map (capped at 50k). On connect: broadcast
+  `user:online` + send the newcomer a `presence:list`; on last-socket disconnect:
+  `user:offline`. `GET /api/presence/:id` for snapshots.
+- **`RT` emit hub** — `toUser` / `toPost` / `broadcast`, used throughout the
+  existing REST handlers so writes push live without changing their contracts.
+- **Live events wired:** `notification:new` (from `pushNotification`),
+  `dm:receive` / `dm:read` / `dm:typing` / `dm:stop_typing` / `dm:sent`,
+  `feed:new_post`, `post:reaction`, `post:comment` (+ per-post-room `comment:new`),
+  `story:viewed`. DM persistence refactored into a shared `persistMessage()` used
+  by both `POST …/messages` and the socket `dm:send` (ack-capable) path.
+
+**Real-time client (`public/js/socket-client.js`, `window.Live`)**
+- Connects with the stored JWT, routes events into existing primitives
+  (`Notif`, `Toast`, `Messages`, `Feed`, `Stories`) + a `presence:change`
+  DOM event. No-ops when logged out or socket.io is unavailable. Exposes
+  presence helpers + `typing()` / `subscribePost()`.
+- Wired into **feed, messages, notifications, profile-social, fridge, index**
+  (two `<script>` tags before `</body>`: the served `/socket.io/socket.io.js`
+  + `/js/socket-client.js`).
+- `messages.js` now shows live incoming messages, typing dots, blue-tick read
+  receipts, and online dots/"Active now" header (presence). `notifications.js`
+  gained `prependLive`.
+
+**Video transcoding pipeline**
+- `POST /api/upload/video` (multipart, auth) → returns `{ jobId }` (202) and
+  transcodes in the background; ffprobe duration guard (≤3 min). Produces a
+  web-optimized MP4 + a 400² WebP thumbnail under `public/uploads/videos/`
+  (+ `/thumbs`, `/tmp` scratch). `GET /api/upload/video/:jobId/status` polls
+  `{ progress, status, videoUrl, thumbnailUrl, durationSec }` (owner-only).
+- `POST /api/posts` accepts a pre-transcoded `videoUrl` (+ `videoThumb`),
+  path-validated to `/uploads/videos/…`, instead of a raw multipart upload.
+- **Create-post UI (`feed.js`)** — the "Photo / Video" tab auto-detects a video,
+  kicks off the async upload, shows a progress bar while transcoding, swaps to a
+  playable preview when ready, and only then lets you post (button disabled +
+  "Processing video…" until complete). Progress-bar styles in `feed.css`.
+
+**Service worker** — bumped `VERSION` `4.5.0 → 4.6.0` (rolls all caches);
+`/js/socket-client.js` added to precache; `/socket.io/` requests explicitly
+bypassed in the fetch handler (caching the polling endpoint would break the
+handshake; the client lib is served dynamically, not precached).
 
 ## Running locally
 ```bash

@@ -6,7 +6,7 @@
 //         (rescues the display:none-at-init race) + spinner handoff fix.
 // 4.3.0 — social feed (Phase 1): precache feed assets; never-cache the
 //         per-viewer feed/posts/users/notifications APIs.
-const VERSION = '4.5.0';
+const VERSION = '4.6.0';
 const STATIC_CACHE = `nutrifell-static-${VERSION}`;
 const API_CACHE = `nutrifell-api-${VERSION}`;
 const CDN_CACHE = `nutrifell-cdn-${VERSION}`;
@@ -37,6 +37,7 @@ const PRECACHE = [
   '/js/messages.js',
   '/js/stories.js',
   '/js/reels.js',
+  '/js/socket-client.js',
   '/manifest.json',
 ];
 
@@ -116,6 +117,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   const sameOrigin = url.origin === self.location.origin;
+
+  // 0) Real-time transport (socket.io polling/handshake + client lib) — always
+  //    straight to network. Caching the polling endpoint would break the
+  //    handshake. (WebSocket upgrades bypass the SW automatically.)
+  if (sameOrigin && url.pathname.startsWith('/socket.io/')) return;
 
   // 1a) Private / authenticated API — network only, never cached or read from
   //     cache. A graceful offline JSON response keeps the UI from hard-failing.

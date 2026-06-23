@@ -138,7 +138,11 @@ const Notif = (() => {
     setInterval(() => { refreshCount(); refreshDMCount(); }, 30000);
   }
 
-  return { init, rowHTML, wireRows, fetchPage, markAll, markOne, refreshCount, refreshDMCount, timeAgo, TYPE_ICON };
+  // Phase 5: a socket-delivered notification arrived — refresh the dropdown if
+  // it's open (the badge is handled separately via refreshCount).
+  function prependLive() { if (open && panel) loadDropdown(); }
+
+  return { init, rowHTML, wireRows, fetchPage, markAll, markOne, refreshCount, refreshDMCount, prependLive, timeAgo, TYPE_ICON };
 })();
 
 if (document.readyState !== 'loading') Notif.init();

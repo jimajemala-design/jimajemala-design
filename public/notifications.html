@@ -46,6 +46,8 @@
 
   <script src="/js/auth.js"></script>
   <script src="/js/notifications.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-client.js"></script>
   <script>
     (function () {
       if (!Auth.isAuthed()) { location.href = '/login.html'; return; }

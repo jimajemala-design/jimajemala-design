@@ -526,45 +526,63 @@ const Feed = (() => {
   }
 
   // ── create-post modal ────────────────────────────────────────────────
-  const create = { type: 'photo', files: [] };
+  // Reels carry extra state: an async transcode job runs while the user fills in
+  // the caption. videoUrl/videoThumb hold the transcoded result once ready.
+  const create = { type: 'photo', files: [], videoUrl: null, videoThumb: null, jobId: null, uploading: false };
+  function resetCreateMedia() {
+    create.files = []; create.videoUrl = null; create.videoThumb = null;
+    create.jobId = null; create.uploading = false;
+  }
   function openCreate() {
     if (!requireLogin()) return;
     document.getElementById('createModal').classList.add('open');
     document.body.style.overflow = 'hidden';
     setType('photo');
-    create.files = []; renderPreviews();
     document.getElementById('captionInput').value = '';
     updateCharCount();
   }
   function closeCreate() {
     document.getElementById('createModal').classList.remove('open');
     document.body.style.overflow = '';
-    create.files = [];
+    resetCreateMedia();
+    syncSubmitState();
   }
   function setType(t) {
     create.type = t;
-    document.querySelectorAll('.type-opt').forEach(o => o.classList.toggle('active', o.dataset.type === t));
+    // The "Photo / Video" tab is data-type="photo" but also represents the video flow.
+    document.querySelectorAll('.type-opt').forEach(o =>
+      o.classList.toggle('active', o.dataset.type === t || (t === 'video' && o.dataset.type === 'photo')));
     const isMedia = t === 'photo' || t === 'video';
     document.getElementById('dropWrap').style.display = isMedia ? 'block' : 'none';
     document.getElementById('recipePickWrap').style.display = t === 'recipe' ? 'block' : 'none';
-    document.getElementById('dropHint').textContent = t === 'video'
-      ? 'Drop a video (MP4/WebM/MOV, up to 3 min, 180MB)' : 'Drop photos (up to 10, JPG/PNG/WebP)';
-    create.files = []; renderPreviews();
+    document.getElementById('dropHint').textContent =
+      'Drop photos (up to 10) or a video (MP4/WebM/MOV, up to 3 min, 180MB)';
+    resetCreateMedia(); renderPreviews(); syncSubmitState();
   }
   async function addFiles(fileList) {
-    const isVideo = create.type === 'video';
-    for (const f of fileList) {
-      if (isVideo) {
-        if (!/^video\//.test(f.type)) { toast('That is not a video file.', 'error'); continue; }
-        if (f.size > 180 * 1024 * 1024) { toast('Video must be under 180MB.', 'error'); continue; }
-        const dur = await videoDuration(f).catch(() => 0);
-        if (dur > 181) { toast('Video must be 3 minutes or less.', 'error'); continue; }
-        create.files = [f]; break;
-      } else {
-        if (!/^image\//.test(f.type)) { toast('Only image files for photo posts.', 'error'); continue; }
-        if (create.files.length >= 10) { toast('Up to 10 photos per post.', 'warning'); break; }
-        create.files.push(f);
-      }
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    // The shared media tab accepts either; detect from the first file.
+    if (create.type === 'photo' || create.type === 'video') {
+      create.type = /^video\//.test(files[0].type) ? 'video' : 'photo';
+    }
+    if (create.type === 'video') {
+      const f = files[0];
+      if (!/^video\//.test(f.type)) { toast('That is not a video file.', 'error'); return; }
+      if (f.size > 180 * 1024 * 1024) { toast('Video must be under 180MB.', 'error'); return; }
+      const dur = await videoDuration(f).catch(() => 0);
+      if (dur > 181) { toast('Video must be 3 minutes or less.', 'error'); return; }
+      resetCreateMedia();
+      create.type = 'video';
+      create.files = [f];
+      renderPreviews();
+      uploadVideo(f);            // kick off the async transcode + progress
+      return;
+    }
+    for (const f of files) {
+      if (!/^image\//.test(f.type)) { toast('Only image files for photo posts.', 'error'); continue; }
+      if (create.files.length >= 10) { toast('Up to 10 photos per post.', 'warning'); break; }
+      create.files.push(f);
     }
     renderPreviews();
   }
@@ -577,12 +595,93 @@ const Feed = (() => {
       v.src = URL.createObjectURL(file);
     });
   }
+
+  // ── async video transcode (upload → poll → preview) ────────────────────
+  async function uploadVideo(file) {
+    create.uploading = true; create.videoUrl = null; create.videoThumb = null;
+    syncSubmitState(); setVideoProgress(2, 'Uploading');
+    try {
+      const fd = new FormData();
+      fd.append('video', file);
+      const res = await fetch('/api/upload/video', { method: 'POST', headers: { Authorization: 'Bearer ' + Auth.token() }, body: fd });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.error) || 'Video upload failed.');
+      create.jobId = data.jobId;
+      setVideoProgress(5, 'Transcoding');
+      pollVideoJob(data.jobId);
+    } catch (err) {
+      create.uploading = false; syncSubmitState();
+      setVideoProgress(0, '', err.message);
+      toast(err.message || 'Video upload failed.', 'error');
+    }
+  }
+  function pollVideoJob(jobId) {
+    const tick = async () => {
+      if (create.jobId !== jobId) return;     // superseded (replaced/removed/closed)
+      try {
+        const s = await Auth.api(`/api/upload/video/${jobId}/status`);
+        if (create.jobId !== jobId) return;
+        if (s.status === 'complete') {
+          create.uploading = false;
+          create.videoUrl = s.videoUrl;
+          create.videoThumb = s.thumbnailUrl || null;
+          setVideoProgress(100, 'Ready');
+          renderPreviews();                   // swap to the transcoded preview
+          syncSubmitState();
+          return;
+        }
+        if (s.status === 'failed') {
+          create.uploading = false; syncSubmitState();
+          setVideoProgress(0, '', s.error || 'Transcoding failed.');
+          toast(s.error || 'Transcoding failed.', 'error');
+          return;
+        }
+        setVideoProgress(Math.max(5, s.progress || 0), 'Transcoding');
+        setTimeout(tick, 2000);
+      } catch (err) {
+        if (create.jobId !== jobId) return;
+        setTimeout(tick, 2000);               // transient — keep polling
+      }
+    };
+    setTimeout(tick, 2000);
+  }
+  function setVideoProgress(pct, label, error) {
+    const wrap = document.getElementById('vidProgress');
+    const fill = document.getElementById('vidProgressFill');
+    const lab = document.getElementById('vidProgressLabel');
+    if (wrap) { wrap.hidden = false; wrap.classList.toggle('error', !!error); }
+    if (fill) fill.style.width = Math.min(100, Math.max(0, pct)) + '%';
+    if (lab) lab.textContent = error || (pct >= 100 ? 'Ready' : `${label || 'Working'}… ${Math.round(pct)}%`);
+  }
+  function syncSubmitState() {
+    const btn = document.getElementById('submitPostBtn');
+    if (!btn) return;
+    btn.disabled = !!create.uploading;
+    btn.textContent = create.uploading ? 'Processing video…' : 'Post';
+  }
   function renderPreviews() {
     const grid = document.getElementById('previewGrid');
+    if (create.type === 'video') {
+      if (!create.files.length && !create.videoUrl) { grid.innerHTML = ''; return; }
+      const src = create.videoUrl ? esc(create.videoUrl)
+        : (create.files[0] ? URL.createObjectURL(create.files[0]) : '');
+      grid.innerHTML = `
+        <div class="preview-thumb preview-video">
+          <video src="${src}" muted playsinline ${create.videoUrl ? 'controls loop' : ''}></video>
+          <button data-rm="0" aria-label="Remove">✕</button>
+          <div class="vid-progress" id="vidProgress" ${create.videoUrl ? 'hidden' : ''}>
+            <div class="vid-progress-bar"><span id="vidProgressFill"></span></div>
+            <small id="vidProgressLabel">Transcoding…</small>
+          </div>
+        </div>`;
+      grid.querySelector('[data-rm]').addEventListener('click', () => {
+        resetCreateMedia(); create.type = 'photo'; renderPreviews(); syncSubmitState();
+      });
+      return;
+    }
     grid.innerHTML = create.files.map((f, i) => {
       const url = URL.createObjectURL(f);
-      const media = /^video\//.test(f.type) ? `<video src="${url}" muted></video>` : `<img src="${url}" alt="">`;
-      return `<div class="preview-thumb">${media}<button data-rm="${i}" aria-label="Remove">✕</button></div>`;
+      return `<div class="preview-thumb"><img src="${url}" alt=""><button data-rm="${i}" aria-label="Remove">✕</button></div>`;
     }).join('');
     grid.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
       create.files.splice(Number(b.dataset.rm), 1); renderPreviews();
@@ -598,7 +697,10 @@ const Feed = (() => {
     const location_ = document.getElementById('locationInput').value.trim();
     const btn = document.getElementById('submitPostBtn');
     if (create.type === 'photo' && !create.files.length) return toast('Add at least one photo.', 'error');
-    if (create.type === 'video' && !create.files.length) return toast('Add a video to post a reel.', 'error');
+    if (create.type === 'video') {
+      if (create.uploading) return toast('Hang on — your video is still processing.', 'info');
+      if (!create.videoUrl) return toast('Add a video to post a reel.', 'error');
+    }
     if (create.type === 'text' && !caption) return toast('Write something to share.', 'error');
     let recipeId = '';
     if (create.type === 'recipe') {
@@ -610,7 +712,13 @@ const Feed = (() => {
     fd.append('caption', caption);
     fd.append('location', location_);
     if (recipeId) fd.append('recipeId', recipeId);
-    create.files.forEach(f => fd.append('media', f));
+    if (create.type === 'video') {
+      // Reels post the pre-transcoded path, not the raw file.
+      fd.append('videoUrl', create.videoUrl);
+      if (create.videoThumb) fd.append('videoThumb', create.videoThumb);
+    } else {
+      create.files.forEach(f => fd.append('media', f));
+    }
 
     const label = btn.innerHTML;
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Posting…';

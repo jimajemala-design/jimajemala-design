@@ -16,15 +16,19 @@
   const els = {
     shell: $('dmShell'), convos: $('dmConvos'),
     empty: $('dmEmpty'), active: $('dmActive'),
-    peer: $('dmPeer'), peerAv: $('dmPeerAv'), peerName: $('dmPeerName'), peerHandle: $('dmPeerHandle'),
+    peer: $('dmPeer'), peerAv: $('dmPeerAv'), peerInitial: $('dmPeerInitial'),
+    peerName: $('dmPeerName'), peerStatus: $('dmPeerStatus'), peerDot: $('dmPeerDot'),
     messages: $('dmMessages'), compose: $('dmCompose'), input: $('dmInput'), send: $('dmSend'),
-    back: $('dmBack'),
+    back: $('dmBack'), typingRow: $('dmTypingRow'), typingName: $('dmTypingName'),
   };
 
   let currentId = null;       // open conversation id
+  let currentPeer = null;     // { id, name, ... } of the open thread's other user
   let convoCache = [];        // last conversations payload
-  let threadTimer = null;     // 5s thread poll
+  let threadTimer = null;     // poll fallback (sockets are primary)
   let lastStamp = null;       // newest message timestamp rendered (for cheap diffing)
+  let typingDebounce = null;  // stop-typing timer (sender side)
+  let peerTypingHide = null;  // auto-hide timer (receiver side)
 
   function timeAgo(iso) {
     const s = Math.max(1, (Date.now() - new Date(iso).getTime()) / 1000);
@@ -71,6 +75,7 @@
       els.convos.innerHTML = convoCache.map(convoRowHTML).join('');
       els.convos.querySelectorAll('.dm-convo').forEach(btn =>
         btn.addEventListener('click', () => openConversation(btn.dataset.id)));
+      refreshConvoPresence();
     } catch (e) {
       els.convos.innerHTML = `<div class="dm-list-empty"><p>Could not load messages.</p></div>`;
     }
@@ -92,8 +97,10 @@
   function bubbleHTML(m) {
     const mine = m.fromUserId === ME.id;
     const body = m.text ? `<span class="dm-bubble-text">${linkify(esc(m.text))}</span>` : '';
-    return `<div class="dm-row ${mine ? 'mine' : 'theirs'}">
-      <div class="dm-bubble">${attachmentHTML(m.attachment)}${body}<time>${clockTime(m.at)}</time></div>
+    // Read receipts on my own messages: ✓ sent, ✓✓ read (blue).
+    const ticks = mine ? `<span class="dm-ticks ${m.read ? 'read' : ''}" aria-hidden="true">${m.read ? '✓✓' : '✓'}</span>` : '';
+    return `<div class="dm-row ${mine ? 'mine' : 'theirs'}" data-mid="${esc(m.id)}">
+      <div class="dm-bubble">${attachmentHTML(m.attachment)}${body}<span class="dm-meta"><time>${clockTime(m.at)}</time>${ticks}</span></div>
     </div>`;
   }
 
@@ -117,11 +124,32 @@
   }
 
   function setPeer(u) {
+    currentPeer = u;
     els.peerName.textContent = u.name || 'NutriFell User';
-    els.peerHandle.textContent = u.username || '';
     els.peer.href = '/profile-social.html?id=' + (u.id || '');
-    if (u.avatar) { els.peerAv.style.backgroundImage = `url('${u.avatar}')`; els.peerAv.textContent = ''; els.peerAv.classList.add('has-img'); }
-    else { els.peerAv.style.backgroundImage = ''; els.peerAv.textContent = initial(u.name); els.peerAv.classList.remove('has-img'); }
+    if (u.avatar) { els.peerAv.style.backgroundImage = `url('${u.avatar}')`; els.peerInitial.textContent = ''; els.peerAv.classList.add('has-img'); }
+    else { els.peerAv.style.backgroundImage = ''; els.peerInitial.textContent = initial(u.name); els.peerAv.classList.remove('has-img'); }
+    updatePeerPresence();
+  }
+
+  // Reflect the peer's online state in the header (live via window.Live).
+  function updatePeerPresence() {
+    if (!currentPeer) return;
+    const live = window.Live;
+    const isOnline = live && live.isOnline(currentPeer.id);
+    els.peerDot.hidden = !isOnline;
+    if (els.typingRow && !els.typingRow.hidden) return; // don't clobber "typing…"
+    els.peerStatus.textContent = isOnline ? 'Active now' : (currentPeer.username || '');
+    els.peerStatus.classList.toggle('online', !!isOnline);
+  }
+  document.addEventListener('presence:change', () => { updatePeerPresence(); refreshConvoPresence(); });
+
+  // Online dots on the conversation-list rows.
+  function refreshConvoPresence() {
+    const live = window.Live; if (!live) return;
+    els.convos.querySelectorAll('.dm-convo[data-uid]').forEach(row => {
+      row.classList.toggle('is-online', live.isOnline(row.dataset.uid));
+    });
   }
 
   async function openConversation(id) {
@@ -129,6 +157,7 @@
     els.empty.hidden = true;
     els.active.hidden = false;
     els.shell.classList.add('show-thread');
+    if (els.typingRow) els.typingRow.hidden = true;
     els.messages.innerHTML = `<div class="dm-thread-empty"><span class="spinner"></span></div>`;
     lastStamp = null;
     // highlight in list
@@ -179,6 +208,8 @@
     const text = els.input.value.trim();
     if (!text || !currentId) return;
     els.input.value = ''; autosize(); syncSendState();
+    clearTimeout(typingDebounce);
+    if (window.Live && currentPeer) window.Live.typing(currentPeer.id, false);
     // optimistic append
     const temp = { id: 'temp', fromUserId: ME.id, text, attachment: null, at: new Date().toISOString() };
     els.messages.insertAdjacentHTML('beforeend', bubbleHTML(temp));
@@ -196,6 +227,8 @@
 
   function closeThread() {
     currentId = null;
+    currentPeer = null;
+    if (els.typingRow) els.typingRow.hidden = true;
     stopThreadPoll();
     els.shell.classList.remove('show-thread');
     els.active.hidden = true;
@@ -219,13 +252,59 @@
   }
 
   // ── Wire-up ─────────────────────────────────────────────────────────
-  els.input.addEventListener('input', () => { autosize(); syncSendState(); });
+  els.input.addEventListener('input', () => { autosize(); syncSendState(); emitTyping(); });
   els.input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
+
+  // Sender-side typing signal (throttled stop after 2.5s idle).
+  function emitTyping() {
+    if (!currentPeer || !window.Live) return;
+    window.Live.typing(currentPeer.id, true);
+    clearTimeout(typingDebounce);
+    typingDebounce = setTimeout(() => window.Live.typing(currentPeer.id, false), 2500);
+  }
   els.compose.addEventListener('submit', (e) => { e.preventDefault(); sendMessage(); });
   els.back.addEventListener('click', closeThread);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && currentId) markRead(currentId); });
+
+  // ── Real-time API (called by socket-client.js) ───────────────────────
+  function hideTyping() { if (els.typingRow) els.typingRow.hidden = true; updatePeerPresence(); }
+  window.Messages = {
+    // A message arrived live.
+    addIncoming(dm) {
+      if (dm.conversationId === currentId) {
+        hideTyping();
+        // avoid duplicating a message we already rendered via poll
+        if (!els.messages.querySelector(`.dm-row[data-mid="${dm.message.id}"]`)) {
+          const atBottom = els.messages.scrollHeight - els.messages.scrollTop - els.messages.clientHeight < 120;
+          els.messages.insertAdjacentHTML('beforeend', bubbleHTML(dm.message));
+          lastStamp = dm.message.at;
+          if (atBottom) els.messages.scrollTop = els.messages.scrollHeight;
+        }
+        markRead(currentId);
+      } else if (window.toast) {
+        toast('💬 New message', 'info', 2600);
+      }
+      if (window.Notif && Notif.refreshDMCount) Notif.refreshDMCount();
+      loadConvos();
+    },
+    // The peer is typing (or stopped).
+    setTyping(fromUserId, on) {
+      if (!currentPeer || fromUserId !== currentPeer.id) return;
+      clearTimeout(peerTypingHide);
+      els.typingRow.hidden = !on;
+      els.typingName.textContent = (currentPeer.name || 'They').split(' ')[0] + ' is typing…';
+      if (on) peerTypingHide = setTimeout(() => { els.typingRow.hidden = true; updatePeerPresence(); }, 4000);
+      else updatePeerPresence();
+    },
+    // The peer read my messages — flip ticks to blue.
+    markReadByPeer(info) {
+      if (info.conversationId !== currentId) return;
+      els.messages.querySelectorAll('.dm-row.mine .dm-ticks').forEach(t => { t.classList.add('read'); t.textContent = '✓✓'; });
+    },
+    confirmSent() { /* REST path is authoritative; no-op */ },
+  };
 
   (async function init() {
     await loadConvos();

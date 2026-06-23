@@ -26,6 +26,32 @@ try { compression = require('compression'); } catch (e) { /* gzip disabled */ }
 try { helmet = require('helmet'); } catch (e) { /* security headers disabled */ }
 try { rateLimit = require('express-rate-limit'); } catch (e) { /* rate limiting disabled */ }
 
+// ─── Phase 5: ffmpeg (video transcoding) + socket.io (real-time) ─────────
+// Both loaded defensively: if a dep is missing the server still boots, just
+// without transcoding / live features.
+let ffmpeg = null, ffmpegInstaller = null, SocketServer = null;
+try {
+  ffmpeg = require('fluent-ffmpeg');
+  ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+  ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+  // ffprobe ships in the same installer package directory on most platforms.
+  try { const ffprobe = require('@ffprobe-installer/ffprobe'); ffmpeg.setFfprobePath(ffprobe.path); } catch (e) { /* ffprobe alongside ffmpeg */ }
+} catch (e) { ffmpeg = null; console.warn('ffmpeg unavailable — video transcoding disabled:', e.message); }
+try { SocketServer = require('socket.io').Server; } catch (e) { console.warn('socket.io unavailable — real-time disabled:', e.message); }
+
+// Realtime hub. `io` is assigned once the HTTP server is created at the bottom;
+// route handlers emit through RT, which no-ops until then / if socket.io is
+// missing. onlineUsers maps userId → { socketId, lastSeen }.
+let io = null;
+const onlineUsers = new Map();
+const RT = {
+  toUser(userId, event, payload) { if (io && userId) io.to(`user:${userId}`).emit(event, payload); },
+  toPost(postId, event, payload) { if (io && postId) io.to(`post:${postId}`).emit(event, payload); },
+  broadcast(event, payload) { if (io) io.emit(event, payload); },
+  isOnline(userId) { return onlineUsers.has(userId); },
+  lastSeen(userId) { const e = onlineUsers.get(userId); return e ? e.lastSeen : null; },
+};
+
 if (helmet) {
   // CSP is left off: the app loads Three.js/Stripe from CDNs and uses inline
   // bootstrap scripts. The remaining helmet protections (HSTS, noSniff, frame
@@ -228,9 +254,14 @@ const REELS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'reels');
 const STORIES_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'stories');
 const AVATARS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'avatars');
 const COVERS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'covers');
+// Phase 5: transcoded videos + thumbnails, and a scratch dir for raw uploads.
+const VIDEOS_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'videos');
+const VIDEO_THUMBS_DIR = path.join(__dirname, 'public', 'uploads', 'videos', 'thumbs');
+const VIDEO_TMP_DIR = path.join(__dirname, 'public', 'uploads', 'tmp');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-for (const d of [UPLOADS_DIR, POSTS_UPLOAD_DIR, REELS_UPLOAD_DIR, STORIES_UPLOAD_DIR, AVATARS_UPLOAD_DIR, COVERS_UPLOAD_DIR]) {
+for (const d of [UPLOADS_DIR, POSTS_UPLOAD_DIR, REELS_UPLOAD_DIR, STORIES_UPLOAD_DIR, AVATARS_UPLOAD_DIR, COVERS_UPLOAD_DIR,
+  VIDEOS_UPLOAD_DIR, VIDEO_THUMBS_DIR, VIDEO_TMP_DIR]) {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 }
 for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE, LOGS_FILE, WATER_FILE,
@@ -3174,13 +3205,22 @@ function optionalAuth(req) {
 function pushNotification(type, { toUserId, fromUserId, postId, text }) {
   if (!toUserId || toUserId === fromUserId) return;
   const from = readJSON(USERS_FILE).find(u => u.id === fromUserId);
-  const all = readJSON(NOTIFICATIONS_FILE);
-  all.unshift({
+  const notif = {
     id: uuidv4(), type, toUserId, fromUserId,
     fromName: (from && from.name) || 'Someone', fromAvatar: (from && from.avatar) || null,
     postId: postId || null, text: text || '', read: false, at: new Date().toISOString(),
-  });
+  };
+  const all = readJSON(NOTIFICATIONS_FILE);
+  all.unshift(notif);
   writeJSON(NOTIFICATIONS_FILE, all.slice(0, 500));
+  // Phase 5: push it live to the recipient's bell (if connected).
+  const post = postId ? readJSON(POSTS_FILE).find(p => p.id === postId) : null;
+  RT.toUser(toUserId, 'notification:new', {
+    id: notif.id, type, text: notif.text, at: notif.at,
+    actor: { id: fromUserId, name: notif.fromName, avatar: notif.fromAvatar, username: userHandle(from) },
+    post: post ? { id: post.id, thumbnail: notifThumb(post), type: post.type } : null,
+    link: type === 'follow' ? `/profile-social.html?id=${fromUserId}` : (postId ? `/feed.html?post=${postId}` : '#'),
+  });
 }
 
 function extractHashtags(text) {
@@ -3402,7 +3442,16 @@ app.post('/api/posts', auth, (req, res) => {
       const b = req.body || {};
       const type = POST_TYPES.includes(b.type) ? b.type : 'text';
       const caption = String(b.caption || '').trim().slice(0, 500);
-      const { photos, video } = await savePostMedia(req.files);
+      const { photos, video: rawVideo } = await savePostMedia(req.files);
+      // Phase 5: a reel can supply a pre-transcoded video (from /api/upload/video)
+      // instead of a raw multipart upload. Only accept paths inside /uploads/videos.
+      let video = rawVideo;
+      let videoThumb = null;
+      if (!video && b.videoUrl && /^\/uploads\/videos\/[\w.-]+\.mp4$/.test(b.videoUrl)
+          && fs.existsSync(path.join(__dirname, 'public', b.videoUrl))) {
+        video = b.videoUrl;
+        if (b.videoThumb && /^\/uploads\/videos\/thumbs\/[\w.-]+\.webp$/.test(b.videoThumb)) videoThumb = b.videoThumb;
+      }
       if (type === 'photo' && photos.length === 0) return res.status(400).json({ error: 'Add at least one photo.' });
       if (type === 'video' && !video) return res.status(400).json({ error: 'Add a video to post a reel.' });
       if (type === 'text' && !caption) return res.status(400).json({ error: 'Write something to share.' });
@@ -3422,7 +3471,7 @@ app.post('/api/posts', auth, (req, res) => {
         authorName: (user && user.name) || 'NutriFell User',
         authorUsername: userHandle(user),
         authorAvatar: (user && user.avatar) || null,
-        type, caption, photos, video, recipe: recipeRef,
+        type, caption, photos, video, videoThumb, recipe: recipeRef,
         hashtags: extractHashtags(`${caption} ${b.hashtags || ''}`),
         foodTags, location: b.location ? String(b.location).trim().slice(0, 80) : '',
         views: 0, createdAt: new Date().toISOString(),
@@ -3431,6 +3480,8 @@ app.post('/api/posts', auth, (req, res) => {
       all.unshift(post);
       writeJSON(POSTS_FILE, all);
       notifyMentions(caption, req.userId, post.id, 'mentioned you in a post');
+      // Phase 5: live feed nudge ("N new posts" banner) for everyone.
+      RT.broadcast('feed:new_post', { postId: post.id, type: post.type, author: { id: post.userId, name: post.authorName, avatar: post.authorAvatar } });
       res.status(201).json(post);
     } catch (err) {
       console.error('Post create error:', err.message);
@@ -3487,6 +3538,8 @@ app.post('/api/posts/:id/react', auth, (req, res) => {
   if (!post) return res.status(404).json({ error: 'Post not found' });
   const out = applyReaction(req.params.id, req.userId, emoji);
   if (out.mine) pushNotification('reaction', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: `reacted ${emoji} to your post` });
+  // Generic broadcast so any client showing this post can update its count live.
+  RT.broadcast('post:reaction', { postId: post.id, total: out.total, counts: out.counts });
   res.json(out);
 });
 
@@ -3496,6 +3549,7 @@ app.post('/api/posts/:id/like', auth, (req, res) => {
   if (!post) return res.status(404).json({ error: 'Post not found' });
   const out = applyReaction(req.params.id, req.userId, '❤️');
   if (out.mine) pushNotification('like', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: 'liked your post' });
+  RT.broadcast('post:reaction', { postId: post.id, total: out.total, counts: out.counts });
   res.json({ ...out, liked: out.mine === '❤️' });
 });
 
@@ -3560,6 +3614,11 @@ app.post('/api/posts/:id/comments', auth, (req, res) => {
   writeJSON(POST_COMMENTS_FILE, all);
   pushNotification('comment', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: 'commented on your post' });
   notifyMentions(text, req.userId, post.id, 'mentioned you in a comment');
+  // Live: anyone viewing this post (subscribed to its room) gets the full
+  // comment; everyone else just gets a count bump for the feed card.
+  RT.toPost(post.id, 'comment:new', { postId: post.id, comment: { ...comment, likeCount: 0, replies: [] } });
+  const cCount = readJSON(POST_COMMENTS_FILE).filter(c => c.postId === post.id).length;
+  RT.broadcast('post:comment', { postId: post.id, total: cCount });
   res.status(201).json(comment);
 });
 
@@ -3932,25 +3991,39 @@ app.get('/api/conversations/:id/messages', auth, (req, res) => {
 });
 
 // Send a message. Attachment is an optional shared post/reel ({ kind, postId }).
-app.post('/api/conversations/:id/messages', auth, (req, res) => {
-  const convo = loadOwnConversation(req, res); if (!convo) return;
-  const text = String((req.body && req.body.text) || '').trim().slice(0, 2000);
-  let attachment = null;
-  const a = req.body && req.body.attachment;
-  if (a && (a.kind === 'post' || a.kind === 'reel') && a.postId) attachment = { kind: a.kind, postId: String(a.postId) };
-  if (!text && !attachment) return res.status(400).json({ error: 'Write a message.' });
-  const msg = { id: uuidv4(), conversationId: convo.id, fromUserId: req.userId, text, attachment, read: false, at: new Date().toISOString() };
+// Shared persistence used by both the REST endpoint and the socket `dm:send`
+// handler. Validates, saves, updates the conversation summary, and pushes the
+// enriched message live to the recipient. Returns the enriched message.
+function persistMessage(convo, fromUserId, { text, attachment }) {
+  const clean = String(text || '').trim().slice(0, 2000);
+  let att = null;
+  if (attachment && (attachment.kind === 'post' || attachment.kind === 'reel') && attachment.postId) {
+    att = { kind: attachment.kind, postId: String(attachment.postId) };
+  }
+  if (!clean && !att) throw new Error('Write a message.');
+  const msg = { id: uuidv4(), conversationId: convo.id, fromUserId, text: clean, attachment: att, read: false, at: new Date().toISOString() };
   const messages = readJSON(MESSAGES_FILE);
   messages.push(msg);
   writeJSON(MESSAGES_FILE, messages);
   const convos = readJSON(CONVERSATIONS_FILE);
   const c = convos.find(x => x.id === convo.id);
-  if (c) {
-    c.lastMessage = { text: text || 'Shared a post', fromUserId: req.userId, at: msg.at };
-    c.lastMessageAt = msg.at;
-    writeJSON(CONVERSATIONS_FILE, convos);
+  if (c) { c.lastMessage = { text: clean || 'Shared a post', fromUserId, at: msg.at }; c.lastMessageAt = msg.at; writeJSON(CONVERSATIONS_FILE, convos); }
+  const enriched = enrichMessageAttachment(msg, readJSON(POSTS_FILE));
+  // Deliver live to the other participant.
+  const toUserId = convo.participants.find(id => id !== fromUserId);
+  RT.toUser(toUserId, 'dm:receive', { conversationId: convo.id, from: fromUserId, message: enriched });
+  return enriched;
+}
+
+app.post('/api/conversations/:id/messages', auth, (req, res) => {
+  const convo = loadOwnConversation(req, res); if (!convo) return;
+  const a = req.body && req.body.attachment;
+  try {
+    const enriched = persistMessage(convo, req.userId, { text: (req.body && req.body.text) || '', attachment: a });
+    res.status(201).json(enriched);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Write a message.' });
   }
-  res.status(201).json(enrichMessageAttachment(msg, readJSON(POSTS_FILE)));
 });
 
 // Mark the other party's messages in a thread as read.
@@ -3960,6 +4033,9 @@ app.put('/api/conversations/:id/read', auth, (req, res) => {
   let changed = false;
   messages.forEach(m => { if (m.conversationId === convo.id && m.fromUserId !== req.userId && !m.read) { m.read = true; changed = true; } });
   if (changed) writeJSON(MESSAGES_FILE, messages);
+  // Tell the sender their messages were read (blue ticks).
+  const otherId = convo.participants.find(id => id !== req.userId);
+  RT.toUser(otherId, 'dm:read', { conversationId: convo.id, by: req.userId, at: new Date().toISOString() });
   res.json({ success: true });
 });
 
@@ -3968,6 +4044,12 @@ app.get('/api/messages/unread-count', auth, (req, res) => {
   const convoIds = new Set(readJSON(CONVERSATIONS_FILE).filter(c => c.participants.includes(req.userId)).map(c => c.id));
   const count = readJSON(MESSAGES_FILE).filter(m => convoIds.has(m.conversationId) && m.fromUserId !== req.userId && !m.read).length;
   res.json({ count });
+});
+
+// Presence snapshot for a user (online + last-seen). Live updates flow over the
+// socket via user:online / user:offline.
+app.get('/api/presence/:id', auth, (req, res) => {
+  res.json({ id: req.params.id, online: RT.isOnline(req.params.id), lastSeen: RT.lastSeen(req.params.id) });
 });
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -4092,9 +4174,12 @@ app.post('/api/stories/:id/view', auth, (req, res) => {
   const story = readJSON(STORIES_FILE).find(s => s.id === req.params.id);
   if (!story || !isActiveStory(story)) return res.status(404).json({ error: 'Story not found.' });
   const views = readJSON(STORY_VIEWS_FILE);
-  if (!views.some(v => v.storyId === story.id && v.userId === req.userId)) {
+  if (!views.some(v => v.storyId === story.id && v.userId === req.userId) && story.userId !== req.userId) {
     views.push({ storyId: story.id, userId: req.userId, at: new Date().toISOString() });
     writeJSON(STORY_VIEWS_FILE, views);
+    // Live: notify the story owner who just watched.
+    const me = readJSON(USERS_FILE).find(u => u.id === req.userId);
+    RT.toUser(story.userId, 'story:viewed', { storyId: story.id, viewer: { id: req.userId, name: (me && me.name) || 'Someone', avatar: (me && me.avatar) || null } });
   }
   res.json({ success: true });
 });
@@ -4123,6 +4208,105 @@ app.delete('/api/stories/:id', auth, (req, res) => {
   const fp = path.join(__dirname, 'public', story.media || '');
   try { if (story.media && fp.startsWith(STORIES_UPLOAD_DIR) && fs.existsSync(fp)) fs.unlinkSync(fp); } catch { /* ignore */ }
   res.json({ success: true });
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+// Phase 5 · Video transcoding pipeline (ffmpeg)
+// Upload → ffprobe duration guard (≤3 min) → transcode to web-optimized
+// H.264/AAC mp4 (+faststart) → 400² WebP poster. Runs in the background; the
+// client polls /api/upload/video/:jobId/status. Progress + results live in an
+// in-memory Map that is garbage-collected after a TTL.
+// ═════════════════════════════════════════════════════════════════════════
+const MAX_VIDEO_SECONDS = 180;
+const uploadProgress = new Map();   // jobId -> { status, progress, videoUrl, thumbnailUrl, error, userId, at }
+const JOB_TTL = 30 * 60 * 1000;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, job] of uploadProgress) if (now - (job.at || 0) > JOB_TTL) uploadProgress.delete(id);
+}, 5 * 60 * 1000);
+
+const videoUpload = (multer && ffmpeg)
+  ? multer({
+      storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, VIDEO_TMP_DIR),
+        filename: (req, file, cb) => cb(null, `${Date.now()}-${uuidv4().slice(0, 8)}${path.extname(file.originalname) || '.mp4'}`),
+      }),
+      limits: { fileSize: 180 * 1024 * 1024, files: 1 },
+      fileFilter: (req, file, cb) => {
+        const ok = /^video\/(mp4|quicktime|webm|x-msvideo|avi)$/.test(file.mimetype)
+          || /\.(mp4|mov|webm|avi)$/i.test(file.originalname || '');
+        cb(ok ? null : new Error('Unsupported video format. Use MP4, MOV, WebM or AVI.'), ok);
+      },
+    })
+  : null;
+
+function probeDuration(inputPath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(inputPath, (err, meta) => {
+      if (err) return reject(new Error('Could not read the video file.'));
+      resolve((meta && meta.format && meta.format.duration) || 0);
+    });
+  });
+}
+
+// Run a transcode job in the background, updating uploadProgress as it goes.
+async function runVideoJob(jobId, inputPath) {
+  const set = (patch) => uploadProgress.set(jobId, { ...(uploadProgress.get(jobId) || {}), ...patch, at: Date.now() });
+  const outBase = path.basename(inputPath, path.extname(inputPath));
+  const outPath = path.join(VIDEOS_UPLOAD_DIR, `${outBase}.mp4`);
+  const thumbName = `${outBase}.webp`;
+  try {
+    set({ status: 'processing', progress: 1 });
+    const duration = await probeDuration(inputPath);
+    if (duration > MAX_VIDEO_SECONDS) throw new Error(`Video is too long (${Math.round(duration)}s). The limit is 3 minutes.`);
+    await new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .videoCodec('libx264').audioCodec('aac')
+        .videoBitrate('2000k').audioBitrate('128k')
+        .size('?x1080')
+        .outputOptions(['-movflags +faststart', '-preset fast', '-crf 23', '-pix_fmt yuv420p'])
+        .on('progress', p => set({ progress: Math.max(1, Math.min(99, Math.round(p.percent || 0))) }))
+        .on('end', resolve).on('error', reject)
+        .save(outPath);
+    });
+    await new Promise((resolve, reject) => {
+      ffmpeg(outPath)
+        .on('end', resolve).on('error', reject)
+        .screenshots({ timestamps: ['00:00:01'], filename: thumbName, folder: VIDEO_THUMBS_DIR, size: '400x400' });
+    });
+    set({ status: 'complete', progress: 100, videoUrl: `/uploads/videos/${outBase}.mp4`, thumbnailUrl: `/uploads/videos/thumbs/${thumbName}`, durationSec: Math.round(duration) });
+  } catch (e) {
+    set({ status: 'failed', error: e.message || 'Transcoding failed.' });
+    try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch { /* ignore */ }
+  } finally {
+    try { if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath); } catch { /* ignore */ }
+  }
+}
+
+// Kick off a transcode; returns a jobId immediately.
+app.post('/api/upload/video', auth, (req, res) => {
+  if (!ffmpeg || !videoUpload) return res.status(503).json({ error: 'Video processing is unavailable right now.' });
+  videoUpload.single('video')(req, res, (uErr) => {
+    if (uErr) return res.status(400).json({ error: uErr.message });
+    if (!req.file) return res.status(400).json({ error: 'No video uploaded.' });
+    const jobId = uuidv4();
+    uploadProgress.set(jobId, { status: 'processing', progress: 0, userId: req.userId, at: Date.now() });
+    runVideoJob(jobId, req.file.path); // background — not awaited
+    res.status(202).json({ jobId, status: 'processing' });
+  });
+});
+
+// Poll transcode progress / result.
+app.get('/api/upload/video/:jobId/status', auth, (req, res) => {
+  const job = uploadProgress.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'Job not found or expired.' });
+  if (job.userId && job.userId !== req.userId) return res.status(403).json({ error: 'Not your upload.' });
+  res.json({
+    progress: job.progress || 0, status: job.status,
+    videoUrl: job.videoUrl || null, thumbnailUrl: job.thumbnailUrl || null,
+    durationSec: job.durationSec || null, error: job.error || null,
+  });
 });
 
 // ── Hashtags ──
@@ -4308,4 +4492,78 @@ app.use((err, req, res, next) => {
 process.on('unhandledRejection', (reason) => console.error('Unhandled rejection:', reason));
 process.on('uncaughtException', (err) => console.error('Uncaught exception:', err));
 
-app.listen(PORT, () => console.log(`NutriFell running at http://localhost:${PORT}`));
+// ═════════════════════════════════════════════════════════════════════════
+// Phase 5 · Real-time server (socket.io)
+// The HTTP server wraps the Express app so socket.io can share the port. If
+// socket.io is unavailable we fall back to a plain app.listen (REST still works;
+// the client gracefully degrades to polling).
+// ═════════════════════════════════════════════════════════════════════════
+const ONLINE_MAX = 50000; // safety cap on the in-memory presence map
+
+if (SocketServer) {
+  const http = require('http');
+  const httpServer = http.createServer(app);
+  io = new SocketServer(httpServer, {
+    cors: { origin: '*', methods: ['GET', 'POST'] },
+    pingTimeout: 60000,
+  });
+
+  // JWT auth on the handshake; reject anonymous sockets.
+  io.use((socket, next) => {
+    const token = socket.handshake.auth && socket.handshake.auth.token;
+    if (!token) return next(new Error('Unauthorized'));
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      socket.userId = decoded.id;
+      next();
+    } catch {
+      next(new Error('Invalid token'));
+    }
+  });
+
+  io.on('connection', (socket) => {
+    const userId = socket.userId;
+    socket.join(`user:${userId}`);
+    if (onlineUsers.size < ONLINE_MAX) onlineUsers.set(userId, { socketId: socket.id, lastSeen: Date.now() });
+    // Tell everyone this user is online, and send the newcomer the current roster.
+    io.emit('user:online', userId);
+    socket.emit('presence:list', Array.from(onlineUsers.keys()));
+
+    // Live comments: subscribe/unsubscribe to a post's room.
+    socket.on('post:subscribe', (postId) => { if (postId) socket.join(`post:${postId}`); });
+    socket.on('post:unsubscribe', (postId) => { if (postId) socket.leave(`post:${postId}`); });
+
+    // Typing indicators (ephemeral — not persisted).
+    socket.on('dm:typing', ({ toUserId } = {}) => { if (toUserId) io.to(`user:${toUserId}`).emit('dm:typing', { fromUserId: userId }); });
+    socket.on('dm:stop_typing', ({ toUserId } = {}) => { if (toUserId) io.to(`user:${toUserId}`).emit('dm:stop_typing', { fromUserId: userId }); });
+
+    // Optional socket send path (REST remains the primary, attachment-capable
+    // path). Persists + delivers via the same helper, then confirms to sender.
+    socket.on('dm:send', ({ conversationId, text, attachment } = {}, ack) => {
+      try {
+        const convo = readJSON(CONVERSATIONS_FILE).find(c => c.id === conversationId);
+        if (!convo || !convo.participants.includes(userId)) throw new Error('Not your conversation.');
+        const msg = persistMessage(convo, userId, { text, attachment });
+        socket.emit('dm:sent', { tempId: (attachment && attachment.tempId) || null, message: msg });
+        if (typeof ack === 'function') ack({ ok: true, message: msg });
+      } catch (e) {
+        socket.emit('dm:error', { error: e.message });
+        if (typeof ack === 'function') ack({ ok: false, error: e.message });
+      }
+    });
+
+    socket.on('disconnect', () => {
+      // Only drop presence if this was the user's last open socket.
+      const room = io.sockets.adapter.rooms.get(`user:${userId}`);
+      if (!room || room.size === 0) {
+        onlineUsers.set(userId, { socketId: null, lastSeen: Date.now() });
+        onlineUsers.delete(userId);
+        io.emit('user:offline', userId);
+      }
+    });
+  });
+
+  httpServer.listen(PORT, () => console.log(`NutriFell running at http://localhost:${PORT} (real-time on)`));
+} else {
+  app.listen(PORT, () => console.log(`NutriFell running at http://localhost:${PORT} (real-time off)`));
+}

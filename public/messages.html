@@ -83,12 +83,13 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             </button>
             <a class="dm-peer" id="dmPeer" href="#">
-              <span class="dm-peer-av" id="dmPeerAv">?</span>
-              <span class="dm-peer-meta"><b id="dmPeerName">…</b><small id="dmPeerHandle"></small></span>
+              <span class="dm-peer-av" id="dmPeerAv"><span id="dmPeerInitial">?</span><span class="dm-presence-dot" id="dmPeerDot" hidden></span></span>
+              <span class="dm-peer-meta"><b id="dmPeerName">…</b><small id="dmPeerStatus"></small></span>
             </a>
           </header>
 
           <div class="dm-messages" id="dmMessages" aria-live="polite"></div>
+          <div class="dm-typing-row" id="dmTypingRow" hidden><span class="dm-typing-dots"><i></i><i></i><i></i></span> <span id="dmTypingName">typing…</span></div>
 
           <form class="dm-compose" id="dmCompose">
             <textarea id="dmInput" rows="1" maxlength="2000" placeholder="Message…" aria-label="Write a message"></textarea>
@@ -113,6 +114,8 @@
   <script src="/js/auth.js"></script>
   <script src="/js/notifications.js"></script>
   <script src="/js/messages.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-client.js"></script>
   <script>
     (function () {
       var u = (typeof Auth !== 'undefined' && Auth.isAuthed()) ? Auth.user() : null;
