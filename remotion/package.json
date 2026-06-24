@@ -10,6 +10,13 @@
     "render:promo:h": "remotion render src/index.ts PromoHorizontal ../public/videos/nutrifell-promo-horizontal.mp4",
     "render:promo:v": "remotion render src/index.ts PromoVertical   ../public/videos/nutrifell-promo-vertical.mp4",
     "render:promo": "npm run render:promo:h && npm run render:promo:v",
+    "render:clip:food": "remotion render src/index.ts ClipFood    ../public/videos/social/3d-food-explorer.mp4",
+    "render:clip:ai": "remotion render src/index.ts ClipAI      ../public/videos/social/ai-nutrition-chat.mp4",
+    "render:clip:fridge": "remotion render src/index.ts ClipFridge  ../public/videos/social/smart-fridge.mp4",
+    "render:clip:quit": "remotion render src/index.ts ClipQuit    ../public/videos/social/quit-smoking.mp4",
+    "render:clip:water": "remotion render src/index.ts ClipWater   ../public/videos/social/water-tracker.mp4",
+    "render:clip:feed": "remotion render src/index.ts ClipFeed    ../public/videos/social/social-feed.mp4",
+    "render:clips": "npm run render:clip:food && npm run render:clip:ai && npm run render:clip:fridge && npm run render:clip:quit && npm run render:clip:water && npm run render:clip:feed",
     "render:all": "npm run render:floating && npm run render:wave && npm run render:particles"
   },
   "dependencies": {

@@ -134,7 +134,37 @@ assistant.
      → "Join Waitlist" with a "Free for you during beta" tag; trust row + FAQ
      rewritten for beta. `pricing.js` — checkout flow replaced by a waitlist
      modal (POST `/api/waitlist`). New CSS appended to `pricing.css`.
-5. **Social media assets** — promo imagery/video (leverage `remotion/`). ← next
+5. ~~**Social media assets**~~ — ✅ done (2026-06-24). 6 vertical feature-highlight
+   clips built in Remotion (see "Social media assets" below).
+
+### Social media assets — feature highlight clips (done 2026-06-24)
+Built via the remotion-video skill, reusing the PromoVideo brand system. Six
+short vertical clips, **1080x1920 @ 30fps**, dark theme (`#080c14`) + green
+accents (`#22c55e`), Space Grotesk, drifting particle field, and the shared
+`music.wav` soundtrack (fade in/out). All render-safe (CSS-transform "3D", no
+WebGL — the skill warns WebGL crashes during render). Rendered to
+`public/videos/social/`:
+- `3d-food-explorer.mp4` (15s) — apple/salmon/broccoli rotating with real
+  nutrition chips orbiting; "74 foods in stunning 3D".
+- `ai-nutrition-chat.mp4` (20s) — phone mockup, NutriAI chat + a meal plan
+  generating row-by-row; "Your personal AI nutritionist".
+- `smart-fridge.mp4` (15s) — fridge ingredients popping in → auto-generated
+  meal plan; "Meal plans from your fridge".
+- `quit-smoking.mp4` (20s) — count-up days/money/cigs + milestone badges
+  unlocking; "Your quit smoking companion".
+- `water-tracker.mp4` (15s) — blue progress ring + animated water wave fill;
+  "Stay hydrated every day".
+- `social-feed.mp4` (20s) — feed cards sliding in with live like counts +
+  reactions flying up; "Join the NutriFell community".
+
+**Code:** shared brand primitives in `remotion/src/lib/brand.tsx`
+(tokens, `useUnit`/`useEnter`, `Backdrop`, `Stage`, `Caption`, `Wordmark`,
+`Particles`); all six clips in `remotion/src/compositions/FeatureClips.tsx`;
+registered in `Root.tsx` as `ClipFood`/`ClipAI`/`ClipFridge`/`ClipQuit`/
+`ClipWater`/`ClipFeed`. npm scripts: `render:clips` (all) + per-clip
+`render:clip:*`. **Render note:** same as the promo — Remotion's bundled Chrome
+fails to extract in this env, so render with
+`--browser-executable="/c/Program Files/Google/Chrome/Application/chrome.exe"`.
 
 ### Homepage upgrade — Wave 1 (done 2026-06-18)
 Applied via ui-ux-pro-max + taste-skill (redesign-preserve: kept the
@@ -289,12 +319,28 @@ Via ui-ux-pro-max + context-engineering + marketing. Two parts.
 - CSS for all of the above in `style.css` §35–40.
 
 ### Backlog — remaining
-- Taste: bulk rewrite of all 74 food `description`s to be more appetising
-  (deferred — too many entries to safely verify in one pass; food-facts feature
-  partially covers "interesting facts").
-- Remotion: feature-highlight / per-feature short clips (30s promo done).
+- ~~Taste: bulk rewrite of all 74 food `description`s to be more appetising.~~
+  ✅ **COMPLETE** (commit `0fb2b71`, 2026-06-24) — all 74 descriptions rewritten
+  (sensory taste profile + key benefit + interesting fact, 2-3 sentences, no
+  em-dashes; every nutritional claim verified against the foods data). Rendered
+  in the detail view below the name, above the nutrition data (italic/muted,
+  staggered fade-up, reduced-motion aware).
+- ~~Remotion: feature-highlight / per-feature short clips.~~ ✅ **COMPLETE**
+  (2026-06-24) — 6 vertical (1080x1920 @ 30fps) feature clips: 3D Food Explorer,
+  AI Nutrition Chat, Smart Fridge, Quit Smoking Tracker, Water Tracker, Social
+  Feed. Rendered to `public/videos/social/`. See "Social media assets" below.
 - Perf: JS/bundle/caching review; error handling hardening.
 - Onboarding: dedicated welcome flow copy on register/profile.
+
+### Internationalization — Georgian/English (done 2026-06-24) ✅
+Commit `383cdba`. Full bilingual support across the whole app:
+- **`public/js/i18n.js`** (461 lines, `window.I18n`) — translation dictionary +
+  runtime language switch (`ka`/`en`), persisted to `localStorage`; applies to
+  any `[data-i18n]` / `[data-i18n-placeholder]` element and updates `<html lang>`.
+- Wired into every page (script tag added to all 16 HTML pages) and into the
+  dynamic renderers in `app.js` / `auth.js`. Server (`server.js`) updated to
+  serve/accept the locale where relevant.
+- Language toggle exposed in the UI; Georgian is the default-locale option.
 
 ### Later / backlog
 - Add GLB models for the remaining foods.
