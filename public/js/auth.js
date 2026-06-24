@@ -506,8 +506,9 @@ function initRegister() {
     email: form.querySelector('[name=email]'),
     password: form.querySelector('[name=password]'),
     confirm: form.querySelector('[name=confirm]'),
+    ageConfirm: form.querySelector('[name=age_confirm]'),
   };
-  Object.values(f).forEach(i => i.addEventListener('input', () => clearError(i)));
+  Object.values(f).forEach(i => { if (i) i.addEventListener('input', () => clearError(i)); });
 
   const reg = { name: '', email: '', password: '' }; // kept for verify + resend
   let resendTimer = null;
@@ -530,6 +531,7 @@ function initRegister() {
     if (!validEmail(f.email.value.trim())) { setError(f.email, 'Please use a valid email — we send your verification code here'); ok = false; } else markValid(f.email);
     if (f.password.value.length < 6) { setError(f.password, 'Choose a password (at least 6 characters)'); ok = false; } else markValid(f.password);
     if (f.confirm.value !== f.password.value) { setError(f.confirm, "These passwords don't match — try again"); ok = false; } else markValid(f.confirm);
+    if (f.ageConfirm && !f.ageConfirm.checked) { setError(f.ageConfirm, 'You must be 18 or older to use NutriFell'); ok = false; }
     if (!ok) return;
 
     reg.name = f.name.value.trim();
@@ -846,6 +848,76 @@ function initTooltips() {
   document.addEventListener('click', () => document.querySelectorAll('.nf-tip.show').forEach(t => t.classList.remove('show')));
 }
 
+// ── First-visit health warning modal ─────────────────────────────────────
+function initHealthWarning() {
+  if (localStorage.getItem('nf_health_v1')) return;
+  if (document.getElementById('nfHealthModal')) return;
+
+  const modal = document.createElement('div');
+  modal.id = 'nfHealthModal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-label', 'Important Health Notice');
+  modal.style.cssText = `
+    position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.82);backdrop-filter:blur(6px);padding:16px;
+  `;
+  modal.innerHTML = `
+    <div style="
+      background:#0e1a13;border:1px solid rgba(245,158,11,0.5);border-radius:16px;
+      max-width:520px;width:100%;padding:32px 28px;box-shadow:0 24px 80px rgba(0,0,0,0.7);
+      max-height:90vh;overflow-y:auto;
+    ">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:2rem;margin-bottom:8px;">⚠️</div>
+        <h2 style="font-family:'Space Grotesk',sans-serif;font-size:1.3rem;font-weight:700;color:#f59e0b;margin:0 0 4px;">Important Health Notice</h2>
+        <p style="font-size:0.8rem;color:#6b7280;margin:0;">Please read before continuing</p>
+      </div>
+      <p style="font-size:0.95rem;color:#d1fae5;margin-bottom:14px;line-height:1.6;">
+        NutriFell provides <strong>AI-powered nutrition education for healthy adults aged 18 and over.</strong>
+      </p>
+      <p style="font-size:0.9rem;color:#e5e7eb;margin-bottom:8px;font-weight:600;">This app is <span style="color:#f87171;">NOT suitable</span> if you:</p>
+      <ul style="font-size:0.875rem;color:#d1d5db;line-height:2.1;margin:0 0 16px;padding-left:1.4em;">
+        <li>Are <strong>under 18 years old</strong></li>
+        <li>Have any <strong>medical or clinical condition</strong></li>
+        <li>Have or have had an <strong>eating disorder</strong></li>
+        <li>Are <strong>pregnant or breastfeeding</strong></li>
+        <li>Are under <strong>medical supervision</strong></li>
+      </ul>
+      <p style="font-size:0.85rem;color:#9ca3af;margin-bottom:24px;line-height:1.6;">
+        All content is for <strong>educational purposes only</strong> based on AI knowledge. Always consult a healthcare professional before making any dietary changes.
+      </p>
+      <p style="font-size:0.875rem;color:#6ee7b7;margin-bottom:20px;font-weight:500;">
+        By continuing, you confirm you are 18+ and a healthy adult without clinical conditions.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button id="nfHealthAccept" style="
+          background:#16a34a;color:#fff;border:none;border-radius:10px;
+          padding:13px 20px;font-size:0.95rem;font-weight:700;cursor:pointer;
+          font-family:'Space Grotesk',sans-serif;transition:background 0.2s;
+        ">✅ I Understand &amp; I Qualify (18+)</button>
+        <button id="nfHealthDecline" style="
+          background:transparent;color:#f87171;border:1px solid #f87171;border-radius:10px;
+          padding:13px 20px;font-size:0.9rem;font-weight:600;cursor:pointer;
+          font-family:'Space Grotesk',sans-serif;transition:all 0.2s;
+        ">❌ This App Is Not For Me</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
+
+  document.getElementById('nfHealthAccept').addEventListener('click', () => {
+    localStorage.setItem('nf_health_v1', 'accepted');
+    document.body.style.overflow = '';
+    modal.style.opacity = '0';
+    modal.style.transition = 'opacity 0.3s';
+    setTimeout(() => modal.remove(), 320);
+  });
+  document.getElementById('nfHealthDecline').addEventListener('click', () => {
+    location.href = 'https://www.who.int/health-topics/nutrition';
+  });
+}
+
 // ── Cookie consent banner ────────────────────────────────────────────────
 function initCookieBanner() {
   if (localStorage.getItem('nf_cookies_v1')) return;
@@ -882,7 +954,7 @@ function initFooter() {
         <span class="nf-footer-logo">Nutri<span>Fell</span></span>
         <span class="nf-footer-tagline">Made with ❤️ in Georgia 🇬🇪</span>
       </div>
-      <p class="nf-footer-disclaimer">Not medical advice. For informational purposes only. Always consult a qualified healthcare professional before making dietary changes.</p>
+      <p class="nf-footer-disclaimer">⚕️ For healthy adults 18+ only. Educational purposes based on AI knowledge. Not medical advice. Not suitable for people with clinical conditions. Always consult a healthcare professional.</p>
       <nav class="nf-footer-links" aria-label="Legal pages">
         <a href="/privacy.html">Privacy Policy</a>
         <a href="/terms.html">Terms of Service</a>
@@ -934,6 +1006,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initProfile();
   initReveal();
   initTooltips();
+  initHealthWarning();
   initCookieBanner();
   initFooter();
   initMedicalNote();

@@ -2472,3 +2472,15 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .legal-section p, .legal-section li { color: #333; }
   .legal-num { background: #eee; color: #000; }
 }
+
+/* §43 — Age checkbox + health modal */
+.form-group--checkbox { margin-top: 4px; margin-bottom: 8px; }
+.form-label--checkbox {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 0.875rem; color: var(--text-secondary); cursor: pointer; line-height: 1.5;
+}
+.form-checkbox {
+  flex-shrink: 0; width: 18px; height: 18px; margin-top: 1px;
+  accent-color: var(--green); cursor: pointer; border-radius: 4px;
+}
+.form-checkbox.error { outline: 2px solid var(--red, #f87171); }

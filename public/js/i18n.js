@@ -66,6 +66,7 @@ const translations = {
     register_password: 'Password',
     register_confirm: 'Confirm Password',
     register_btn: 'Create Account',
+    register_age_confirm: 'I confirm I am 18 years or older',
     register_have_account: 'Already have an account?',
     register_login: 'Sign In',
 
@@ -216,6 +217,7 @@ const translations = {
     register_password: 'პაროლი',
     register_confirm: 'პაროლის დადასტურება',
     register_btn: 'ანგარიშის შექმნა',
+    register_age_confirm: 'ვადასტურებ, რომ 18 წელს გადამეტებული ვარ',
     register_have_account: 'უკვე გაქვს ანგარიში?',
     register_login: 'შესვლა',
 
