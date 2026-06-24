@@ -511,6 +511,8 @@ const App = (() => {
 
       <p class="section-label-sm">// Considerations</p>
       <ul class="bl-list">${drawbacks}</ul>
+
+      <p class="nf-medical-note">⚕️ <strong>Not medical advice.</strong> Nutritional values are estimates per average serving. Always consult a healthcare professional before making significant dietary changes. <a href="/disclaimer.html">Full disclaimer</a></p>
     `;
 
     requestAnimationFrame(() => {

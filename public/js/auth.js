@@ -445,6 +445,12 @@ function _buildSidebar(user) {
       </div>`;
     foot.innerHTML = `
       <button class="nb-logout-btn" id="nbLogoutBtn">⏻ <span data-i18n="nav_logout">Logout</span></button>
+      <nav class="nb-sidebar-legal" aria-label="Legal">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/cookies.html">Cookies</a>
+        <a href="/disclaimer.html">Disclaimer</a>
+      </nav>
       <div class="nb-version">NutriFell v1.0</div>`;
     const logoutBtn = document.getElementById('nbLogoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', () => { _closeSidebar(); Auth.logout(); });
@@ -456,7 +462,14 @@ function _buildSidebar(user) {
         <a class="btn-primary nb-sidebar-cta" href="/login.html" data-i18n="nav_login">Login</a>
         <a class="nb-register-link" href="/register.html" data-i18n="nav_register">Create free account</a>
       </div>`;
-    foot.innerHTML = `<div class="nb-version">NutriFell v1.0</div>`;
+    foot.innerHTML = `
+      <nav class="nb-sidebar-legal" aria-label="Legal">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/cookies.html">Cookies</a>
+        <a href="/disclaimer.html">Disclaimer</a>
+      </nav>
+      <div class="nb-version">NutriFell v1.0</div>`;
   }
 }
 
@@ -833,6 +846,71 @@ function initTooltips() {
   document.addEventListener('click', () => document.querySelectorAll('.nf-tip.show').forEach(t => t.classList.remove('show')));
 }
 
+// ── Cookie consent banner ────────────────────────────────────────────────
+function initCookieBanner() {
+  if (localStorage.getItem('nf_cookies_v1')) return;
+  if (document.getElementById('nfCookieBanner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'nfCookieBanner';
+  banner.className = 'nf-cookie-banner';
+  banner.setAttribute('role', 'dialog');
+  banner.setAttribute('aria-label', 'Cookie notice');
+  banner.innerHTML = `
+    <p class="nf-cookie-text">NutriFell uses essential cookies to keep you logged in and remember your language. No ads, no trackers. <a href="/cookies.html">Learn more</a></p>
+    <div class="nf-cookie-actions">
+      <button class="nf-cookie-accept" id="nfCookieAccept">Accept</button>
+      <a class="nf-cookie-more" href="/privacy.html">Privacy Policy</a>
+    </div>`;
+  document.body.appendChild(banner);
+  requestAnimationFrame(() => banner.classList.add('show'));
+  document.getElementById('nfCookieAccept').addEventListener('click', () => {
+    localStorage.setItem('nf_cookies_v1', '1');
+    banner.classList.remove('show');
+    banner.addEventListener('transitionend', () => banner.remove(), { once: true });
+    setTimeout(() => banner.remove(), 500);
+  });
+}
+
+// ── Global footer injection ───────────────────────────────────────────────
+function initFooter() {
+  if (document.querySelector('.nf-footer')) return;
+  const footer = document.createElement('footer');
+  footer.className = 'nf-footer';
+  footer.innerHTML = `
+    <div class="nf-footer-inner">
+      <div class="nf-footer-brand">
+        <span class="nf-footer-logo">Nutri<span>Fell</span></span>
+        <span class="nf-footer-tagline">Made with ❤️ in Georgia 🇬🇪</span>
+      </div>
+      <p class="nf-footer-disclaimer">Not medical advice. For informational purposes only. Always consult a qualified healthcare professional before making dietary changes.</p>
+      <nav class="nf-footer-links" aria-label="Legal pages">
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Service</a>
+        <a href="/cookies.html">Cookie Policy</a>
+        <a href="/disclaimer.html">Medical Disclaimer</a>
+        <a href="/gdpr.html">GDPR</a>
+      </nav>
+      <p class="nf-footer-copy">© 2026 NutriFell. All rights reserved. · <a href="mailto:jimajemala@gmail.com">jimajemala@gmail.com</a></p>
+    </div>`;
+  document.body.appendChild(footer);
+}
+
+// ── Medical note on calorie/nutrition pages ───────────────────────────────
+function initMedicalNote() {
+  const targets = [
+    document.getElementById('calorieResult'),
+    document.getElementById('mealPlan'),
+  ];
+  targets.forEach(el => {
+    if (!el) return;
+    if (el.querySelector('.nf-medical-note')) return;
+    const note = document.createElement('p');
+    note.className = 'nf-medical-note';
+    note.innerHTML = '⚕️ <strong>Not medical advice.</strong> Calorie targets are estimates. Consult a healthcare professional before making significant dietary changes. <a href="/disclaimer.html">Full disclaimer</a>';
+    el.appendChild(note);
+  });
+}
+
 // ── Universal scroll-reveal (works on every page that loads auth.js) ──────
 // Homepage app.js has its own; a guard keeps double-observing harmless.
 function initReveal() {
@@ -856,6 +934,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initProfile();
   initReveal();
   initTooltips();
+  initCookieBanner();
+  initFooter();
+  initMedicalNote();
 
   // Streak: record today's visit, show the chip, celebrate milestones.
   const { s, milestone } = Streak.tick();
