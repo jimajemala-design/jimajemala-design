@@ -1,4 +1,4 @@
-/* auth.js — shared session, navbar state, and auth/profile forms */
+﻿/* auth.js — shared session, navbar state, and auth/profile forms */
 'use strict';
 
 const Auth = {
@@ -962,7 +962,7 @@ function initFooter() {
         <a href="/disclaimer.html">Medical Disclaimer</a>
         <a href="/gdpr.html">GDPR</a>
       </nav>
-      <p class="nf-footer-copy">© 2026 NutriFell. All rights reserved. · <a href="mailto:jimajemala@gmail.com">jimajemala@gmail.com</a></p>
+      <p class="nf-footer-copy">© 2026 NutriFell. All rights reserved. · <a href="mailto:support@nutrifell.com">support@nutrifell.com</a></p>
     </div>`;
   document.body.appendChild(footer);
 }
