@@ -4499,13 +4499,23 @@ app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Not found', path: req.originalUrl });
 });
 
-// ... but a request that explicitly wants HTML for a missing .html file → styled 404
+// ... but a request for a missing FILE (has an extension) must 404 — never the
+// SPA shell. Returning index.html with 200 for a missing .js/.css/.glb makes the
+// browser try to parse HTML as a script/stylesheet/model. Only extensionless
+// routes fall through to the SPA shell for client-side routing.
 app.get('*', (req, res) => {
-  if (/\.html$/.test(req.path) && req.path !== '/index.html') {
-    return res.status(404).send(errorPage({
-      code: 404, title: 'Page not found',
-      message: "That page doesn't exist or has moved. Let's get you back on track.",
-    }));
+  const hasExtension = /\.[a-z0-9]+$/i.test(req.path);
+  if (hasExtension && req.path !== '/index.html') {
+    // Navigation requests (or explicit .html) get the branded page; bare asset
+    // fetches (js/css/glb/png/…) get a minimal, correctly-typed 404.
+    const wantsHTML = /\.html$/.test(req.path) || (req.headers.accept || '').includes('text/html');
+    if (wantsHTML) {
+      return res.status(404).send(errorPage({
+        code: 404, title: 'Page not found',
+        message: "That page doesn't exist or has moved. Let's get you back on track.",
+      }));
+    }
+    return res.status(404).type('txt').send('Not found');
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
