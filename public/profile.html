@@ -33,8 +33,8 @@
     <div class="auth-wrap">
       <div class="auth-card wide">
         <div class="auth-head">
-          <h1 class="auth-title">Set up your profile</h1>
-          <p class="auth-sub">We'll build a precise, safe calorie plan for your goal</p>
+          <h1 class="auth-title">Build your personalized plan</h1>
+          <p class="auth-sub">3 questions. A calorie target built for you — not a generic calculator.</p>
         </div>
 
         <!-- Wizard progress -->
@@ -53,7 +53,7 @@
               <input class="form-input" id="pf-name" name="name" type="text" placeholder="Jane Doe" />
               <p class="form-error"></p>
             </div>
-            <p class="wizard-encourage">Welcome aboard. Let's start with what we should call you.</p>
+            <p class="wizard-encourage">Let's personalize your experience — what should we call you?</p>
           </div>
 
           <!-- ── Step 2 · Body stats ─────────────────────────────────── -->
@@ -85,10 +85,10 @@
                 <p class="form-error"></p>
               </div>
             </div>
-            <p class="wizard-encourage">Great. These let us estimate your
-              <span class="nf-tip" data-tip="Basal Metabolic Rate — the energy your body burns at rest.">BMR<span class="nf-tip-ico">ⓘ</span></span>
+            <p class="wizard-encourage">These numbers let us calculate your
+              <span class="nf-tip" data-tip="Basal Metabolic Rate — the energy your body burns at complete rest.">BMR<span class="nf-tip-ico">ⓘ</span></span>
               using the
-              <span class="nf-tip" data-tip="The Mifflin-St Jeor equation — the modern clinical standard for estimating calorie needs.">Mifflin-St Jeor formula<span class="nf-tip-ico">ⓘ</span></span>.
+              <span class="nf-tip" data-tip="The Mifflin-St Jeor equation — the current gold standard for estimating calorie needs.">Mifflin-St Jeor formula<span class="nf-tip-ico">ⓘ</span></span>.
             </p>
           </div>
 
@@ -141,7 +141,7 @@
           <div class="wizard-nav">
             <button class="btn-ghost wizard-back" type="button" id="wizBack" hidden>← Back</button>
             <button class="btn-primary wizard-next" type="button" id="wizNext">Next →</button>
-            <button class="btn-primary wizard-save" type="submit" id="wizSave" hidden>Save &amp; Continue</button>
+            <button class="btn-primary wizard-save" type="submit" id="wizSave" hidden>Save My Plan →</button>
           </div>
         </form>
       </div>
@@ -152,13 +152,13 @@
       <div class="celebrate-confetti" id="celebrateConfetti" aria-hidden="true"></div>
       <div class="celebrate-card">
         <div class="celebrate-emoji">🎉</div>
-        <h2 class="celebrate-title">You're all set!</h2>
-        <p class="celebrate-sub">Your personalised plan is ready.</p>
+        <h2 class="celebrate-title">Your plan is ready.</h2>
+        <p class="celebrate-sub">NutriAI knows your exact targets — ask it anything.</p>
         <div class="celebrate-target">
           <span class="celebrate-target-num" id="celebrateTarget">0</span>
           <span class="celebrate-target-label">kcal / day</span>
         </div>
-        <a class="btn-primary celebrate-cta" href="/fridge.html">Go to My Dashboard →</a>
+        <a class="btn-primary celebrate-cta" href="/fridge.html">Open My Dashboard →</a>
       </div>
     </div>
   </main>

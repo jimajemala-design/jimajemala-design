@@ -108,13 +108,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   custom.addEventListener('keydown', e => { if (e.key === 'Enter') doCustom(); });
 
   document.getElementById('goalSave').addEventListener('click', async () => {
+    const btn = document.getElementById('goalSave');
+    const label = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     const goalMl = Number(document.getElementById('goalInput').value);
     try { renderSummary(await Auth.api('/api/water/goal', { method: 'POST', body: JSON.stringify({ goalMl }) })); toast('Goal updated', 'success', 1800); }
     catch (err) { toast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = label; }
   });
   document.getElementById('goalAuto').addEventListener('click', async () => {
+    const btn = document.getElementById('goalAuto');
+    const label = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     try { renderSummary(await Auth.api('/api/water/goal', { method: 'POST', body: JSON.stringify({ goalMl: null }) })); toast('Using auto goal from your weight', 'success', 1800); }
     catch (err) { toast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = label; }
   });
 
   try {

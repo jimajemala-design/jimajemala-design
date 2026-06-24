@@ -513,10 +513,10 @@ function initRegister() {
   form.addEventListener('submit', async e => {
     e.preventDefault();
     let ok = true;
-    if (!f.name.value.trim()) { setError(f.name, 'Please enter your name'); ok = false; } else markValid(f.name);
-    if (!validEmail(f.email.value.trim())) { setError(f.email, 'Enter a valid email address'); ok = false; } else markValid(f.email);
-    if (f.password.value.length < 6) { setError(f.password, 'Password must be at least 6 characters'); ok = false; } else markValid(f.password);
-    if (f.confirm.value !== f.password.value) { setError(f.confirm, 'Passwords do not match'); ok = false; } else markValid(f.confirm);
+    if (!f.name.value.trim()) { setError(f.name, 'What should we call you?'); ok = false; } else markValid(f.name);
+    if (!validEmail(f.email.value.trim())) { setError(f.email, 'Please use a valid email — we send your verification code here'); ok = false; } else markValid(f.email);
+    if (f.password.value.length < 6) { setError(f.password, 'Choose a password (at least 6 characters)'); ok = false; } else markValid(f.password);
+    if (f.confirm.value !== f.password.value) { setError(f.confirm, "These passwords don't match — try again"); ok = false; } else markValid(f.confirm);
     if (!ok) return;
 
     reg.name = f.name.value.trim();
@@ -695,7 +695,7 @@ function initProfile() {
   const steps = Array.from(form.querySelectorAll('.wizard-step'));
   const TOTAL = steps.length || 3;
   const STEP_NAMES = ['Basics', 'Body stats', 'Your goals'];
-  const ENCOURAGE = [null, 'Great! Now the numbers behind your plan.', 'Almost there! One last step.'];
+  const ENCOURAGE = [null, 'Perfect. Now the science behind your personal target.', 'Almost done — watch your numbers update live as you type.'];
   const wizBar = document.getElementById('wizBar');
   const wizLabel = document.getElementById('wizLabel');
   const wizBack = document.getElementById('wizBack');
@@ -792,9 +792,6 @@ function initProfile() {
     if (!target || target < 25 || target > 400) { setError(F.targetWeight, 'Enter a valid target weight'); ok = false; } else markValid(F.targetWeight);
     if (!height || height < 90 || height > 250) { setError(F.height, 'Enter a valid height in cm'); ok = false; } else markValid(F.height);
     if (!ok) return;
-
-    // Debug: confirm a session is present before the authed Save request.
-    console.log('Profile save — token present:', !!Auth.token(), '| user:', Auth.user());
 
     const btn = form.querySelector('button[type=submit]');
     const label = btn.innerHTML;

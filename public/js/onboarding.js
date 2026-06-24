@@ -27,11 +27,11 @@ const Onboarding = (() => {
           <span class="nf-wl-ring"></span>
           <span class="nf-wl-mark">Nutri<span>Fell</span></span>
         </div>
-        <h1 class="nf-welcome-title">Welcome to NutriFell</h1>
-        <p class="nf-welcome-sub">Your personal nutrition assistant</p>
+        <h1 class="nf-welcome-title">Finally — nutrition that makes sense.</h1>
+        <p class="nf-welcome-sub">Explore 74 whole foods in stunning 3D. Track calories, water, and more. Your body, your plan.</p>
         <div class="nf-welcome-actions">
-          <button class="nf-btn-primary" id="nfWelcomeStart">Get Started</button>
-          <button class="nf-btn-ghost" id="nfWelcomeExplore">Explore First</button>
+          <button class="nf-btn-primary" id="nfWelcomeStart">Get Started Free</button>
+          <button class="nf-btn-ghost" id="nfWelcomeExplore">Just Exploring</button>
         </div>
       </div>`;
     document.body.appendChild(el);
@@ -57,17 +57,34 @@ const Onboarding = (() => {
   }
 
   // ── Feature tour steps (anchored to real, on-page elements) ────────────
+  // Each step carries both English and Georgian text; `render()` picks the
+  // active language via window.i18n so the tour is fully bilingual.
   const STEPS = [
-    { sel: '#gallery', sidebar: false, title: 'Food Database',
-      body: 'Browse 74 whole foods with real-time 3D models and complete nutrient profiles.' },
-    { sel: '.nb-sidebar-nav a[href="/fridge.html"]', sidebar: true, title: 'My Fridge',
-      body: 'Add foods you have at home. NutriAI uses them to build personalised meal plans.' },
-    { sel: '.nb-sidebar-nav a[href="/water.html"]', sidebar: true, title: 'Water & Wellness',
-      body: 'Track your hydration and your quit-smoking journey, all in one place.' },
-    { sel: '.nb-sidebar-nav a[href="/recipes.html"]', sidebar: true, title: 'Community',
-      body: 'Share and discover healthy recipes, rate them, and save your favourites.' },
-    { sel: '.nb-sidebar-nav a[href="/profile-view.html"]', sidebar: true, title: 'Your Profile',
-      body: 'See your stats, streaks and badges. Ask NutriAI anything about nutrition anytime.' },
+    { sel: '#gallery', sidebar: false,
+      title: 'Food Database',
+      titleKa: 'საკვების ბაზა',
+      body: '74 whole foods with real-time 3D models, full micronutrient profiles, and honest health benefits and drawbacks.',
+      bodyKa: '74 მთელი საკვები 3D მოდელებით, სრული მიკრო-საკვები ნივთიერებებით და გულწრფელი სასარგებლო თვისებებითა და ნაკლოვანებებით.' },
+    { sel: '.nb-sidebar-nav a[href="/fridge.html"]', sidebar: true,
+      title: 'My Fridge',
+      titleKa: 'ჩემი მაცივარი',
+      body: 'Tell NutriFell what is in your fridge. The AI builds a full meal plan tuned to your exact calorie target.',
+      bodyKa: 'შეიყვანე რა გაქვს მაცივარში. AI შექმნის კვების გეგმას შენი ზუსტი კალორიული მიზნის გათვალისწინებით.' },
+    { sel: '.nb-sidebar-nav a[href="/water.html"]', sidebar: true,
+      title: 'Water & Wellness',
+      titleKa: 'წყალი და ჯანმრთელობა',
+      body: 'Log your water intake and track your quit-smoking journey — milestones, money saved, and a CBT quit coach.',
+      bodyKa: 'დაიწყე წყლის ჩაწერა და თვალყური ადევნე მოწევის დატოვებას — ეტაპები, დაზოგილი ფული და CBT ქოჩი.' },
+    { sel: '.nb-sidebar-nav a[href="/recipes.html"]', sidebar: true,
+      title: 'Community Recipes',
+      titleKa: 'საზოგადოების რეცეპტები',
+      body: 'Browse community recipes with ratings, reactions, and comments. Upload yours and get instant AI nutrition analysis.',
+      bodyKa: 'დაათვალიერე საზოგადოების რეცეპტები შეფასებებით. გაუგზავნე შენი — მიიღე AI კვებითი ანალიზი.' },
+    { sel: '.nb-sidebar-nav a[href="/profile-view.html"]', sidebar: true,
+      title: 'Your Profile',
+      titleKa: 'შენი პროფილი',
+      body: 'Your daily calorie target, macro split, and streak badges — plus NutriAI, your personal nutrition advisor, always ready.',
+      bodyKa: 'შენი დღიური კალორიული მიზანი, ბადჟები და NutriAI — შენი პირადი კვების კონსულტანტი, ყოველთვის მზად.' },
   ];
 
   let idx = 0, els = null, onResize = null;
@@ -144,10 +161,12 @@ const Onboarding = (() => {
   function render() {
     const step = STEPS[idx];
     if (step.sidebar) sidebarOpen(true); else sidebarOpen(false);
-    els.count.textContent = `Step ${idx + 1} of ${STEPS.length}`;
-    els.title.textContent = step.title;
-    els.body.textContent = step.body;
-    els.next.textContent = idx === STEPS.length - 1 ? 'Finish' : 'Next';
+    const ka = window.i18n && i18n.lang === 'ka';
+    els.count.textContent = ka ? `ნაბიჯი ${idx + 1} / ${STEPS.length}` : `Step ${idx + 1} of ${STEPS.length}`;
+    els.title.textContent = (ka && step.titleKa) ? step.titleKa : step.title;
+    els.body.textContent = (ka && step.bodyKa) ? step.bodyKa : step.body;
+    els.next.textContent = idx === STEPS.length - 1 ? (ka ? 'დასრულება' : 'Finish') : (ka ? 'შემდეგი' : 'Next');
+    els.skip.textContent = ka ? 'გამოტოვება' : 'Skip tour';
     els.dots.innerHTML = STEPS.map((_, i) =>
       `<span class="nf-tour-dot ${i === idx ? 'active' : ''} ${i < idx ? 'done' : ''}"></span>`).join('');
     // Wait a frame so any just-opened sidebar has laid out before measuring.

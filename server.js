@@ -304,12 +304,12 @@ const publicUser = (u) => { const { password, ...rest } = u; return rest; };
 function auth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  if (!token) return res.status(401).json({ error: 'No token provided' });
+  if (!token) return res.status(401).json({ error: 'No token provided', code: 'AUTH_REQUIRED' });
   let payload;
   try {
     payload = jwt.verify(token, JWT_SECRET);
   } catch {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return res.status(401).json({ error: 'Invalid or expired token', code: 'TOKEN_INVALID' });
   }
   // A signature-valid token whose user no longer exists is a dead session
   // (e.g. data reset, or a token from a previous run). Return 401 — NOT 404 —
@@ -318,7 +318,7 @@ function auth(req, res, next) {
   const user = readJSON(USERS_FILE).find(u => u.id === payload.id);
   if (!user) {
     console.warn('Auth: token valid but user missing:', payload.id);
-    return res.status(401).json({ error: 'Session no longer valid — please log in again' });
+    return res.status(401).json({ error: 'Session no longer valid — please log in again', code: 'SESSION_EXPIRED' });
   }
   req.userId = payload.id;
   req.user = user;
@@ -1889,7 +1889,7 @@ app.post('/api/auth/send-code', async (req, res) => {
   const emailNorm = String(email).trim().toLowerCase();
   const users = readJSON(USERS_FILE);
   if (users.find(u => u.email.toLowerCase() === emailNorm)) {
-    return res.status(409).json({ error: 'An account with this email already exists' });
+    return res.status(409).json({ error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
   }
 
   const code = genCode();
@@ -1916,17 +1916,17 @@ app.post('/api/auth/verify-code', async (req, res) => {
   const emailNorm = String(email).trim().toLowerCase();
 
   const pending = pendingVerifications.get(emailNorm);
-  if (!pending) return res.status(400).json({ error: 'No pending verification — please start again.' });
+  if (!pending) return res.status(400).json({ error: 'No pending verification — please start again.', code: 'NO_PENDING' });
   if (Date.now() > pending.expiresAt) {
     pendingVerifications.delete(emailNorm);
-    return res.status(400).json({ error: 'Code expired — please request a new one.' });
+    return res.status(400).json({ error: 'Code expired — please request a new one.', code: 'CODE_EXPIRED' });
   }
-  if (String(code).trim() !== pending.code) return res.status(400).json({ error: 'Incorrect code — please try again.' });
+  if (String(code).trim() !== pending.code) return res.status(400).json({ error: 'Incorrect code — please try again.', code: 'CODE_INCORRECT' });
 
   const users = readJSON(USERS_FILE);
   if (users.find(u => u.email.toLowerCase() === emailNorm)) {
     pendingVerifications.delete(emailNorm);
-    return res.status(409).json({ error: 'An account with this email already exists' });
+    return res.status(409).json({ error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
   }
   const user = {
     id: uuidv4(), email: emailNorm, password: pending.passwordHash, name: pending.name,
@@ -1949,7 +1949,7 @@ app.post('/api/register', async (req, res) => {
 
   const users = readJSON(USERS_FILE);
   if (users.find(u => u.email.toLowerCase() === String(email).toLowerCase())) {
-    return res.status(409).json({ error: 'An account with this email already exists' });
+    return res.status(409).json({ error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
   }
   const user = {
     id: uuidv4(),
@@ -1971,18 +1971,14 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body || {};
-  console.log('Login attempt:', email);
-  if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+  if (!email || !password) return res.status(400).json({ error: 'Email and password are required', code: 'VALIDATION_ERROR' });
   const users = readJSON(USERS_FILE);
   const user = users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
-  console.log('User found:', !!user);
   const passwordMatch = user ? await bcrypt.compare(String(password), user.password) : false;
-  console.log('Password match:', passwordMatch);
   if (!user || !passwordMatch) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+    return res.status(401).json({ error: 'Invalid email or password', code: 'INVALID_CREDENTIALS' });
   }
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
-  console.log('Token generated:', !!token);
   res.json({ token, user: publicUser(user) });
 });
 

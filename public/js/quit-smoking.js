@@ -170,6 +170,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!requireAuth()) return;
 
   $('suSave').addEventListener('click', async () => {
+    const btn = $('suSave');
+    const label = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
     const body = {
       quitDate: $('suQuit').value, cigsPerDay: $('suPerDay').value,
       cigsPerPack: $('suPerPack').value, pricePerPack: $('suPrice').value,
@@ -179,20 +182,25 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await Auth.api('/api/smoking/setup', { method: 'POST', body: JSON.stringify(body) });
       prevBadges = {};
       renderDashboard(data);
-      toast('Your quit journey starts now. You\'ve got this! 💪', 'success');
+      toast("Your quit journey starts now. You've got this! 💪", 'success');
     } catch (err) { toast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = label; }
   });
 
   $('editSetup').addEventListener('click', () => showSetup(stats));
   $('panicBtn').addEventListener('click', openCraving);
   $('cravingClose').addEventListener('click', closeCraving);
   $('survivedBtn').addEventListener('click', async () => {
+    const btn = $('survivedBtn');
+    const label = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     try {
       const { cravingsSurvived } = await Auth.api('/api/smoking/craving', { method: 'POST', body: JSON.stringify({}) });
       closeCraving();
       toast(`🏆 ${cravingsSurvived} craving${cravingsSurvived === 1 ? '' : 's'} beaten! That urge is gone and you won.`, 'success');
       load();
     } catch (err) { toast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = label; }
   });
 
   initChat({
