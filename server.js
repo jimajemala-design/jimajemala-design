@@ -450,6 +450,61 @@ async function dbUpdateUser(id, user) {
       }
       if (seedPosts.length) console.log(`Migrated ${seedPosts.length} posts from JSON → MySQL`);
     }
+
+    // ─── Phase 2b: post_reactions table ──────────────────────────────────
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`post_reactions\` (
+        \`id\`        VARCHAR(36)  PRIMARY KEY,
+        \`postId\`    VARCHAR(36)  NOT NULL,
+        \`userId\`    VARCHAR(36)  NOT NULL,
+        \`emoji\`     VARCHAR(10)  NOT NULL,
+        \`createdAt\` DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY \`unique_reaction\` (\`postId\`, \`userId\`),
+        INDEX \`idx_postId\` (\`postId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ rxnCnt }]] = await db.execute('SELECT COUNT(*) AS rxnCnt FROM `post_reactions`');
+    if (rxnCnt === 0) {
+      const seedRxns = readJSON(POST_REACTIONS_FILE);
+      for (const r of seedRxns) {
+        try {
+          await db.execute(
+            'INSERT INTO `post_reactions` (`id`,`postId`,`userId`,`emoji`,`createdAt`) VALUES (?,?,?,?,?)',
+            [r.id, r.postId, r.userId, r.emoji, r.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedRxns.length) console.log(`Migrated ${seedRxns.length} post_reactions from JSON → MySQL`);
+    }
+
+    // ─── Phase 2b: post_comments table ───────────────────────────────────
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`post_comments\` (
+        \`id\`        VARCHAR(36)  PRIMARY KEY,
+        \`postId\`    VARCHAR(36)  NOT NULL,
+        \`userId\`    VARCHAR(36)  NOT NULL,
+        \`parentId\`  VARCHAR(36)  DEFAULT NULL,
+        \`text\`      TEXT         NOT NULL,
+        \`likes\`     JSON,
+        \`createdAt\` DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_postId\`   (\`postId\`),
+        INDEX \`idx_parentId\` (\`parentId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ cmtCnt }]] = await db.execute('SELECT COUNT(*) AS cmtCnt FROM `post_comments`');
+    if (cmtCnt === 0) {
+      const seedCmts = readJSON(POST_COMMENTS_FILE);
+      for (const c of seedCmts) {
+        try {
+          await db.execute(
+            'INSERT INTO `post_comments` (`id`,`postId`,`userId`,`parentId`,`text`,`likes`,`createdAt`) VALUES (?,?,?,?,?,?,?)',
+            [c.id, c.postId, c.userId, c.parentId || null, c.text || '',
+             JSON.stringify(c.likes || []), c.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedCmts.length) console.log(`Migrated ${seedCmts.length} post_comments from JSON → MySQL`);
+    }
   } catch (e) {
     console.error('MySQL setup failed:', e.message);
     db = null;
@@ -3464,6 +3519,96 @@ async function sInsertPost(post) {
   writeJSON(POSTS_FILE, all);
 }
 
+// ─── Phase 2b: Reactions & Comments helpers (MySQL with JSON dual-write) ─────
+// Convert a MySQL post_comments row (with user JOIN) to the JSON-compatible shape.
+function rowToComment(r) {
+  return {
+    id: r.id, postId: r.postId, userId: r.userId,
+    authorName: r._name || 'NutriFell User',
+    authorAvatar: r._avatar || null,
+    text: r.text || '',
+    parentId: r.parentId || null,
+    likes: parseJ(r.likes, []),
+    at: r.createdAt || new Date().toISOString(),
+  };
+}
+
+// Read comments for a post, shaped into roots+replies (MySQL → falls back to JSON).
+async function sGetPostCommentsShaped(postId) {
+  if (!db) return shapePostComments(postId);
+  const [rows] = await db.execute(`
+    SELECT c.id, c.postId, c.userId, c.parentId, c.text, c.likes, c.createdAt,
+           u.name AS _name, u.avatar AS _avatar
+    FROM \`post_comments\` c
+    LEFT JOIN \`users\` u ON u.id = c.userId
+    WHERE c.postId = ?
+    ORDER BY c.createdAt ASC
+  `, [postId]);
+  const all = rows.map(rowToComment);
+  const roots = all.filter(c => !c.parentId).sort((a, b) => b.at.localeCompare(a.at));
+  return roots.map(c => ({
+    ...c, likeCount: c.likes.length,
+    replies: all.filter(r => r.parentId === c.id)
+      .sort((a, b) => a.at.localeCompare(b.at))
+      .map(r => ({ ...r, likeCount: r.likes.length })),
+  }));
+}
+
+// Fetch a single comment by id (MySQL → JSON fallback).
+async function sGetCommentById(id) {
+  if (!db) return readJSON(POST_COMMENTS_FILE).find(c => c.id === id) || null;
+  const [rows] = await db.execute(
+    'SELECT c.*, u.name AS _name, u.avatar AS _avatar FROM `post_comments` c LEFT JOIN `users` u ON u.id = c.userId WHERE c.id = ?',
+    [id]
+  );
+  return rows[0] ? rowToComment(rows[0]) : null;
+}
+
+// Insert a comment into MySQL and dual-write to the JSON file.
+async function sInsertComment(comment) {
+  if (db) {
+    await db.execute(
+      'INSERT INTO `post_comments` (`id`,`postId`,`userId`,`parentId`,`text`,`likes`,`createdAt`) VALUES (?,?,?,?,?,?,?)',
+      [comment.id, comment.postId, comment.userId, comment.parentId || null,
+       comment.text, JSON.stringify(comment.likes || []), comment.at || new Date().toISOString()]
+    );
+  }
+  const all = readJSON(POST_COMMENTS_FILE);
+  all.push(comment);
+  writeJSON(POST_COMMENTS_FILE, all);
+}
+
+// Toggle a like on a comment; dual-writes JSON; returns { likeCount, liked }.
+async function sToggleCommentLike(id, userId) {
+  if (db) {
+    const [rows] = await db.execute('SELECT `likes` FROM `post_comments` WHERE `id` = ?', [id]);
+    if (!rows[0]) return null;
+    const likes = parseJ(rows[0].likes, []);
+    const i = likes.indexOf(userId);
+    if (i === -1) likes.push(userId); else likes.splice(i, 1);
+    await db.execute('UPDATE `post_comments` SET `likes` = ? WHERE `id` = ?', [JSON.stringify(likes), id]);
+    const all = readJSON(POST_COMMENTS_FILE);
+    const c = all.find(x => x.id === id);
+    if (c) { c.likes = likes; writeJSON(POST_COMMENTS_FILE, all); }
+    return { likeCount: likes.length, liked: i === -1 };
+  }
+  const all = readJSON(POST_COMMENTS_FILE);
+  const c = all.find(x => x.id === id);
+  if (!c) return null;
+  c.likes = c.likes || [];
+  const i = c.likes.indexOf(userId);
+  if (i === -1) c.likes.push(userId); else c.likes.splice(i, 1);
+  writeJSON(POST_COMMENTS_FILE, all);
+  return { likeCount: c.likes.length, liked: i === -1 };
+}
+
+// Count all comments (including replies) for a post.
+async function sCountPostComments(postId) {
+  if (!db) return readJSON(POST_COMMENTS_FILE).filter(c => c.postId === postId).length;
+  const [[{ cnt }]] = await db.execute('SELECT COUNT(*) AS cnt FROM `post_comments` WHERE `postId` = ?', [postId]);
+  return cnt;
+}
+
 const POST_REACTIONS = ['❤️', '🔥', '😋', '👏', '🤩', '💪'];
 const POST_TYPES = ['photo', 'video', 'recipe', 'text'];
 
@@ -3811,8 +3956,22 @@ app.delete('/api/posts/:id', auth, (req, res) => {
   res.json({ success: true });
 });
 
-// ── React (toggle one emoji per user per post) ──
-function applyReaction(postId, userId, emoji) {
+// ── React (toggle one emoji per user per post) — Phase 2b: MySQL + dual-write ──
+async function applyReaction(postId, userId, emoji) {
+  if (db) {
+    const [ex] = await db.execute(
+      'SELECT `emoji` FROM `post_reactions` WHERE `postId` = ? AND `userId` = ?', [postId, userId]
+    );
+    const cur = ex[0];
+    if (cur && cur.emoji === emoji) {
+      await db.execute('DELETE FROM `post_reactions` WHERE `postId` = ? AND `userId` = ?', [postId, userId]);
+    } else if (cur) {
+      await db.execute('UPDATE `post_reactions` SET `emoji` = ? WHERE `postId` = ? AND `userId` = ?', [emoji, postId, userId]);
+    } else {
+      await db.execute('INSERT INTO `post_reactions` (`id`,`postId`,`userId`,`emoji`) VALUES (?,?,?,?)', [uuidv4(), postId, userId, emoji]);
+    }
+  }
+  // Dual-write: keep JSON in sync so decoratePost in the feed still works.
   const all = readJSON(POST_REACTIONS_FILE);
   const mine = all.find(x => x.postId === postId && x.userId === userId);
   let next = all;
@@ -3826,26 +3985,29 @@ function applyReaction(postId, userId, emoji) {
   return { counts, total: Object.values(counts).reduce((a, c) => a + c, 0), mine: myReaction ? myReaction.emoji : null };
 }
 
-app.post('/api/posts/:id/react', auth, (req, res) => {
-  const emoji = (req.body && req.body.emoji) || '';
-  if (!POST_REACTIONS.includes(emoji)) return res.status(400).json({ error: 'Invalid reaction' });
-  const post = readJSON(POSTS_FILE).find(p => p.id === req.params.id);
-  if (!post) return res.status(404).json({ error: 'Post not found' });
-  const out = applyReaction(req.params.id, req.userId, emoji);
-  if (out.mine) pushNotification('reaction', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: `reacted ${emoji} to your post` });
-  // Generic broadcast so any client showing this post can update its count live.
-  RT.broadcast('post:reaction', { postId: post.id, total: out.total, counts: out.counts });
-  res.json(out);
+app.post('/api/posts/:id/react', auth, async (req, res) => {
+  try {
+    const emoji = (req.body && req.body.emoji) || '';
+    if (!POST_REACTIONS.includes(emoji)) return res.status(400).json({ error: 'Invalid reaction' });
+    const post = await sGetPostById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    const out = await applyReaction(req.params.id, req.userId, emoji);
+    if (out.mine) pushNotification('reaction', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: `reacted ${emoji} to your post` });
+    RT.broadcast('post:reaction', { postId: post.id, total: out.total, counts: out.counts });
+    res.json(out);
+  } catch (e) { console.error('React error:', e.message); res.status(500).json({ error: 'Could not apply reaction.' }); }
 });
 
 // Convenience: double-tap "like" toggles the ❤️ reaction.
-app.post('/api/posts/:id/like', auth, (req, res) => {
-  const post = readJSON(POSTS_FILE).find(p => p.id === req.params.id);
-  if (!post) return res.status(404).json({ error: 'Post not found' });
-  const out = applyReaction(req.params.id, req.userId, '❤️');
-  if (out.mine) pushNotification('like', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: 'liked your post' });
-  RT.broadcast('post:reaction', { postId: post.id, total: out.total, counts: out.counts });
-  res.json({ ...out, liked: out.mine === '❤️' });
+app.post('/api/posts/:id/like', auth, async (req, res) => {
+  try {
+    const post = await sGetPostById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    const out = await applyReaction(req.params.id, req.userId, '❤️');
+    if (out.mine) pushNotification('like', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: 'liked your post' });
+    RT.broadcast('post:reaction', { postId: post.id, total: out.total, counts: out.counts });
+    res.json({ ...out, liked: out.mine === '❤️' });
+  } catch (e) { console.error('Like error:', e.message); res.status(500).json({ error: 'Could not apply like.' }); }
 });
 
 // ── Save / unsave ──
@@ -3883,6 +4045,7 @@ app.post('/api/posts/:id/view', (req, res) => {
 });
 
 // ── Comments (threaded one level) ──
+// JSON-only version kept as fallback for sGetPostCommentsShaped.
 function shapePostComments(postId) {
   const all = readJSON(POST_COMMENTS_FILE).filter(c => c.postId === postId);
   const roots = all.filter(c => !c.parentId).sort((a, b) => b.at.localeCompare(a.at));
@@ -3893,56 +4056,54 @@ function shapePostComments(postId) {
   }));
 }
 
-app.get('/api/posts/:id/comments', (req, res) => res.json(shapePostComments(req.params.id)));
-
-app.post('/api/posts/:id/comments', auth, (req, res) => {
-  const text = req.body && String(req.body.text || '').trim();
-  if (!text) return res.status(400).json({ error: 'Comment cannot be empty' });
-  const post = readJSON(POSTS_FILE).find(p => p.id === req.params.id);
-  if (!post) return res.status(404).json({ error: 'Post not found' });
-  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
-  const all = readJSON(POST_COMMENTS_FILE);
-  const comment = { id: uuidv4(), postId: req.params.id, userId: req.userId,
-    authorName: (user && user.name) || 'NutriFell User', authorAvatar: (user && user.avatar) || null,
-    text: text.slice(0, 2000), parentId: null, likes: [], at: new Date().toISOString() };
-  all.push(comment);
-  writeJSON(POST_COMMENTS_FILE, all);
-  pushNotification('comment', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: 'commented on your post' });
-  notifyMentions(text, req.userId, post.id, 'mentioned you in a comment');
-  // Live: anyone viewing this post (subscribed to its room) gets the full
-  // comment; everyone else just gets a count bump for the feed card.
-  RT.toPost(post.id, 'comment:new', { postId: post.id, comment: { ...comment, likeCount: 0, replies: [] } });
-  const cCount = readJSON(POST_COMMENTS_FILE).filter(c => c.postId === post.id).length;
-  RT.broadcast('post:comment', { postId: post.id, total: cCount });
-  res.status(201).json(comment);
+app.get('/api/posts/:id/comments', async (req, res) => {
+  try { res.json(await sGetPostCommentsShaped(req.params.id)); }
+  catch (e) { console.error('Comments error:', e.message); res.status(500).json({ error: 'Could not load comments.' }); }
 });
 
-app.post('/api/posts/:id/comments/:cid/reply', auth, (req, res) => {
-  const text = req.body && String(req.body.text || '').trim();
-  if (!text) return res.status(400).json({ error: 'Reply cannot be empty' });
-  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
-  const all = readJSON(POST_COMMENTS_FILE);
-  const parent = all.find(c => c.id === req.params.cid);
-  if (!parent) return res.status(404).json({ error: 'Comment not found' });
-  const reply = { id: uuidv4(), postId: req.params.id, userId: req.userId,
-    authorName: (user && user.name) || 'NutriFell User', authorAvatar: (user && user.avatar) || null,
-    text: text.slice(0, 2000), parentId: parent.parentId || parent.id, likes: [], at: new Date().toISOString() };
-  all.push(reply);
-  writeJSON(POST_COMMENTS_FILE, all);
-  pushNotification('reply', { toUserId: parent.userId, fromUserId: req.userId, postId: req.params.id, text: 'replied to your comment' });
-  notifyMentions(text, req.userId, req.params.id, 'mentioned you in a comment');
-  res.status(201).json(reply);
+app.post('/api/posts/:id/comments', auth, async (req, res) => {
+  try {
+    const text = req.body && String(req.body.text || '').trim();
+    if (!text) return res.status(400).json({ error: 'Comment cannot be empty' });
+    const post = await sGetPostById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    const user = db ? await dbFindUserById(req.userId) : readJSON(USERS_FILE).find(u => u.id === req.userId);
+    const comment = { id: uuidv4(), postId: req.params.id, userId: req.userId,
+      authorName: (user && user.name) || 'NutriFell User', authorAvatar: (user && user.avatar) || null,
+      text: text.slice(0, 2000), parentId: null, likes: [], at: new Date().toISOString() };
+    await sInsertComment(comment);
+    pushNotification('comment', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: 'commented on your post' });
+    notifyMentions(text, req.userId, post.id, 'mentioned you in a comment');
+    RT.toPost(post.id, 'comment:new', { postId: post.id, comment: { ...comment, likeCount: 0, replies: [] } });
+    const cCount = await sCountPostComments(post.id);
+    RT.broadcast('post:comment', { postId: post.id, total: cCount });
+    res.status(201).json(comment);
+  } catch (e) { console.error('Comment create error:', e.message); res.status(500).json({ error: 'Could not post comment.' }); }
 });
 
-app.post('/api/posts/:id/comments/:cid/like', auth, (req, res) => {
-  const all = readJSON(POST_COMMENTS_FILE);
-  const c = all.find(x => x.id === req.params.cid);
-  if (!c) return res.status(404).json({ error: 'Comment not found' });
-  c.likes = c.likes || [];
-  const i = c.likes.indexOf(req.userId);
-  if (i === -1) c.likes.push(req.userId); else c.likes.splice(i, 1);
-  writeJSON(POST_COMMENTS_FILE, all);
-  res.json({ likeCount: c.likes.length, liked: i === -1 });
+app.post('/api/posts/:id/comments/:cid/reply', auth, async (req, res) => {
+  try {
+    const text = req.body && String(req.body.text || '').trim();
+    if (!text) return res.status(400).json({ error: 'Reply cannot be empty' });
+    const user = db ? await dbFindUserById(req.userId) : readJSON(USERS_FILE).find(u => u.id === req.userId);
+    const parent = await sGetCommentById(req.params.cid);
+    if (!parent) return res.status(404).json({ error: 'Comment not found' });
+    const reply = { id: uuidv4(), postId: req.params.id, userId: req.userId,
+      authorName: (user && user.name) || 'NutriFell User', authorAvatar: (user && user.avatar) || null,
+      text: text.slice(0, 2000), parentId: parent.parentId || parent.id, likes: [], at: new Date().toISOString() };
+    await sInsertComment(reply);
+    pushNotification('reply', { toUserId: parent.userId, fromUserId: req.userId, postId: req.params.id, text: 'replied to your comment' });
+    notifyMentions(text, req.userId, req.params.id, 'mentioned you in a comment');
+    res.status(201).json(reply);
+  } catch (e) { console.error('Reply error:', e.message); res.status(500).json({ error: 'Could not post reply.' }); }
+});
+
+app.post('/api/posts/:id/comments/:cid/like', auth, async (req, res) => {
+  try {
+    const result = await sToggleCommentLike(req.params.cid, req.userId);
+    if (!result) return res.status(404).json({ error: 'Comment not found' });
+    res.json(result);
+  } catch (e) { console.error('Comment like error:', e.message); res.status(500).json({ error: 'Could not like comment.' }); }
 });
 
 // ── Follow system ──
