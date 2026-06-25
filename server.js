@@ -1107,6 +1107,31 @@ async function dbUpdateUser(id, user) {
     }
 
     console.log('Phase 3 tables ready (fridges, water_logs, water_goals, meal_plans, meal_logs, smoking_data, smoking_cravings, waitlist)');
+
+    // ─── Final: story_views (dedicated table; story view-tracking) ───────────
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`story_views\` (
+        \`id\`       VARCHAR(36) PRIMARY KEY,
+        \`storyId\`  VARCHAR(36) NOT NULL,
+        \`userId\`   VARCHAR(36) NOT NULL,
+        \`viewedAt\` DATETIME    DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY \`unique_view\` (\`storyId\`, \`userId\`),
+        INDEX \`idx_storyId\` (\`storyId\`),
+        INDEX \`idx_userId\`  (\`userId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ svCnt }]] = await db.execute('SELECT COUNT(*) AS svCnt FROM `story_views`');
+    if (svCnt === 0) {
+      for (const v of readJSON(STORY_VIEWS_FILE)) {
+        try {
+          await db.execute(
+            'INSERT INTO `story_views` (`id`,`storyId`,`userId`,`viewedAt`) VALUES (?,?,?,?)',
+            [v.id || uuidv4(), v.storyId, v.userId, v.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+    }
+    console.log('Final tables ready (story_views) — full JSON→MySQL migration complete');
   } catch (e) {
     console.error('MySQL setup failed:', e.message);
     db = null;
@@ -3191,7 +3216,7 @@ app.post('/api/ai/chat', auth, async (req, res) => {
   if (!message || !String(message).trim()) return res.status(400).json({ error: 'Message is required' });
 
   const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
-  const fridge = readJSON(FRIDGES_FILE).filter(i => i.userId === req.userId);
+  const fridge = await sGetFridge(req.userId); // MySQL (JSON fallback)
   const cal = calcCalories(user);
 
   if (!genAI) {
@@ -4863,6 +4888,36 @@ async function sAddWaitlist(entry) {
   writeJSON(WAITLIST_FILE, all);
 }
 
+// Story views (dedicated table; idempotent per (storyId,userId)).
+async function sAddStoryView(storyId, userId) {
+  if (db) {
+    await db.execute(
+      'INSERT INTO `story_views` (`id`,`storyId`,`userId`) VALUES (?,?,?) ON DUPLICATE KEY UPDATE `id`=`id`',
+      [uuidv4(), storyId, userId]
+    );
+  }
+  const all = readJSON(STORY_VIEWS_FILE);
+  if (!all.some(v => v.storyId === storyId && v.userId === userId)) {
+    all.push({ storyId, userId, at: new Date().toISOString() });
+    writeJSON(STORY_VIEWS_FILE, all);
+  }
+}
+async function sGetStoryViewers(storyId) {
+  if (!db) {
+    return readJSON(STORY_VIEWS_FILE).filter(v => v.storyId === storyId)
+      .map(v => ({ userId: v.userId, at: v.at }))
+      .sort((a, b) => b.at.localeCompare(a.at));
+  }
+  const [rows] = await db.execute(
+    'SELECT `userId`, `viewedAt` AS at FROM `story_views` WHERE `storyId`=? ORDER BY `viewedAt` DESC', [storyId]
+  );
+  return rows.map(r => ({ userId: r.userId, at: r.at }));
+}
+async function sDeleteStoryViews(storyId) {
+  if (db) await db.execute('DELETE FROM `story_views` WHERE `storyId`=?', [storyId]);
+  writeJSON(STORY_VIEWS_FILE, readJSON(STORY_VIEWS_FILE).filter(v => v.storyId !== storyId));
+}
+
 const POST_REACTIONS = ['❤️', '🔥', '😋', '👏', '🤩', '💪'];
 const POST_TYPES = ['photo', 'video', 'recipe', 'text'];
 
@@ -5857,8 +5912,11 @@ const isActiveStory = (s) => new Date(s.expiresAt).getTime() > Date.now();
 
 // Remove expired stories + their views, and delete the orphaned media files.
 function sweepExpiredStories() {
-  // MySQL sweep (fire-and-forget; table may not exist yet on first startup call)
-  if (db) db.execute('DELETE FROM `stories` WHERE `expiresAt` < NOW()').catch(() => {});
+  // MySQL sweep (fire-and-forget; tables may not exist yet on first startup call).
+  // Delete expired stories, then prune story_views orphaned by that delete.
+  if (db) db.execute('DELETE FROM `stories` WHERE `expiresAt` < NOW()')
+    .then(() => db.execute('DELETE sv FROM `story_views` sv LEFT JOIN `stories` s ON s.`id` = sv.`storyId` WHERE s.`id` IS NULL'))
+    .catch(() => {});
   try {
     const all = readJSON(STORIES_FILE);
     const expired = all.filter(s => !isActiveStory(s));
@@ -5974,12 +6032,8 @@ app.post('/api/stories/:id/view', auth, async (req, res) => {
         const viewers = [...(story.viewers || []), req.userId];
         await db.execute('UPDATE `stories` SET `viewers`=? WHERE `id`=?', [JSON.stringify(viewers), story.id]);
       }
-      // Dual-write STORY_VIEWS_FILE (used by GET /api/stories/:id/viewers)
-      const views = readJSON(STORY_VIEWS_FILE);
-      if (!views.some(v => v.storyId === story.id && v.userId === req.userId)) {
-        views.push({ storyId: story.id, userId: req.userId, at: new Date().toISOString() });
-        writeJSON(STORY_VIEWS_FILE, views);
-      }
+      // story_views table (MySQL) + JSON dual-write (used by GET …/viewers)
+      await sAddStoryView(story.id, req.userId);
       const me = readJSON(USERS_FILE).find(u => u.id === req.userId);
       RT.toUser(story.userId, 'story:viewed', { storyId: story.id, viewer: { id: req.userId, name: (me && me.name) || 'Someone', avatar: (me && me.avatar) || null } });
     }
@@ -5988,14 +6042,18 @@ app.post('/api/stories/:id/view', auth, async (req, res) => {
 });
 
 // Who viewed a story — owner only.
-app.get('/api/stories/:id/viewers', auth, (req, res) => {
-  const story = readJSON(STORIES_FILE).find(s => s.id === req.params.id);
+app.get('/api/stories/:id/viewers', auth, async (req, res) => {
+  let story;
+  if (db) {
+    const [rows] = await db.execute('SELECT `id`,`userId` FROM `stories` WHERE `id`=?', [req.params.id]);
+    story = rows[0] || null;
+  } else {
+    story = readJSON(STORIES_FILE).find(s => s.id === req.params.id) || null;
+  }
   if (!story) return res.status(404).json({ error: 'Story not found.' });
   if (story.userId !== req.userId) return res.status(403).json({ error: 'Not your story.' });
   const users = readJSON(USERS_FILE);
-  const viewers = readJSON(STORY_VIEWS_FILE)
-    .filter(v => v.storyId === story.id)
-    .sort((a, b) => b.at.localeCompare(a.at))
+  const viewers = (await sGetStoryViewers(req.params.id))
     .map(v => { const u = users.find(x => x.id === v.userId); return { id: v.userId, name: (u && u.name) || 'NutriFell User', username: userHandle(u), avatar: (u && u.avatar) || null, at: v.at }; });
   res.json({ viewers, count: viewers.length });
 });
@@ -6014,7 +6072,7 @@ app.delete('/api/stories/:id', auth, async (req, res) => {
     if (story.userId !== req.userId) return res.status(403).json({ error: 'Not your story.' });
     if (db) await db.execute('DELETE FROM `stories` WHERE `id`=?', [story.id]);
     writeJSON(STORIES_FILE, readJSON(STORIES_FILE).filter(s => s.id !== story.id));
-    writeJSON(STORY_VIEWS_FILE, readJSON(STORY_VIEWS_FILE).filter(v => v.storyId !== story.id));
+    await sDeleteStoryViews(story.id);
     const fp = path.join(__dirname, 'public', story.media || '');
     try { if (story.media && fp.startsWith(STORIES_UPLOAD_DIR) && fs.existsSync(fp)) fs.unlinkSync(fp); } catch { /* ignore */ }
     res.json({ success: true });

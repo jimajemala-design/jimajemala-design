@@ -673,11 +673,31 @@ partial PUT, water add/goal/history/reset/delete, meal-plan generate/save/get,
 log add/list/delete, smoking setup/craving/stats/cravings) and
 `node audit-run.js` → **36/36 passed**.
 
-### Still on JSON (not migrated)
-`story_views` (story view-tracking) and the AI-chat fridge read remain file-based;
-the AI-chat read is kept in sync by Phase 3 dual-write. The notification/post-save
-etc. direct-JSON readers from earlier phases are likewise still JSON-backed by
-design (dual-write). Removing dual-write app-wide is a separate future phase.
+### Final — story_views + AI-chat fridge ✅ (2026-06-26)
+Last two JSON holdouts migrated; every collection now has a MySQL table.
+- **`story_views`** — dedicated table (`UNIQUE(storyId,userId)`), seeded from
+  `story_views.json`. New `s*` helpers (`sAddStoryView`, `sGetStoryViewers`,
+  `sDeleteStoryViews`, MySQL-or-JSON + dual-write). `POST /api/stories/:id/view`
+  writes the table (idempotent via `ON DUPLICATE KEY`); `GET …/viewers` reads it;
+  story delete + the hourly expiry sweep prune it (sweep uses a `LEFT JOIN …
+  WHERE s.id IS NULL` to drop orphans). The `stories.viewers` JSON column is still
+  updated too (it drives the unseen/seen state in `GET /api/stories`).
+- **AI-chat fridge** — `POST /api/ai/chat` now reads the fridge via `sGetFridge`
+  (MySQL) instead of `readJSON(FRIDGES_FILE)`.
+
+Verified end-to-end against the live DB: story create → view (idempotent) →
+owner-only viewers list (403 for others) → delete prunes views; `story_views`
+ends at 0 rows / 0 orphans. `node audit-run.js` → **36/36 passed**. 27 tables
+total on Hostinger.
+
+### Migration status
+Every data collection is now MySQL-backed. **Dual-write to JSON is intentionally
+retained** across all phases (per the "keep dual-write for safety" directive): a
+large number of direct-`readJSON` readers (feed/reels/profile/search/notifications,
+the `stories.viewers` seen-state, the story-sweep, etc.) still read the JSON
+mirror, which the `s*` helpers keep in sync. Dropping dual-write app-wide —
+migrating those remaining direct readers and deleting the JSON writes — is the one
+remaining clean-up, deliberately left as its own future phase.
 
 ## Running locally
 ```bash
