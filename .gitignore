@@ -4,11 +4,15 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-# User data (auto-created on server start; contains hashed credentials)
-data/
+# ── Runtime data files (auto-created on first run; never commit) ──────────
+# All JSON data files in data/; the .gitkeep placeholder is intentionally kept
+# so the empty folder exists on fresh clone.
+data/*.json
 
-# User-uploaded recipe photos (auto-created on server start)
-public/uploads/
+# ── User-uploaded media (auto-created on first run; never commit) ─────────
+# Ignore everything inside uploads/ except the .gitkeep placeholder.
+public/uploads/*
+!public/uploads/.gitkeep
 
 # scratch
 .commitmsg.tmp
