@@ -114,7 +114,7 @@ const Feed = (() => {
     const foodtags = (p.foodTags || []).length
       ? `<div class="post-foodtags">${p.foodTags.map(t => `<span class="foodtag">${esc(typeof t === 'string' ? t : (t.name || ''))}</span>`).join('')}</div>` : '';
     const captionBlock = (p.type !== 'text' && p.caption)
-      ? `<div class="post-body"><div class="post-caption">${renderCaption(p.caption)}</div>${foodtags}</div>`
+      ? `<div class="post-body"><div class="post-caption clamped">${renderCaption(p.caption)}</div><button class="post-read-more" data-act="readmore" hidden>Read more</button>${foodtags}</div>`
       : (p.type === 'text' ? `<div class="post-body">${foodtags}</div>` : '');
     return `<article class="post" data-id="${esc(p.id)}" data-type="${esc(p.type)}" data-user="${esc(p.userId)}">
       <header class="post-head">
@@ -218,7 +218,11 @@ const Feed = (() => {
   function showEnd() {
     if (document.getElementById('feedEnd')) return;
     document.getElementById('feedList').insertAdjacentHTML('beforeend',
-      `<div class="feed-end" id="feedEnd">You're all caught up ✦</div>`);
+      `<div class="feed-end" id="feedEnd">
+        ✨ You're all caught up
+        <p>Check back later for new posts</p>
+        <a class="btn-explore" href="/search.html">Explore trending</a>
+      </div>`);
   }
 
   // ── per-post interaction binding ─────────────────────────────────────
@@ -237,7 +241,49 @@ const Feed = (() => {
         else if (act === 'save') { e.preventDefault(); toggleSave(el, btn); }
         else if (act === 'follow') { e.preventDefault(); toggleFollow(el, btn); }
         else if (act === 'menu') { e.preventDefault(); openMenu(el, btn); }
+        else if (act === 'readmore') {
+          e.preventDefault();
+          const cap = el.querySelector('.post-caption');
+          if (cap) cap.classList.remove('clamped');
+          btn.hidden = true;
+        }
       });
+
+      // show/hide "Read more" based on whether the clamp actually truncates
+      const cap = el.querySelector('.post-caption.clamped');
+      const readMoreBtn = el.querySelector('.post-read-more');
+      if (cap && readMoreBtn) {
+        if (cap.scrollHeight > cap.clientHeight + 2) {
+          readMoreBtn.hidden = false;
+        }
+      }
+
+      // card press animation (touch-only)
+      el.addEventListener('touchstart', () => el.classList.add('pressing'), { passive: true });
+      el.addEventListener('touchend', () => el.classList.remove('pressing'), { passive: true });
+      el.addEventListener('touchcancel', () => el.classList.remove('pressing'), { passive: true });
+
+      // swipe left = save, swipe right = share (skip on carousels to avoid conflict)
+      const hasCarousel = !!el.querySelector('[data-carousel]');
+      if (!hasCarousel) {
+        let swipeX = 0, swipeY = 0;
+        el.addEventListener('touchstart', (ev) => {
+          swipeX = ev.touches[0].clientX;
+          swipeY = ev.touches[0].clientY;
+        }, { passive: true });
+        el.addEventListener('touchend', (ev) => {
+          const dx = ev.changedTouches[0].clientX - swipeX;
+          const dy = ev.changedTouches[0].clientY - swipeY;
+          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.8) {
+            if (dx < 0) {
+              const saveBtn = el.querySelector('[data-act="save"]');
+              if (saveBtn) toggleSave(el, saveBtn);
+            } else {
+              sharePost(id);
+            }
+          }
+        }, { passive: true });
+      }
 
       // double-tap / double-click media → quick ❤️ like
       const media = el.querySelector('[data-media]');
@@ -286,9 +332,19 @@ const Feed = (() => {
   }
   function onDocClosePop(e) { if (openPop && !openPop.contains(e.target)) closePop(); }
 
+  function pulseReactBtn(postEl) {
+    const btn = postEl.querySelector('.act-react');
+    if (!btn) return;
+    btn.classList.remove('pulse');
+    void btn.offsetWidth;
+    btn.classList.add('pulse');
+    setTimeout(() => btn.classList.remove('pulse'), 450);
+  }
+
   async function react(postEl, emoji) {
     if (!requireLogin()) return;
     const id = postEl.dataset.id;
+    pulseReactBtn(postEl);
     try {
       const out = await Auth.api(`/api/posts/${id}/react`, { method: 'POST', body: JSON.stringify({ emoji }) });
       updateReactionUI(postEl, out);
@@ -298,6 +354,7 @@ const Feed = (() => {
     if (!requireLogin()) return;
     const burst = postEl.querySelector('.heart-burst');
     if (burst) { burst.classList.remove('go'); void burst.offsetWidth; burst.classList.add('go'); }
+    pulseReactBtn(postEl);
     const id = postEl.dataset.id;
     try {
       const out = await Auth.api(`/api/posts/${id}/like`, { method: 'POST' });
@@ -953,9 +1010,43 @@ const Feed = (() => {
     ta.addEventListener('blur', () => setTimeout(hide, 120));
   }
 
+  // ── pull-to-refresh ──────────────────────────────────────────────────
+  function initPullToRefresh() {
+    const main = document.querySelector('.feed-main');
+    if (!main) return;
+    // inject PTR indicator above the story tray
+    const ptr = document.createElement('div');
+    ptr.className = 'ptr-spinner';
+    ptr.innerHTML = '<div class="ptr-icon"></div><span>Refreshing…</span>';
+    main.insertAdjacentElement('afterbegin', ptr);
+
+    let startY = 0, pulling = false, triggered = false;
+    document.addEventListener('touchstart', (e) => {
+      if (window.scrollY < 5) { startY = e.touches[0].clientY; pulling = true; triggered = false; }
+    }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+      if (!pulling) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy > 60 && !triggered) { ptr.classList.add('visible'); }
+    }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+      if (!pulling) return;
+      pulling = false;
+      const dy = e.changedTouches[0].clientY - startY;
+      if (dy > 70 && !triggered && window.scrollY < 5) {
+        triggered = true;
+        resetFeed();
+        setTimeout(() => ptr.classList.remove('visible'), 600);
+      } else {
+        ptr.classList.remove('visible');
+      }
+    }, { passive: true });
+  }
+
   // ── init ─────────────────────────────────────────────────────────────
   function init() {
     setupVideoObserver();
+    initPullToRefresh();
     // sentinel for infinite scroll
     const sentinel = document.getElementById('feedSentinel');
     sentinelIO = new IntersectionObserver((es) => { if (es[0].isIntersecting) loadMore(); }, { rootMargin: '600px' });
