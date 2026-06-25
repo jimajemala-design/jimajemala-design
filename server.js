@@ -363,6 +363,7 @@ async function dbUpdateUser(id, user) {
       waitForConnections: true,
       connectionLimit: 10,
       charset: 'utf8mb4',
+      dateStrings: true,
     });
     // Auto-create users table (idempotent)
     await db.execute(`
@@ -405,6 +406,49 @@ async function dbUpdateUser(id, user) {
         try { await dbInsertUser(u); } catch { /* skip duplicates */ }
       }
       if (seed.length) console.log(`Migrated ${seed.length} users from JSON → MySQL`);
+    }
+
+    // ─── Phase 2a: posts table ────────────────────────────────────────────
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`posts\` (
+        \`id\`            VARCHAR(36)  PRIMARY KEY,
+        \`userId\`        VARCHAR(36)  NOT NULL,
+        \`type\`          ENUM('photo','video','recipe','text') DEFAULT 'text',
+        \`caption\`       TEXT,
+        \`mediaUrls\`     JSON,
+        \`videoUrl\`      VARCHAR(500),
+        \`videoThumb\`    VARCHAR(500),
+        \`videoDuration\` INT,
+        \`recipe\`        JSON,
+        \`hashtags\`      JSON,
+        \`taggedFoods\`   JSON,
+        \`location\`      VARCHAR(255),
+        \`viewCount\`     INT          DEFAULT 0,
+        \`score\`         FLOAT        DEFAULT 0,
+        \`createdAt\`     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\`     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX \`idx_userId\`    (\`userId\`),
+        INDEX \`idx_createdAt\` (\`createdAt\`),
+        INDEX \`idx_score\`     (\`score\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ postCnt }]] = await db.execute('SELECT COUNT(*) AS postCnt FROM `posts`');
+    if (postCnt === 0) {
+      const seedPosts = readJSON(POSTS_FILE);
+      for (const p of seedPosts) {
+        try {
+          await db.execute(
+            'INSERT INTO `posts` (`id`,`userId`,`type`,`caption`,`mediaUrls`,`videoUrl`,`videoThumb`,`recipe`,`hashtags`,`taggedFoods`,`location`,`viewCount`,`createdAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            [p.id, p.userId, p.type || 'text', p.caption || null,
+             JSON.stringify(p.photos || []), p.video || null, p.videoThumb || null,
+             p.recipe ? JSON.stringify(p.recipe) : null,
+             JSON.stringify(p.hashtags || []), JSON.stringify(p.foodTags || []),
+             p.location || null, p.views || 0,
+             p.createdAt || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedPosts.length) console.log(`Migrated ${seedPosts.length} posts from JSON → MySQL`);
     }
   } catch (e) {
     console.error('MySQL setup failed:', e.message);
@@ -3341,6 +3385,85 @@ app.post('/api/recipes/:id/ai-analysis', async (req, res) => {
 //  Generalizes the recipe social primitives (reactions/comments/bookmarks/
 //  reports) to first-class posts. Feed scoring uses the "For You" formula.
 // ═══════════════════════════════════════════════════════════════════════
+// ─── Phase 2a: Posts helpers (MySQL with JSON fallback) ──────────────────────
+// Safely parse a value that may be a JSON string or an already-parsed object.
+const parseJ = (s, def) => {
+  if (s === null || s === undefined) return def;
+  if (typeof s !== 'string') return s;
+  try { return JSON.parse(s); } catch { return def; }
+};
+
+// Build a canonical post object from a MySQL JOIN row.
+// MySQL schema uses different column names (mediaUrls, viewCount, etc.) than the
+// JSON files (photos, views, etc.). rowToPost maps them back so all downstream
+// code (decoratePost, rankings, API responses) continues to work unchanged.
+function rowToPost(r) {
+  let authorUsername = '@nutrifell';
+  if (r._username) {
+    authorUsername = '@' + String(r._username).replace(/^@/, '');
+  } else {
+    const base = (r._name || (r._email || '').split('@')[0] || 'user')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '');
+    authorUsername = '@' + (base || 'user');
+  }
+  return {
+    id: r.id, userId: r.userId,
+    authorName: r._name || 'NutriFell User',
+    authorUsername,
+    authorAvatar: r._avatar || null,
+    type: r.type || 'text',
+    caption: r.caption || '',
+    photos: parseJ(r.mediaUrls, []),
+    video: r.videoUrl || null,
+    videoThumb: r.videoThumb || null,
+    recipe: parseJ(r.recipe, null),
+    hashtags: parseJ(r.hashtags, []),
+    foodTags: parseJ(r.taggedFoods, []),
+    location: r.location || '',
+    views: r.viewCount || 0,
+    createdAt: r.createdAt || new Date().toISOString(),
+  };
+}
+
+// The SELECT used for all post reads — joins users so author fields are fresh.
+const POST_SELECT_SQL = `
+  SELECT p.id, p.userId, p.type, p.caption, p.mediaUrls, p.videoUrl, p.videoThumb,
+         p.recipe, p.hashtags, p.taggedFoods, p.location, p.viewCount, p.score, p.createdAt,
+         u.name AS _name, u.username AS _username, u.email AS _email, u.avatar AS _avatar
+  FROM \`posts\` p
+  LEFT JOIN \`users\` u ON u.id = p.userId
+`;
+
+async function sGetAllPosts() {
+  if (!db) return readJSON(POSTS_FILE);
+  const [rows] = await db.execute(POST_SELECT_SQL + ' ORDER BY p.createdAt DESC');
+  return rows.map(rowToPost);
+}
+
+async function sGetPostById(id) {
+  if (!db) return readJSON(POSTS_FILE).find(p => p.id === id) || null;
+  const [rows] = await db.execute(POST_SELECT_SQL + ' WHERE p.id = ?', [id]);
+  return rows[0] ? rowToPost(rows[0]) : null;
+}
+
+async function sInsertPost(post) {
+  if (db) {
+    await db.execute(
+      'INSERT INTO `posts` (`id`,`userId`,`type`,`caption`,`mediaUrls`,`videoUrl`,`videoThumb`,`recipe`,`hashtags`,`taggedFoods`,`location`,`viewCount`,`createdAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [post.id, post.userId, post.type || 'text', post.caption || null,
+       JSON.stringify(post.photos || []), post.video || null, post.videoThumb || null,
+       post.recipe ? JSON.stringify(post.recipe) : null,
+       JSON.stringify(post.hashtags || []), JSON.stringify(post.foodTags || []),
+       post.location || null, post.views || 0,
+       post.createdAt || new Date().toISOString()]
+    );
+  }
+  // Dual-write: keep JSON file in sync for non-migrated endpoints (delete, view, react…)
+  const all = readJSON(POSTS_FILE);
+  all.unshift(post);
+  writeJSON(POSTS_FILE, all);
+}
+
 const POST_REACTIONS = ['❤️', '🔥', '😋', '👏', '🤩', '💪'];
 const POST_TYPES = ['photo', 'video', 'recipe', 'text'];
 
@@ -3483,10 +3606,10 @@ const RANKING_MODES = ['foryou', 'following', 'latest'];
 // Precompute the viewer's affinity profile once per request: the hashtags/food
 // tags they've engaged with (high-signal interest) and the posts they've
 // already engaged with (a proxy for "seen", since post views aren't per-user).
-function buildRankingContext(viewerId, reactions, saves, comments, followingSet) {
+function buildRankingContext(viewerId, reactions, saves, comments, followingSet, allPosts) {
   const ctx = { viewerId, followingSet, interestTags: new Set(), engagedPostIds: new Set() };
   if (!viewerId) return ctx;
-  const byId = new Map(readJSON(POSTS_FILE).map(p => [p.id, p]));
+  const byId = new Map((allPosts || readJSON(POSTS_FILE)).map(p => [p.id, p]));
   const harvest = (pid) => {
     ctx.engagedPostIds.add(pid);
     const p = byId.get(pid); if (!p) return;
@@ -3534,41 +3657,48 @@ function diversifyByAuthor(sorted) {
 }
 
 // ── Feed (paginated, scored, works logged-out) ──
-app.get('/api/feed', (req, res) => {
-  const viewerId = optionalAuth(req);
-  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-  const perPage = 20;
-  const reactions = readJSON(POST_REACTIONS_FILE);
-  const comments = readJSON(POST_COMMENTS_FILE);
-  const saves = readJSON(POST_SAVES_FILE);
-  const ranking = RANKING_MODES.includes(req.query.ranking) ? req.query.ranking : 'foryou';
-  let list = readJSON(POSTS_FILE).map(p => decoratePost(p, reactions, comments, saves, viewerId));
-  const { type, tag, userId } = req.query;
-  if (type && POST_TYPES.includes(type)) list = list.filter(p => p.type === type);
-  if (tag) list = list.filter(p => (p.hashtags || []).includes(String(tag).toLowerCase()));
-  if (userId) list = list.filter(p => p.userId === userId);
+app.get('/api/feed', async (req, res) => {
+  try {
+    const viewerId = optionalAuth(req);
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const perPage = 20;
+    const reactions = readJSON(POST_REACTIONS_FILE);
+    const comments = readJSON(POST_COMMENTS_FILE);
+    const saves = readJSON(POST_SAVES_FILE);
+    const ranking = RANKING_MODES.includes(req.query.ranking) ? req.query.ranking : 'foryou';
+    // Phase 2a: read posts from MySQL (falls back to JSON when db is null)
+    const allPosts = await sGetAllPosts();
+    let list = allPosts.map(p => decoratePost(p, reactions, comments, saves, viewerId));
+    const { type, tag, userId } = req.query;
+    if (type && POST_TYPES.includes(type)) list = list.filter(p => p.type === type);
+    if (tag) list = list.filter(p => (p.hashtags || []).includes(String(tag).toLowerCase()));
+    if (userId) list = list.filter(p => p.userId === userId);
 
-  let followingSet = new Set();
-  if (viewerId) followingSet = new Set(readJSON(FOLLOWS_FILE).filter(f => f.followerId === viewerId).map(f => f.followingId));
+    let followingSet = new Set();
+    if (viewerId) followingSet = new Set(readJSON(FOLLOWS_FILE).filter(f => f.followerId === viewerId).map(f => f.followingId));
 
-  if (ranking === 'latest') {
-    list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  } else if (ranking === 'following') {
-    if (viewerId) list = list.filter(p => followingSet.has(p.userId) || p.userId === viewerId);
-    list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  } else {
-    // For You — personalized score + author diversity pass.
-    const ctx = buildRankingContext(viewerId, reactions, saves, comments, followingSet);
-    list.forEach(p => { p.score = forYouScore(p, ctx); });
-    list.sort((a, b) => b.score - a.score);
-    list = diversifyByAuthor(list);
+    if (ranking === 'latest') {
+      list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    } else if (ranking === 'following') {
+      if (viewerId) list = list.filter(p => followingSet.has(p.userId) || p.userId === viewerId);
+      list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    } else {
+      // For You — personalized score + author diversity pass.
+      const ctx = buildRankingContext(viewerId, reactions, saves, comments, followingSet, allPosts);
+      list.forEach(p => { p.score = forYouScore(p, ctx); });
+      list.sort((a, b) => b.score - a.score);
+      list = diversifyByAuthor(list);
+    }
+
+    const total = list.length;
+    const start = (page - 1) * perPage;
+    const pageItems = list.slice(start, start + perPage);
+    pageItems.forEach(p => { p.isFollowingAuthor = followingSet.has(p.userId); p.isOwn = p.userId === viewerId; });
+    res.json({ posts: pageItems, page, perPage, total, ranking, hasMore: start + perPage < total });
+  } catch (e) {
+    console.error('Feed error:', e.message);
+    res.status(500).json({ error: 'Could not load feed.' });
   }
-
-  const total = list.length;
-  const start = (page - 1) * perPage;
-  const pageItems = list.slice(start, start + perPage);
-  pageItems.forEach(p => { p.isFollowingAuthor = followingSet.has(p.userId); p.isOwn = p.userId === viewerId; });
-  res.json({ posts: pageItems, page, perPage, total, ranking, hasMore: start + perPage < total });
 });
 
 // ── Reels feed (Phase 4C) — paginated, ranked video posts for the
@@ -3636,9 +3766,8 @@ app.post('/api/posts', auth, (req, res) => {
         foodTags, location: b.location ? String(b.location).trim().slice(0, 80) : '',
         views: 0, createdAt: new Date().toISOString(),
       };
-      const all = readJSON(POSTS_FILE);
-      all.unshift(post);
-      writeJSON(POSTS_FILE, all);
+      // Phase 2a: write to MySQL + dual-write JSON for non-migrated endpoints
+      await sInsertPost(post);
       notifyMentions(caption, req.userId, post.id, 'mentioned you in a post');
       // Phase 5: live feed nudge ("N new posts" banner) for everyone.
       RT.broadcast('feed:new_post', { postId: post.id, type: post.type, author: { id: post.userId, name: post.authorName, avatar: post.authorAvatar } });
@@ -3651,13 +3780,19 @@ app.post('/api/posts', auth, (req, res) => {
 });
 
 // ── Single post ──
-app.get('/api/posts/:id', (req, res) => {
-  const viewerId = optionalAuth(req);
-  const p = readJSON(POSTS_FILE).find(x => x.id === req.params.id);
-  if (!p) return res.status(404).json({ error: 'Post not found' });
-  const d = decoratePost(p, readJSON(POST_REACTIONS_FILE), readJSON(POST_COMMENTS_FILE), readJSON(POST_SAVES_FILE), viewerId);
-  d.isOwn = p.userId === viewerId;
-  res.json(d);
+app.get('/api/posts/:id', async (req, res) => {
+  try {
+    const viewerId = optionalAuth(req);
+    // Phase 2a: read from MySQL (falls back to JSON when db is null)
+    const p = await sGetPostById(req.params.id);
+    if (!p) return res.status(404).json({ error: 'Post not found' });
+    const d = decoratePost(p, readJSON(POST_REACTIONS_FILE), readJSON(POST_COMMENTS_FILE), readJSON(POST_SAVES_FILE), viewerId);
+    d.isOwn = p.userId === viewerId;
+    res.json(d);
+  } catch (e) {
+    console.error('Get post error:', e.message);
+    res.status(500).json({ error: 'Could not load post.' });
+  }
 });
 
 // ── Delete own post (+ its reactions/comments/saves + media files) ──
