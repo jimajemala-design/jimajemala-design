@@ -913,6 +913,200 @@ async function dbUpdateUser(id, user) {
     `);
 
     console.log('Phase 2e tables ready (recipes, recipe_comments/reactions/reports, bookmarks, post_saves, post_reports, hashtag_follows, hashtags)');
+
+    // ─── Phase 3: wellness & tracking (fridges, water, meal plans/logs, ──────
+    //     smoking, waitlist). Same s* + JSON-dual-write pattern. Table columns
+    //     mirror the ACTUAL data shape (e.g. fridge `name`, water `ml`, smoking
+    //     `cigsPerDay`/`cigsPerPack`/`currency`) so rows round-trip; reserved
+    //     words avoided (meal_plans.`planOffset`). ───────────────────────────
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`fridges\` (
+        \`id\`       VARCHAR(36)  PRIMARY KEY,
+        \`userId\`   VARCHAR(36)  NOT NULL,
+        \`foodId\`   VARCHAR(100),
+        \`foodName\` VARCHAR(255) NOT NULL,
+        \`quantity\` VARCHAR(100),
+        \`category\` VARCHAR(100),
+        \`addedAt\`  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_userId\` (\`userId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ frCnt }]] = await db.execute('SELECT COUNT(*) AS frCnt FROM `fridges`');
+    if (frCnt === 0) {
+      for (const i of readJSON(FRIDGES_FILE)) {
+        try {
+          await db.execute(
+            'INSERT INTO `fridges` (`id`,`userId`,`foodId`,`foodName`,`quantity`,`category`,`addedAt`) VALUES (?,?,?,?,?,?,?)',
+            [i.id || uuidv4(), i.userId, i.foodId || null, i.name || i.foodName || '',
+             i.quantity || null, i.category || null, i.addedAt || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+    }
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`water_logs\` (
+        \`id\`       VARCHAR(36) PRIMARY KEY,
+        \`userId\`   VARCHAR(36) NOT NULL,
+        \`amount\`   INT         NOT NULL,
+        \`unit\`     VARCHAR(20) DEFAULT 'ml',
+        \`date\`     DATE        NOT NULL,
+        \`loggedAt\` DATETIME    DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_userId\`   (\`userId\`),
+        INDEX \`idx_loggedAt\` (\`loggedAt\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ wlCnt }]] = await db.execute('SELECT COUNT(*) AS wlCnt FROM `water_logs`');
+    if (wlCnt === 0) {
+      for (const w of readJSON(WATER_FILE)) {
+        try {
+          await db.execute(
+            'INSERT INTO `water_logs` (`id`,`userId`,`amount`,`unit`,`date`,`loggedAt`) VALUES (?,?,?,?,?,?)',
+            [w.id || uuidv4(), w.userId, Math.round(Number(w.ml) || 0), 'ml',
+             w.date || (w.at || new Date().toISOString()).slice(0, 10), w.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+    }
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`water_goals\` (
+        \`userId\`    VARCHAR(36) PRIMARY KEY,
+        \`goalMl\`    INT         DEFAULT 2000,
+        \`updatedAt\` DATETIME    DEFAULT CURRENT_TIMESTAMP
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ wgCnt }]] = await db.execute('SELECT COUNT(*) AS wgCnt FROM `water_goals`');
+    if (wgCnt === 0) {
+      // Seed manual overrides from any user that has a waterGoalMl set.
+      for (const u of readJSON(USERS_FILE)) {
+        if (u.waterGoalMl) {
+          try {
+            await db.execute('INSERT INTO `water_goals` (`userId`,`goalMl`) VALUES (?,?)', [u.id, Math.round(u.waterGoalMl)]);
+          } catch { /* skip duplicates */ }
+        }
+      }
+    }
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`meal_plans\` (
+        \`id\`          VARCHAR(36) PRIMARY KEY,
+        \`userId\`      VARCHAR(36) NOT NULL UNIQUE,
+        \`plan\`        JSON        NOT NULL,
+        \`saved\`       TINYINT(1)  DEFAULT 0,
+        \`planOffset\`  INT         DEFAULT 0,
+        \`generatedAt\` DATETIME    DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\`   DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX \`idx_userId\` (\`userId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ mpCnt }]] = await db.execute('SELECT COUNT(*) AS mpCnt FROM `meal_plans`');
+    if (mpCnt === 0) {
+      for (const p of readJSON(MEALPLANS_FILE)) {
+        try {
+          await db.execute(
+            'INSERT INTO `meal_plans` (`id`,`userId`,`plan`,`saved`,`planOffset`,`updatedAt`) VALUES (?,?,?,?,?,?)',
+            [uuidv4(), p.userId, JSON.stringify(p.plan || {}), p.saved ? 1 : 0, p.offset || 0, p.updatedAt || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+    }
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`meal_logs\` (
+        \`id\`       VARCHAR(36)  PRIMARY KEY,
+        \`userId\`   VARCHAR(36)  NOT NULL,
+        \`date\`     DATE         NOT NULL,
+        \`mealName\` VARCHAR(255) NOT NULL,
+        \`calories\` INT          DEFAULT 0,
+        \`protein\`  FLOAT        DEFAULT 0,
+        \`carbs\`    FLOAT        DEFAULT 0,
+        \`fat\`      FLOAT        DEFAULT 0,
+        \`loggedAt\` DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_userId\` (\`userId\`),
+        INDEX \`idx_date\`   (\`date\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ mlCnt }]] = await db.execute('SELECT COUNT(*) AS mlCnt FROM `meal_logs`');
+    if (mlCnt === 0) {
+      for (const l of readJSON(LOGS_FILE)) {
+        try {
+          await db.execute(
+            'INSERT INTO `meal_logs` (`id`,`userId`,`date`,`mealName`,`calories`,`protein`,`carbs`,`fat`,`loggedAt`) VALUES (?,?,?,?,?,?,?,?,?)',
+            [l.id || uuidv4(), l.userId, l.date || (l.createdAt || new Date().toISOString()).slice(0, 10),
+             l.name || l.mealName || '', Math.round(Number(l.calories) || 0), Number(l.protein) || 0,
+             Number(l.carbs) || 0, Number(l.fat) || 0, l.createdAt || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+    }
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`smoking_data\` (
+        \`userId\`       VARCHAR(36) PRIMARY KEY,
+        \`quitDate\`     DATETIME,
+        \`cigsPerDay\`   INT         DEFAULT 20,
+        \`pricePerPack\` FLOAT       DEFAULT 5,
+        \`cigsPerPack\`  INT         DEFAULT 20,
+        \`brand\`        VARCHAR(255),
+        \`currency\`     VARCHAR(8)  DEFAULT '$',
+        \`motivation\`   TEXT,
+        \`createdAt\`    DATETIME    DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\`    DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`smoking_cravings\` (
+        \`id\`     VARCHAR(36) PRIMARY KEY,
+        \`userId\` VARCHAR(36) NOT NULL,
+        \`note\`   TEXT,
+        \`at\`     DATETIME    DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_userId\` (\`userId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ smCnt }]] = await db.execute('SELECT COUNT(*) AS smCnt FROM `smoking_data`');
+    if (smCnt === 0) {
+      for (const s of readJSON(SMOKING_FILE)) {
+        try {
+          await db.execute(
+            'INSERT INTO `smoking_data` (`userId`,`quitDate`,`cigsPerDay`,`pricePerPack`,`cigsPerPack`,`brand`,`currency`,`motivation`,`createdAt`,`updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?)',
+            [s.userId, s.quitDate ? new Date(s.quitDate).toISOString().slice(0, 19).replace('T', ' ') : null,
+             Number(s.cigsPerDay) || 20, Number(s.pricePerPack) || 5, Number(s.cigsPerPack) || 20,
+             s.brand || null, s.currency || '$', s.motivation || null,
+             s.createdAt || new Date().toISOString(), s.updatedAt || new Date().toISOString()]
+          );
+          for (const c of (s.cravings || [])) {
+            try {
+              await db.execute('INSERT INTO `smoking_cravings` (`id`,`userId`,`note`,`at`) VALUES (?,?,?,?)',
+                [c.id || uuidv4(), s.userId, c.note || null, c.at || new Date().toISOString()]);
+            } catch { /* skip duplicates */ }
+          }
+        } catch { /* skip duplicates */ }
+      }
+    }
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`waitlist\` (
+        \`id\`       VARCHAR(36)  PRIMARY KEY,
+        \`email\`    VARCHAR(255) UNIQUE NOT NULL,
+        \`plan\`     VARCHAR(50),
+        \`billing\`  VARCHAR(50),
+        \`joinedAt\` DATETIME     DEFAULT CURRENT_TIMESTAMP
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ wtCnt }]] = await db.execute('SELECT COUNT(*) AS wtCnt FROM `waitlist`');
+    if (wtCnt === 0) {
+      for (const w of readJSON(WAITLIST_FILE)) {
+        try {
+          await db.execute(
+            'INSERT INTO `waitlist` (`id`,`email`,`plan`,`billing`,`joinedAt`) VALUES (?,?,?,?,?)',
+            [w.id || uuidv4(), w.email, w.plan || null, w.billing || null, w.createdAt || w.joinedAt || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+    }
+
+    console.log('Phase 3 tables ready (fridges, water_logs, water_goals, meal_plans, meal_logs, smoking_data, smoking_cravings, waitlist)');
   } catch (e) {
     console.error('MySQL setup failed:', e.message);
     db = null;
@@ -2683,14 +2877,13 @@ app.get('/api/profile/stats', auth, (req, res) => {
 });
 
 // ─── FRIDGE ──────────────────────────────────────────────────────────────
-app.get('/api/fridge', auth, (req, res) => {
-  res.json(readJSON(FRIDGES_FILE).filter(i => i.userId === req.userId));
+app.get('/api/fridge', auth, async (req, res) => {
+  res.json(await sGetFridge(req.userId));
 });
 
-app.post('/api/fridge', auth, (req, res) => {
+app.post('/api/fridge', auth, async (req, res) => {
   const { name, quantity, category, foodId } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Ingredient name is required' });
-  const fridges = readJSON(FRIDGES_FILE);
   const item = {
     id: uuidv4(),
     userId: req.userId,
@@ -2700,28 +2893,23 @@ app.post('/api/fridge', auth, (req, res) => {
     foodId: foodId || matchFoodId(name),
     addedAt: new Date().toISOString(),
   };
-  fridges.push(item);
-  writeJSON(FRIDGES_FILE, fridges);
+  await sInsertFridge(item);
   res.status(201).json(item);
 });
 
-app.put('/api/fridge/:id', auth, (req, res) => {
-  const fridges = readJSON(FRIDGES_FILE);
-  const item = fridges.find(i => i.id === req.params.id && i.userId === req.userId);
-  if (!item) return res.status(404).json({ error: 'Item not found' });
+app.put('/api/fridge/:id', auth, async (req, res) => {
   const { quantity, category } = req.body || {};
-  if (quantity != null) item.quantity = String(quantity).trim();
-  if (category != null) item.category = String(category);
-  writeJSON(FRIDGES_FILE, fridges);
+  const fields = {};
+  if (quantity != null) fields.quantity = String(quantity).trim();
+  if (category != null) fields.category = String(category);
+  const item = await sUpdateFridge(req.params.id, req.userId, fields);
+  if (!item) return res.status(404).json({ error: 'Item not found' });
   res.json(item);
 });
 
-app.delete('/api/fridge/:id', auth, (req, res) => {
-  let fridges = readJSON(FRIDGES_FILE);
-  const before = fridges.length;
-  fridges = fridges.filter(i => !(i.id === req.params.id && i.userId === req.userId));
-  if (fridges.length === before) return res.status(404).json({ error: 'Item not found' });
-  writeJSON(FRIDGES_FILE, fridges);
+app.delete('/api/fridge/:id', auth, async (req, res) => {
+  const removed = await sDeleteFridge(req.params.id, req.userId);
+  if (!removed) return res.status(404).json({ error: 'Item not found' });
   res.json({ success: true });
 });
 
@@ -2790,21 +2978,18 @@ function buildPlan(allFoods, cal, offset) {
   };
 }
 
-function setUserPlan(userId, plan, saved) {
-  const all = readJSON(MEALPLANS_FILE);
-  const idx = all.findIndex(p => p.userId === userId);
-  const rec = { userId, plan, saved: !!saved, updatedAt: new Date().toISOString() };
-  if (idx === -1) all.push(rec); else all[idx] = rec;
-  writeJSON(MEALPLANS_FILE, all);
+async function setUserPlan(userId, plan, saved) {
+  const prev = await sGetMealPlan(userId);
+  await sUpsertMealPlan({ userId, plan, saved: !!saved, offset: (prev && prev.offset) || 0 });
 }
 
-app.post('/api/mealplan/generate', auth, (req, res) => {
-  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+app.post('/api/mealplan/generate', auth, async (req, res) => {
+  const user = db ? await dbFindUserById(req.userId) : readJSON(USERS_FILE).find(u => u.id === req.userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
   const cal = calcCalories(user);
   if (!cal) return res.status(400).json({ error: 'Complete your profile (age, weight, height, gender) first' });
 
-  const fridge = readJSON(FRIDGES_FILE).filter(i => i.userId === req.userId);
+  const fridge = await sGetFridge(req.userId);
   if (!fridge.length) return res.status(400).json({ error: 'Your fridge is empty — add some ingredients first' });
 
   const resolved = fridge
@@ -2814,42 +2999,35 @@ app.post('/api/mealplan/generate', auth, (req, res) => {
     return res.status(400).json({ error: 'None of your fridge items match the food database. Try common names like "Chicken Breast" or "Banana".' });
   }
   // rotate the starting offset each generation for variety
-  const prev = readJSON(MEALPLANS_FILE).find(p => p.userId === req.userId);
+  const prev = await sGetMealPlan(req.userId);
   const offset = ((prev && prev.offset) || 0) + 1;
   const plan = buildPlan(resolved, cal, offset);
-
-  const all = readJSON(MEALPLANS_FILE);
-  const idx = all.findIndex(p => p.userId === req.userId);
-  const rec = { userId: req.userId, plan, saved: false, offset, updatedAt: new Date().toISOString() };
-  if (idx === -1) all.push(rec); else all[idx] = rec;
-  writeJSON(MEALPLANS_FILE, all);
-
+  await sUpsertMealPlan({ userId: req.userId, plan, saved: false, offset });
   res.json(plan);
 });
 
-app.get('/api/mealplan', auth, (req, res) => {
-  const rec = readJSON(MEALPLANS_FILE).find(p => p.userId === req.userId);
+app.get('/api/mealplan', auth, async (req, res) => {
+  const rec = await sGetMealPlan(req.userId);
   res.json(rec ? rec.plan : null);
 });
 
-app.post('/api/mealplan/save', auth, (req, res) => {
+app.post('/api/mealplan/save', auth, async (req, res) => {
   const bodyPlan = req.body && req.body.plan;
-  const existing = readJSON(MEALPLANS_FILE).find(p => p.userId === req.userId);
+  const existing = await sGetMealPlan(req.userId);
   const plan = bodyPlan || (existing && existing.plan);
   if (!plan) return res.status(400).json({ error: 'No meal plan to save — generate one first' });
-  setUserPlan(req.userId, plan, true);
+  await setUserPlan(req.userId, plan, true);
   res.json({ success: true, message: 'Meal plan saved' });
 });
 
 // ─── DAILY MEAL LOG (calorie tracker + weekly overview) ────────────────────
-app.get('/api/logs', auth, (req, res) => {
-  res.json(readJSON(LOGS_FILE).filter(l => l.userId === req.userId));
+app.get('/api/logs', auth, async (req, res) => {
+  res.json(await sGetMealLogs(req.userId));
 });
 
-app.post('/api/logs', auth, (req, res) => {
+app.post('/api/logs', auth, async (req, res) => {
   const { name, calories, protein, carbs, fat, date } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Meal name is required' });
-  const logs = readJSON(LOGS_FILE);
   const entry = {
     id: uuidv4(),
     userId: req.userId,
@@ -2861,17 +3039,13 @@ app.post('/api/logs', auth, (req, res) => {
     date: date || new Date().toISOString().slice(0, 10),
     createdAt: new Date().toISOString(),
   };
-  logs.push(entry);
-  writeJSON(LOGS_FILE, logs);
+  await sInsertMealLog(entry);
   res.status(201).json(entry);
 });
 
-app.delete('/api/logs/:id', auth, (req, res) => {
-  let logs = readJSON(LOGS_FILE);
-  const before = logs.length;
-  logs = logs.filter(l => !(l.id === req.params.id && l.userId === req.userId));
-  if (logs.length === before) return res.status(404).json({ error: 'Log not found' });
-  writeJSON(LOGS_FILE, logs);
+app.delete('/api/logs/:id', auth, async (req, res) => {
+  const removed = await sDeleteMealLog(req.params.id, req.userId);
+  if (!removed) return res.status(404).json({ error: 'Log not found' });
   res.json({ success: true });
 });
 
@@ -3188,9 +3362,10 @@ app.get('/api/launch-status', (req, res) => {
 });
 
 // Waitlist signup for paid plans (captured now, contacted when plans launch).
-app.post('/api/waitlist', (req, res) => {
+app.post('/api/waitlist', async (req, res) => {
   const email = String((req.body && req.body.email) || '').trim().toLowerCase();
   const plan = String((req.body && req.body.plan) || 'pro').toLowerCase();
+  const billing = req.body && req.body.billing ? String(req.body.billing).toLowerCase() : null;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: 'Please enter a valid email address.' });
   }
@@ -3199,13 +3374,14 @@ app.post('/api/waitlist', (req, res) => {
   if (existing) {
     return res.json({ ok: true, alreadyJoined: true, message: "You're already on the waitlist — we'll be in touch!" });
   }
-  list.push({
+  await sAddWaitlist({
+    id: uuidv4(),
     email,
     plan: ['pro', 'elite'].includes(plan) ? plan : 'pro',
+    billing,
     createdAt: new Date().toISOString(),
     ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress || null,
   });
-  writeJSON(WAITLIST_FILE, list);
   res.json({ ok: true, message: "You're on the list! We'll email you when paid plans launch." });
 });
 
@@ -3222,10 +3398,10 @@ function waterGoalFor(user) {
   return 2000;
 }
 
-function waterSummary(userId) {
-  const user = readJSON(USERS_FILE).find(u => u.id === userId);
+async function waterSummary(userId) {
+  const user = db ? await dbFindUserById(userId) : readJSON(USERS_FILE).find(u => u.id === userId);
   const goalMl = waterGoalFor(user);
-  const all = readJSON(WATER_FILE).filter(w => w.userId === userId);
+  const all = await sGetWaterLogs(userId);
   const t = today();
   const todays = all.filter(w => w.date === t).sort((a, b) => a.at.localeCompare(b.at));
   const consumedMl = todays.reduce((s, w) => s + w.ml, 0);
@@ -3242,45 +3418,44 @@ function waterSummary(userId) {
   };
 }
 
-app.get('/api/water/today', auth, (req, res) => res.json(waterSummary(req.userId)));
+app.get('/api/water/today', auth, async (req, res) => res.json(await waterSummary(req.userId)));
 
-app.post('/api/water/add', auth, (req, res) => {
+app.post('/api/water/add', auth, async (req, res) => {
   const ml = Math.round(Number(req.body && req.body.ml));
   if (!ml || ml <= 0 || ml > 5000) return res.status(400).json({ error: 'Enter a valid amount (1–5000 ml)' });
-  const all = readJSON(WATER_FILE);
   const now = new Date();
   const entry = { id: uuidv4(), userId: req.userId, ml, date: today(), at: now.toISOString() };
-  all.push(entry);
-  writeJSON(WATER_FILE, all);
-  res.status(201).json({ entry, summary: waterSummary(req.userId) });
+  await sInsertWaterLog(entry);
+  res.status(201).json({ entry, summary: await waterSummary(req.userId) });
 });
 
-app.delete('/api/water/:id', auth, (req, res) => {
-  let all = readJSON(WATER_FILE);
-  const before = all.length;
-  all = all.filter(w => !(w.id === req.params.id && w.userId === req.userId));
-  if (all.length === before) return res.status(404).json({ error: 'Entry not found' });
-  writeJSON(WATER_FILE, all);
-  res.json({ success: true, summary: waterSummary(req.userId) });
+app.delete('/api/water/:id', auth, async (req, res) => {
+  const removed = await sDeleteWaterLog(req.params.id, req.userId);
+  if (!removed) return res.status(404).json({ error: 'Entry not found' });
+  res.json({ success: true, summary: await waterSummary(req.userId) });
 });
 
 // Override the daily goal (manual). Pass goalMl=0/null to revert to auto.
-app.post('/api/water/goal', auth, (req, res) => {
-  const users = readJSON(USERS_FILE);
-  const idx = users.findIndex(u => u.id === req.userId);
-  if (idx === -1) return res.status(404).json({ error: 'User not found' });
+app.post('/api/water/goal', auth, async (req, res) => {
+  const user = db ? await dbFindUserById(req.userId) : readJSON(USERS_FILE).find(u => u.id === req.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
   const raw = req.body && req.body.goalMl;
   const goalMl = raw == null || raw === '' || Number(raw) <= 0 ? null : Math.round(Number(raw));
   if (goalMl != null && (goalMl < 500 || goalMl > 8000)) return res.status(400).json({ error: 'Goal must be 0.5–8 L' });
-  users[idx].waterGoalMl = goalMl;
-  writeJSON(USERS_FILE, users);
-  res.json(waterSummary(req.userId));
+  // Canonical store: user.waterGoalMl (MySQL users table). Mirror to water_goals
+  // table (Phase 3 spec) and dual-write users.json for back-compat.
+  if (db) await dbUpdateUser(req.userId, { waterGoalMl: goalMl });
+  const users = readJSON(USERS_FILE);
+  const idx = users.findIndex(u => u.id === req.userId);
+  if (idx !== -1) { users[idx].waterGoalMl = goalMl; writeJSON(USERS_FILE, users); }
+  await sSetWaterGoal(req.userId, goalMl);
+  res.json(await waterSummary(req.userId));
 });
 
-app.get('/api/water/history', auth, (req, res) => {
-  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+app.get('/api/water/history', auth, async (req, res) => {
+  const user = db ? await dbFindUserById(req.userId) : readJSON(USERS_FILE).find(u => u.id === req.userId);
   const goalMl = waterGoalFor(user);
-  const all = readJSON(WATER_FILE).filter(w => w.userId === req.userId);
+  const all = await sGetWaterLogs(req.userId);
   const days = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
@@ -3322,8 +3497,6 @@ const SMOKING_BADGES = [
   { key: 'year',  days: 365, icon: '🏆', title: 'Year Legend', desc: '365 days smoke-free.' },
 ];
 
-const getSmokingRec = (userId) => readJSON(SMOKING_FILE).find(s => s.userId === userId) || null;
-
 function smokingStats(rec) {
   if (!rec) return null;
   const quitMs = new Date(rec.quitDate).getTime();
@@ -3354,13 +3527,13 @@ function smokingStats(rec) {
   };
 }
 
-app.get('/api/smoking/stats', auth, (req, res) => {
-  const rec = getSmokingRec(req.userId);
+app.get('/api/smoking/stats', auth, async (req, res) => {
+  const rec = await sGetSmoking(req.userId);
   if (!rec) return res.json({ setup: false });
   res.json({ setup: true, ...smokingStats(rec) });
 });
 
-app.post('/api/smoking/setup', auth, (req, res) => {
+app.post('/api/smoking/setup', auth, async (req, res) => {
   const b = req.body || {};
   const quitDate = b.quitDate ? new Date(b.quitDate) : null;
   const cigsPerDay = Number(b.cigsPerDay);
@@ -3370,9 +3543,7 @@ app.post('/api/smoking/setup', auth, (req, res) => {
   if (!cigsPerDay || cigsPerDay <= 0) return res.status(400).json({ error: 'Enter cigarettes per day' });
   if (!pricePerPack || pricePerPack <= 0) return res.status(400).json({ error: 'Enter the price per pack' });
 
-  const all = readJSON(SMOKING_FILE);
-  const idx = all.findIndex(s => s.userId === req.userId);
-  const existing = idx !== -1 ? all[idx] : null;
+  const existing = await sGetSmoking(req.userId);
   const rec = {
     userId: req.userId,
     quitDate: quitDate.toISOString(),
@@ -3384,23 +3555,20 @@ app.post('/api/smoking/setup', auth, (req, res) => {
     createdAt: existing ? existing.createdAt : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  if (idx === -1) all.push(rec); else all[idx] = rec;
-  writeJSON(SMOKING_FILE, all);
+  await sSaveSmoking(rec);
   res.json({ setup: true, ...smokingStats(rec) });
 });
 
-app.post('/api/smoking/craving', auth, (req, res) => {
-  const all = readJSON(SMOKING_FILE);
-  const idx = all.findIndex(s => s.userId === req.userId);
-  if (idx === -1) return res.status(400).json({ error: 'Set up your quit plan first' });
-  all[idx].cravings = all[idx].cravings || [];
-  all[idx].cravings.push({ id: uuidv4(), at: new Date().toISOString(), note: (req.body && req.body.note) || '' });
-  writeJSON(SMOKING_FILE, all);
-  res.status(201).json({ cravingsSurvived: all[idx].cravings.length });
+app.post('/api/smoking/craving', auth, async (req, res) => {
+  const rec = await sGetSmoking(req.userId);
+  if (!rec) return res.status(400).json({ error: 'Set up your quit plan first' });
+  const craving = { id: uuidv4(), at: new Date().toISOString(), note: (req.body && req.body.note) || '' };
+  const cravingsSurvived = await sAddCraving(req.userId, craving);
+  res.status(201).json({ cravingsSurvived });
 });
 
-app.get('/api/smoking/cravings', auth, (req, res) => {
-  const rec = getSmokingRec(req.userId);
+app.get('/api/smoking/cravings', auth, async (req, res) => {
+  const rec = await sGetSmoking(req.userId);
   res.json(rec && rec.cravings ? rec.cravings.slice().reverse() : []);
 });
 
@@ -3424,7 +3592,7 @@ function smokingFallback(message, st) {
 app.post('/api/smoking/chat', auth, async (req, res) => {
   const { message, history } = req.body || {};
   if (!message || !String(message).trim()) return res.status(400).json({ error: 'Message is required' });
-  const rec = getSmokingRec(req.userId);
+  const rec = await sGetSmoking(req.userId);
   const st = rec ? smokingStats(rec) : null;
   if (!genAI) return res.json({ reply: smokingFallback(message, st), fallback: true });
   try {
@@ -4486,6 +4654,213 @@ async function sIsFollowingHashtag(userId, tag) {
   if (!db) return readJSON(HASHTAG_FOLLOWS_FILE).some(f => f.userId === userId && f.tag === tag);
   const [rows] = await db.execute('SELECT `id` FROM `hashtag_follows` WHERE `userId`=? AND `tag`=?', [userId, tag]);
   return !!rows[0];
+}
+
+// ─── Phase 3 helpers: wellness & tracking (MySQL with JSON dual-write) ────────
+// Fridge rows: column `foodName` maps to the app's `name` field.
+function rowToFridge(r) {
+  return { id: r.id, userId: r.userId, name: r.foodName, foodId: r.foodId,
+    quantity: r.quantity, category: r.category, addedAt: r.addedAt };
+}
+async function sGetFridge(userId) {
+  if (!db) return readJSON(FRIDGES_FILE).filter(i => i.userId === userId);
+  const [rows] = await db.execute('SELECT * FROM `fridges` WHERE `userId`=? ORDER BY `addedAt` ASC', [userId]);
+  return rows.map(rowToFridge);
+}
+async function sInsertFridge(item) {
+  if (db) {
+    await db.execute(
+      'INSERT INTO `fridges` (`id`,`userId`,`foodId`,`foodName`,`quantity`,`category`,`addedAt`) VALUES (?,?,?,?,?,?,?)',
+      [item.id, item.userId, item.foodId || null, item.name, item.quantity || null, item.category || null, item.addedAt]
+    );
+  }
+  const all = readJSON(FRIDGES_FILE);
+  all.push(item);
+  writeJSON(FRIDGES_FILE, all);
+}
+async function sUpdateFridge(id, userId, fields) {
+  // Merge against the current JSON row so unprovided fields are preserved.
+  const all = readJSON(FRIDGES_FILE);
+  let item = all.find(i => i.id === id && i.userId === userId);
+  if (!item && db) {
+    const [rows] = await db.execute('SELECT * FROM `fridges` WHERE `id`=? AND `userId`=?', [id, userId]);
+    if (rows[0]) item = rowToFridge(rows[0]);
+  }
+  if (!item) return null;
+  if (fields.quantity !== undefined) item.quantity = fields.quantity;
+  if (fields.category !== undefined) item.category = fields.category;
+  if (db) {
+    await db.execute('UPDATE `fridges` SET `quantity`=?, `category`=? WHERE `id`=? AND `userId`=?',
+      [item.quantity ?? null, item.category ?? null, id, userId]);
+  }
+  if (all.includes(item)) writeJSON(FRIDGES_FILE, all);
+  return item;
+}
+async function sDeleteFridge(id, userId) {
+  let removed = false;
+  if (db) {
+    const [r] = await db.execute('DELETE FROM `fridges` WHERE `id`=? AND `userId`=?', [id, userId]);
+    removed = r.affectedRows > 0;
+  }
+  const all = readJSON(FRIDGES_FILE);
+  const next = all.filter(i => !(i.id === id && i.userId === userId));
+  if (next.length !== all.length) { removed = true; writeJSON(FRIDGES_FILE, next); }
+  return removed;
+}
+
+// Water logs (column `amount` maps to `ml`; `loggedAt` to `at`).
+async function sGetWaterLogs(userId) {
+  if (!db) return readJSON(WATER_FILE).filter(w => w.userId === userId);
+  const [rows] = await db.execute('SELECT `id`,`userId`,`amount`,`date`,`loggedAt` FROM `water_logs` WHERE `userId`=?', [userId]);
+  return rows.map(r => ({ id: r.id, userId: r.userId, ml: r.amount, date: r.date, at: r.loggedAt }));
+}
+async function sInsertWaterLog(entry) {
+  if (db) {
+    await db.execute('INSERT INTO `water_logs` (`id`,`userId`,`amount`,`unit`,`date`,`loggedAt`) VALUES (?,?,?,?,?,?)',
+      [entry.id, entry.userId, entry.ml, 'ml', entry.date, entry.at]);
+  }
+  const all = readJSON(WATER_FILE);
+  all.push(entry);
+  writeJSON(WATER_FILE, all);
+}
+async function sDeleteWaterLog(id, userId) {
+  let removed = false;
+  if (db) {
+    const [r] = await db.execute('DELETE FROM `water_logs` WHERE `id`=? AND `userId`=?', [id, userId]);
+    removed = r.affectedRows > 0;
+  }
+  const all = readJSON(WATER_FILE);
+  const next = all.filter(w => !(w.id === id && w.userId === userId));
+  if (next.length !== all.length) { removed = true; writeJSON(WATER_FILE, next); }
+  return removed;
+}
+// Manual water-goal override. Canonical source stays `user.waterGoalMl` (MySQL
+// users table); water_goals is maintained in parallel per the Phase 3 spec.
+async function sSetWaterGoal(userId, goalMl) {
+  if (db) {
+    if (goalMl == null) {
+      await db.execute('DELETE FROM `water_goals` WHERE `userId`=?', [userId]);
+    } else {
+      await db.execute(
+        'INSERT INTO `water_goals` (`userId`,`goalMl`,`updatedAt`) VALUES (?,?,NOW()) ON DUPLICATE KEY UPDATE `goalMl`=VALUES(`goalMl`), `updatedAt`=NOW()',
+        [userId, goalMl]
+      );
+    }
+  }
+}
+
+// Meal plan (one per user). Helper returns the stored record shape.
+function rowToMealPlan(r) {
+  return { userId: r.userId, plan: parseJ(r.plan, null), saved: !!r.saved,
+    offset: r.planOffset || 0, updatedAt: r.updatedAt };
+}
+async function sGetMealPlan(userId) {
+  if (!db) return readJSON(MEALPLANS_FILE).find(p => p.userId === userId) || null;
+  const [rows] = await db.execute('SELECT * FROM `meal_plans` WHERE `userId`=?', [userId]);
+  return rows[0] ? rowToMealPlan(rows[0]) : null;
+}
+async function sUpsertMealPlan(rec) {
+  if (db) {
+    await db.execute(
+      'INSERT INTO `meal_plans` (`id`,`userId`,`plan`,`saved`,`planOffset`,`updatedAt`) VALUES (?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE `plan`=VALUES(`plan`), `saved`=VALUES(`saved`), `planOffset`=VALUES(`planOffset`), `updatedAt`=NOW()',
+      [uuidv4(), rec.userId, JSON.stringify(rec.plan || {}), rec.saved ? 1 : 0, rec.offset || 0]
+    );
+  }
+  const all = readJSON(MEALPLANS_FILE);
+  const idx = all.findIndex(p => p.userId === rec.userId);
+  const out = { userId: rec.userId, plan: rec.plan, saved: !!rec.saved, offset: rec.offset || 0, updatedAt: new Date().toISOString() };
+  if (idx === -1) all.push(out); else all[idx] = out;
+  writeJSON(MEALPLANS_FILE, all);
+}
+
+// Meal logs (column `mealName` maps to `name`; `loggedAt` to `createdAt`).
+async function sGetMealLogs(userId) {
+  if (!db) return readJSON(LOGS_FILE).filter(l => l.userId === userId);
+  const [rows] = await db.execute('SELECT * FROM `meal_logs` WHERE `userId`=? ORDER BY `loggedAt` ASC', [userId]);
+  return rows.map(r => ({ id: r.id, userId: r.userId, name: r.mealName, calories: r.calories,
+    protein: r.protein, carbs: r.carbs, fat: r.fat, date: r.date, createdAt: r.loggedAt }));
+}
+async function sInsertMealLog(entry) {
+  if (db) {
+    await db.execute(
+      'INSERT INTO `meal_logs` (`id`,`userId`,`date`,`mealName`,`calories`,`protein`,`carbs`,`fat`,`loggedAt`) VALUES (?,?,?,?,?,?,?,?,?)',
+      [entry.id, entry.userId, entry.date, entry.name, entry.calories, entry.protein, entry.carbs, entry.fat, entry.createdAt]
+    );
+  }
+  const all = readJSON(LOGS_FILE);
+  all.push(entry);
+  writeJSON(LOGS_FILE, all);
+}
+async function sDeleteMealLog(id, userId) {
+  let removed = false;
+  if (db) {
+    const [r] = await db.execute('DELETE FROM `meal_logs` WHERE `id`=? AND `userId`=?', [id, userId]);
+    removed = r.affectedRows > 0;
+  }
+  const all = readJSON(LOGS_FILE);
+  const next = all.filter(l => !(l.id === id && l.userId === userId));
+  if (next.length !== all.length) { removed = true; writeJSON(LOGS_FILE, next); }
+  return removed;
+}
+
+// Smoking: smoking_data + an embedded cravings array assembled from smoking_cravings.
+async function sGetSmoking(userId) {
+  if (!db) return readJSON(SMOKING_FILE).find(s => s.userId === userId) || null;
+  const [rows] = await db.execute('SELECT * FROM `smoking_data` WHERE `userId`=?', [userId]);
+  if (!rows[0]) return null;
+  const s = rows[0];
+  const [cr] = await db.execute('SELECT `id`,`note`,`at` FROM `smoking_cravings` WHERE `userId`=? ORDER BY `at` ASC', [userId]);
+  // quitDate was stored as UTC wall-clock in a (tz-naive) DATETIME; rebuild the
+  // ISO string so smokingStats' elapsed-time math matches the original.
+  const isoUtc = (v) => v ? new Date(String(v).replace(' ', 'T') + 'Z').toISOString() : null;
+  return {
+    userId: s.userId, quitDate: isoUtc(s.quitDate), cigsPerDay: s.cigsPerDay,
+    pricePerPack: s.pricePerPack, cigsPerPack: s.cigsPerPack, brand: s.brand || '',
+    currency: s.currency || '$', motivation: s.motivation || '',
+    cravings: cr.map(c => ({ id: c.id, at: c.at, note: c.note || '' })),
+    createdAt: s.createdAt, updatedAt: s.updatedAt,
+  };
+}
+async function sSaveSmoking(rec) {
+  if (db) {
+    await db.execute(
+      'INSERT INTO `smoking_data` (`userId`,`quitDate`,`cigsPerDay`,`pricePerPack`,`cigsPerPack`,`brand`,`currency`,`motivation`,`createdAt`,`updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE `quitDate`=VALUES(`quitDate`), `cigsPerDay`=VALUES(`cigsPerDay`), `pricePerPack`=VALUES(`pricePerPack`), `cigsPerPack`=VALUES(`cigsPerPack`), `brand`=VALUES(`brand`), `currency`=VALUES(`currency`), `motivation`=VALUES(`motivation`), `updatedAt`=NOW()',
+      [rec.userId, rec.quitDate ? new Date(rec.quitDate).toISOString().slice(0, 19).replace('T', ' ') : null,
+       rec.cigsPerDay, rec.pricePerPack, rec.cigsPerPack, rec.brand || null, rec.currency || '$',
+       rec.motivation || null, rec.createdAt || new Date().toISOString()]
+    );
+  }
+  const all = readJSON(SMOKING_FILE);
+  const idx = all.findIndex(s => s.userId === rec.userId);
+  if (idx === -1) all.push(rec); else all[idx] = rec;
+  writeJSON(SMOKING_FILE, all);
+}
+async function sAddCraving(userId, craving) {
+  if (db) {
+    await db.execute('INSERT INTO `smoking_cravings` (`id`,`userId`,`note`,`at`) VALUES (?,?,?,?)',
+      [craving.id, userId, craving.note || null, craving.at]);
+  }
+  const all = readJSON(SMOKING_FILE);
+  const rec = all.find(s => s.userId === userId);
+  if (rec) { rec.cravings = rec.cravings || []; rec.cravings.push(craving); writeJSON(SMOKING_FILE, all); }
+  if (db) {
+    const [[{ cnt }]] = await db.execute('SELECT COUNT(*) AS cnt FROM `smoking_cravings` WHERE `userId`=?', [userId]);
+    return cnt;
+  }
+  return rec ? rec.cravings.length : 1;
+}
+
+// Waitlist (email-unique; dedup logic stays in the endpoint via JSON).
+async function sAddWaitlist(entry) {
+  if (db) {
+    try {
+      await db.execute('INSERT INTO `waitlist` (`id`,`email`,`plan`,`billing`,`joinedAt`) VALUES (?,?,?,?,?)',
+        [entry.id || uuidv4(), entry.email, entry.plan || null, entry.billing || null, entry.createdAt || new Date().toISOString()]);
+    } catch { /* duplicate email — ignore, JSON dedup is canonical */ }
+  }
+  const all = readJSON(WAITLIST_FILE);
+  all.push(entry);
+  writeJSON(WAITLIST_FILE, all);
 }
 
 const POST_REACTIONS = ['❤️', '🔥', '😋', '👏', '🤩', '💪'];

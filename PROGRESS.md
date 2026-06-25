@@ -637,10 +637,47 @@ live Hostinger DB (list/detail round-trip, react toggle, rate, comment/reply/lik
 bookmark on/off, recipe + post report, hashtag follow/unfollow) and
 `node audit-run.js` → **36/36 passed**.
 
-### Still on JSON (not yet migrated)
-`fridges`, `water`, `mealplans`, `logs`, `smoking`, `waitlist`, `story_views` —
-no MySQL table yet; these remain pure file-based. A future phase can migrate them
-and then remove dual-write once all direct-JSON readers are gone.
+### Phase 3 — wellness & tracking ✅ (2026-06-26)
+Migrated the wellness/tracking collections, same `s*` + JSON-dual-write pattern.
+New tables (CREATE IF NOT EXISTS + one-time JSON seed in the boot IIFE), with
+columns mirroring the **actual** data shape (reconciled from the spec where they
+diverged) so rows round-trip:
+- `fridges` — column `foodName` ↔ the app's `name` field.
+- `water_logs` — column `amount` ↔ `ml`, `loggedAt` ↔ `at`; added a `date`
+  column (DATE) so day-bucketing stays exact (no tz drift).
+- `water_goals` — created per spec, seeded from users with a `waterGoalMl`.
+  **Canonical source stays `users.waterGoalMl`** (already in MySQL since Phase 1);
+  `water_goals` is mirrored in parallel. `/api/water/goal` now also persists to
+  the MySQL users table (the old code only wrote users.json — latent Phase 1 gap).
+- `meal_plans` — one row per user (UNIQUE userId); added `saved` + `planOffset`
+  columns (the rotation offset; `OFFSET` is reserved, hence `planOffset`).
+- `meal_logs` — `mealName` ↔ `name`, `loggedAt` ↔ `createdAt`.
+- `smoking_data` + `smoking_cravings` — real field names (`cigsPerDay`,
+  `cigsPerPack`, `currency`); the embedded `cravings[]` array is split into its
+  own table and reassembled on read. `quitDate` is stored as UTC wall-clock in a
+  tz-naive DATETIME and reconstructed to ISO on read so the elapsed-time math is
+  exact (verified: a seeded user's `cigsNotSmoked`/`moneySaved` match computing
+  from the canonical JSON `quitDate`).
+- `waitlist` — `joinedAt` ↔ `createdAt`; email UNIQUE (dedup logic stays in the
+  endpoint via JSON, so the DB insert is best-effort).
+
+Helpers (`s*`, MySQL-or-JSON + dual-write): `sGetFridge`/`sInsertFridge`/
+`sUpdateFridge`/`sDeleteFridge`, `sGetWaterLogs`/`sInsertWaterLog`/
+`sDeleteWaterLog`/`sSetWaterGoal`, `sGetMealPlan`/`sUpsertMealPlan`,
+`sGetMealLogs`/`sInsertMealLog`/`sDeleteMealLog`, `sGetSmoking`/`sSaveSmoking`/
+`sAddCraving`, `sAddWaitlist`. All `/api/fridge`, `/api/water`, `/api/mealplan`,
+`/api/logs`, `/api/smoking`, and `POST /api/waitlist` endpoints converted to
+`async` and routed through them (`waterSummary` is now async and reads the user
+from MySQL). Verified end-to-end against the live Hostinger DB (fridge CRUD with
+partial PUT, water add/goal/history/reset/delete, meal-plan generate/save/get,
+log add/list/delete, smoking setup/craving/stats/cravings) and
+`node audit-run.js` → **36/36 passed**.
+
+### Still on JSON (not migrated)
+`story_views` (story view-tracking) and the AI-chat fridge read remain file-based;
+the AI-chat read is kept in sync by Phase 3 dual-write. The notification/post-save
+etc. direct-JSON readers from earlier phases are likewise still JSON-backed by
+design (dual-write). Removing dual-write app-wide is a separate future phase.
 
 ## Running locally
 ```bash
