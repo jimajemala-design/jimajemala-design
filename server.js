@@ -659,6 +659,260 @@ async function dbUpdateUser(id, user) {
       }
       if (seedStories.length) console.log(`Migrated ${seedStories.length} stories from JSON → MySQL`);
     }
+
+    // ─── Phase 2e: recipes + recipe comments/reactions/reports, bookmarks, ──
+    //     post_saves, post_reports, hashtag_follows, hashtags. Each table is
+    //     idempotent (CREATE … IF NOT EXISTS) + a one-time seed from JSON when
+    //     empty. Endpoints route through s* helpers that dual-write JSON, so the
+    //     many direct readJSON() readers (feed/profile/search) keep working.
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`recipes\` (
+        \`id\`          VARCHAR(36)  PRIMARY KEY,
+        \`userId\`      VARCHAR(36)  NOT NULL,
+        \`authorName\`  VARCHAR(255),
+        \`name\`        VARCHAR(255) NOT NULL,
+        \`category\`    VARCHAR(100),
+        \`description\` TEXT,
+        \`prepTime\`    INT          DEFAULT 0,
+        \`cookTime\`    INT          DEFAULT 0,
+        \`servings\`    INT          DEFAULT 1,
+        \`difficulty\`  VARCHAR(50)  DEFAULT 'Easy',
+        \`photos\`      JSON,
+        \`ingredients\` JSON,
+        \`steps\`       JSON,
+        \`opinion\`     TEXT,
+        \`tips\`        TEXT,
+        \`tags\`        JSON,
+        \`nutrition\`   JSON,
+        \`ratings\`     JSON,
+        \`aiAnalysis\`  JSON,
+        \`createdAt\`   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_userId\`    (\`userId\`),
+        INDEX \`idx_category\`  (\`category\`),
+        INDEX \`idx_createdAt\` (\`createdAt\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ recCnt }]] = await db.execute('SELECT COUNT(*) AS recCnt FROM `recipes`');
+    if (recCnt === 0) {
+      const seedRecipes = readJSON(RECIPES_FILE);
+      for (const r of seedRecipes) {
+        try {
+          await db.execute(
+            'INSERT INTO `recipes` (`id`,`userId`,`authorName`,`name`,`category`,`description`,`prepTime`,`cookTime`,`servings`,`difficulty`,`photos`,`ingredients`,`steps`,`opinion`,`tips`,`tags`,`nutrition`,`ratings`,`aiAnalysis`,`createdAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            [r.id, r.userId, r.authorName || null, r.name, r.category || null,
+             r.description || '', r.prepTime || 0, r.cookTime || 0, r.servings || 1,
+             r.difficulty || 'Easy', JSON.stringify(r.photos || []),
+             JSON.stringify(r.ingredients || []), JSON.stringify(r.steps || []),
+             r.opinion || '', r.tips || '', JSON.stringify(r.tags || []),
+             r.nutrition ? JSON.stringify(r.nutrition) : null,
+             JSON.stringify(r.ratings || []),
+             r.aiAnalysis ? JSON.stringify(r.aiAnalysis) : null,
+             r.createdAt || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedRecipes.length) console.log(`Migrated ${seedRecipes.length} recipes from JSON → MySQL`);
+    }
+
+    // recipe_comments (threaded one level; likes is a JSON userId array)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`recipe_comments\` (
+        \`id\`         VARCHAR(36)  PRIMARY KEY,
+        \`recipeId\`   VARCHAR(36)  NOT NULL,
+        \`userId\`     VARCHAR(36)  NOT NULL,
+        \`authorName\` VARCHAR(255),
+        \`text\`       TEXT         NOT NULL,
+        \`parentId\`   VARCHAR(36)  DEFAULT NULL,
+        \`likes\`      JSON,
+        \`createdAt\`  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_recipeId\` (\`recipeId\`),
+        INDEX \`idx_parentId\` (\`parentId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ rcmtCnt }]] = await db.execute('SELECT COUNT(*) AS rcmtCnt FROM `recipe_comments`');
+    if (rcmtCnt === 0) {
+      const seedRc = readJSON(COMMENTS_FILE);
+      for (const c of seedRc) {
+        try {
+          await db.execute(
+            'INSERT INTO `recipe_comments` (`id`,`recipeId`,`userId`,`authorName`,`text`,`parentId`,`likes`,`createdAt`) VALUES (?,?,?,?,?,?,?,?)',
+            [c.id, c.recipeId, c.userId, c.authorName || null, c.text || '',
+             c.parentId || null, JSON.stringify(c.likes || []), c.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedRc.length) console.log(`Migrated ${seedRc.length} recipe_comments from JSON → MySQL`);
+    }
+
+    // recipe_reactions (one emoji per user per recipe)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`recipe_reactions\` (
+        \`id\`        VARCHAR(36)  PRIMARY KEY,
+        \`recipeId\`  VARCHAR(36)  NOT NULL,
+        \`userId\`    VARCHAR(36)  NOT NULL,
+        \`emoji\`     VARCHAR(10)  NOT NULL,
+        \`createdAt\` DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY \`unique_recipe_reaction\` (\`recipeId\`, \`userId\`),
+        INDEX \`idx_recipeId\` (\`recipeId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ rrxnCnt }]] = await db.execute('SELECT COUNT(*) AS rrxnCnt FROM `recipe_reactions`');
+    if (rrxnCnt === 0) {
+      const seedRr = readJSON(REACTIONS_FILE);
+      for (const r of seedRr) {
+        try {
+          await db.execute(
+            'INSERT INTO `recipe_reactions` (`id`,`recipeId`,`userId`,`emoji`,`createdAt`) VALUES (?,?,?,?,?)',
+            [r.id, r.recipeId, r.userId, r.emoji, r.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedRr.length) console.log(`Migrated ${seedRr.length} recipe_reactions from JSON → MySQL`);
+    }
+
+    // recipe_reports
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`recipe_reports\` (
+        \`id\`        VARCHAR(36)  PRIMARY KEY,
+        \`recipeId\`  VARCHAR(36)  NOT NULL,
+        \`userId\`    VARCHAR(36)  NOT NULL,
+        \`reason\`    TEXT,
+        \`createdAt\` DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_recipeId\` (\`recipeId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ rrepCnt }]] = await db.execute('SELECT COUNT(*) AS rrepCnt FROM `recipe_reports`');
+    if (rrepCnt === 0) {
+      const seedRrep = readJSON(REPORTS_FILE);
+      for (const r of seedRrep) {
+        try {
+          await db.execute(
+            'INSERT INTO `recipe_reports` (`id`,`recipeId`,`userId`,`reason`,`createdAt`) VALUES (?,?,?,?,?)',
+            [r.id || uuidv4(), r.recipeId, r.userId, r.reason || null, r.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedRrep.length) console.log(`Migrated ${seedRrep.length} recipe_reports from JSON → MySQL`);
+    }
+
+    // bookmarks (recipe saves; JSON rows have no id, so generate one)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`bookmarks\` (
+        \`id\`        VARCHAR(36)  PRIMARY KEY,
+        \`userId\`    VARCHAR(36)  NOT NULL,
+        \`recipeId\`  VARCHAR(36)  DEFAULT NULL,
+        \`postId\`    VARCHAR(36)  DEFAULT NULL,
+        \`createdAt\` DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_userId\`   (\`userId\`),
+        INDEX \`idx_recipeId\` (\`recipeId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ bmCnt }]] = await db.execute('SELECT COUNT(*) AS bmCnt FROM `bookmarks`');
+    if (bmCnt === 0) {
+      const seedBm = readJSON(BOOKMARKS_FILE);
+      for (const b of seedBm) {
+        try {
+          await db.execute(
+            'INSERT INTO `bookmarks` (`id`,`userId`,`recipeId`,`postId`,`createdAt`) VALUES (?,?,?,?,?)',
+            [b.id || uuidv4(), b.userId, b.recipeId || null, b.postId || null, b.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedBm.length) console.log(`Migrated ${seedBm.length} bookmarks from JSON → MySQL`);
+    }
+
+    // post_saves (one save per user per post; JSON rows have no id)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`post_saves\` (
+        \`id\`        VARCHAR(36)  PRIMARY KEY,
+        \`postId\`    VARCHAR(36)  NOT NULL,
+        \`userId\`    VARCHAR(36)  NOT NULL,
+        \`createdAt\` DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY \`unique_save\` (\`postId\`, \`userId\`),
+        INDEX \`idx_userId\` (\`userId\`),
+        INDEX \`idx_postId\` (\`postId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ saveCnt }]] = await db.execute('SELECT COUNT(*) AS saveCnt FROM `post_saves`');
+    if (saveCnt === 0) {
+      const seedSaves = readJSON(POST_SAVES_FILE);
+      for (const s of seedSaves) {
+        try {
+          await db.execute(
+            'INSERT INTO `post_saves` (`id`,`postId`,`userId`,`createdAt`) VALUES (?,?,?,?)',
+            [s.id || uuidv4(), s.postId, s.userId, s.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedSaves.length) console.log(`Migrated ${seedSaves.length} post_saves from JSON → MySQL`);
+    }
+
+    // post_reports
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`post_reports\` (
+        \`id\`        VARCHAR(36)  PRIMARY KEY,
+        \`postId\`    VARCHAR(36)  NOT NULL,
+        \`userId\`    VARCHAR(36)  NOT NULL,
+        \`reason\`    TEXT,
+        \`createdAt\` DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_postId\` (\`postId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ prepCnt }]] = await db.execute('SELECT COUNT(*) AS prepCnt FROM `post_reports`');
+    if (prepCnt === 0) {
+      const seedPrep = readJSON(POST_REPORTS_FILE);
+      for (const r of seedPrep) {
+        try {
+          await db.execute(
+            'INSERT INTO `post_reports` (`id`,`postId`,`userId`,`reason`,`createdAt`) VALUES (?,?,?,?,?)',
+            [r.id || uuidv4(), r.postId, r.userId, r.reason || null, r.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedPrep.length) console.log(`Migrated ${seedPrep.length} post_reports from JSON → MySQL`);
+    }
+
+    // hashtag_follows
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`hashtag_follows\` (
+        \`id\`        VARCHAR(36)  PRIMARY KEY,
+        \`userId\`    VARCHAR(36)  NOT NULL,
+        \`tag\`       VARCHAR(100) NOT NULL,
+        \`createdAt\` DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY \`unique_follow\` (\`userId\`, \`tag\`),
+        INDEX \`idx_userId\` (\`userId\`),
+        INDEX \`idx_tag\`    (\`tag\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ hfCnt }]] = await db.execute('SELECT COUNT(*) AS hfCnt FROM `hashtag_follows`');
+    if (hfCnt === 0) {
+      const seedHf = readJSON(HASHTAG_FOLLOWS_FILE);
+      for (const f of seedHf) {
+        try {
+          await db.execute(
+            'INSERT INTO `hashtag_follows` (`id`,`userId`,`tag`,`createdAt`) VALUES (?,?,?,?)',
+            [f.id || uuidv4(), f.userId, f.tag, f.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedHf.length) console.log(`Migrated ${seedHf.length} hashtag_follows from JSON → MySQL`);
+    }
+
+    // hashtags — aggregate counters table (created per spec; populated lazily by
+    // a future phase — hashtag pages currently aggregate from posts on the fly).
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`hashtags\` (
+        \`id\`          VARCHAR(36)  PRIMARY KEY,
+        \`tag\`         VARCHAR(100) NOT NULL UNIQUE,
+        \`postCount\`   INT          DEFAULT 0,
+        \`weeklyCount\` INT          DEFAULT 0,
+        \`lastUsed\`    DATETIME,
+        INDEX \`idx_tag\`         (\`tag\`),
+        INDEX \`idx_weeklyCount\` (\`weeklyCount\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+
+    console.log('Phase 2e tables ready (recipes, recipe_comments/reactions/reports, bookmarks, post_saves, post_reports, hashtag_follows, hashtags)');
   } catch (e) {
     console.error('MySQL setup failed:', e.message);
     db = null;
@@ -3277,10 +3531,10 @@ function decorateRecipe(r, allReactions, allComments, allRatings) {
   };
 }
 
-app.get('/api/recipes', (req, res) => {
-  const recipes = readJSON(RECIPES_FILE);
-  const reactions = readJSON(REACTIONS_FILE);
-  const comments = readJSON(COMMENTS_FILE);
+app.get('/api/recipes', async (req, res) => {
+  const recipes = await sGetAllRecipes();
+  const reactions = await sGetRecipeReactions();
+  const comments = await sGetRecipeComments();
   let list = recipes.map(r => decorateRecipe(r, reactions, comments));
   const { category, q, sort } = req.query;
   if (category && category !== 'All') list = list.filter(r => r.category === category);
@@ -3315,11 +3569,10 @@ app.get('/api/recipes/meta', (req, res) => {
     foods: foods.map(f => ({ id: f.id, name: f.name, emoji: f.emoji, calories: f.calories })) });
 });
 
-app.get('/api/recipes/:id', (req, res) => {
-  const recipes = readJSON(RECIPES_FILE);
-  const r = recipes.find(x => x.id === req.params.id);
+app.get('/api/recipes/:id', async (req, res) => {
+  const r = await sGetRecipeById(req.params.id);
   if (!r) return res.status(404).json({ error: 'Recipe not found' });
-  const decorated = decorateRecipe(r, readJSON(REACTIONS_FILE), readJSON(COMMENTS_FILE));
+  const decorated = decorateRecipe(r, await sGetRecipeReactions(), await sGetRecipeComments());
   // who reacted with what (for current user highlight) handled client-side via token-less GET → skip
   res.json(decorated);
 });
@@ -3364,9 +3617,7 @@ app.post('/api/recipes', auth, (req, res) => {
         ratings: [], aiAnalysis: null,
         createdAt: new Date().toISOString(),
       };
-      const all = readJSON(RECIPES_FILE);
-      all.push(recipe);
-      writeJSON(RECIPES_FILE, all);
+      await sInsertRecipe(recipe);
       res.status(201).json(recipe);
     } catch (err) {
       console.error('Recipe create error:', err.message);
@@ -3375,13 +3626,11 @@ app.post('/api/recipes', auth, (req, res) => {
   });
 });
 
-app.put('/api/recipes/:id', auth, (req, res) => {
-  const all = readJSON(RECIPES_FILE);
-  const idx = all.findIndex(r => r.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Recipe not found' });
-  if (all[idx].userId !== req.userId) return res.status(403).json({ error: 'Not your recipe' });
+app.put('/api/recipes/:id', auth, async (req, res) => {
+  const r = await sGetRecipeById(req.params.id);
+  if (!r) return res.status(404).json({ error: 'Recipe not found' });
+  if (r.userId !== req.userId) return res.status(403).json({ error: 'Not your recipe' });
   const b = req.body || {};
-  const r = all[idx];
   if (b.name != null) r.name = String(b.name).trim();
   if (b.category && RECIPE_CATEGORIES.includes(b.category)) r.category = b.category;
   if (b.description != null) r.description = String(b.description).trim();
@@ -3395,85 +3644,63 @@ app.put('/api/recipes/:id', auth, (req, res) => {
   if (Array.isArray(b.tags)) r.tags = b.tags;
   r.nutrition = computeRecipeNutrition(r.ingredients, r.servings);
   r.aiAnalysis = null; // invalidate stale analysis after edits
-  writeJSON(RECIPES_FILE, all);
+  await sUpdateRecipe(r.id, r);
   res.json(r);
 });
 
-app.delete('/api/recipes/:id', auth, (req, res) => {
-  const all = readJSON(RECIPES_FILE);
-  const r = all.find(x => x.id === req.params.id);
+app.delete('/api/recipes/:id', auth, async (req, res) => {
+  const r = await sGetRecipeById(req.params.id);
   if (!r) return res.status(404).json({ error: 'Recipe not found' });
   if (r.userId !== req.userId) return res.status(403).json({ error: 'Not your recipe' });
-  writeJSON(RECIPES_FILE, all.filter(x => x.id !== req.params.id));
-  writeJSON(COMMENTS_FILE, readJSON(COMMENTS_FILE).filter(c => c.recipeId !== req.params.id));
-  writeJSON(REACTIONS_FILE, readJSON(REACTIONS_FILE).filter(x => x.recipeId !== req.params.id));
-  writeJSON(BOOKMARKS_FILE, readJSON(BOOKMARKS_FILE).filter(x => x.recipeId !== req.params.id));
+  await sDeleteRecipe(req.params.id); // cascades comments/reactions/bookmarks (db + JSON)
   // remove this recipe's photo files (best-effort)
   (r.photos || []).forEach(p => { try { fs.unlinkSync(path.join(__dirname, 'public', p)); } catch {} });
   res.json({ success: true });
 });
 
 // Toggle a reaction (one emoji per user per recipe; re-posting the same emoji removes it)
-app.post('/api/recipes/:id/react', auth, (req, res) => {
+app.post('/api/recipes/:id/react', auth, async (req, res) => {
   const emoji = (req.body && req.body.emoji) || '';
   if (!REACTION_EMOJIS.includes(emoji)) return res.status(400).json({ error: 'Invalid reaction' });
-  const all = readJSON(REACTIONS_FILE);
-  const mine = all.find(x => x.recipeId === req.params.id && x.userId === req.userId);
-  let next = all;
-  if (mine && mine.emoji === emoji) {
-    next = all.filter(x => x !== mine); // toggle off
-  } else if (mine) {
-    mine.emoji = emoji; mine.at = new Date().toISOString(); // switch reaction
-  } else {
-    next.push({ id: uuidv4(), recipeId: req.params.id, userId: req.userId, emoji, at: new Date().toISOString() });
-  }
-  writeJSON(REACTIONS_FILE, next);
+  const next = await sToggleRecipeReaction(req.params.id, req.userId, emoji);
   const counts = {}; REACTION_EMOJIS.forEach(e => counts[e] = 0);
   next.filter(x => x.recipeId === req.params.id).forEach(x => { if (counts[x.emoji] != null) counts[x.emoji]++; });
   const myReaction = next.find(x => x.recipeId === req.params.id && x.userId === req.userId);
   res.json({ counts, total: Object.values(counts).reduce((a, c) => a + c, 0), mine: myReaction ? myReaction.emoji : null });
 });
 
-app.post('/api/recipes/:id/rate', auth, (req, res) => {
+app.post('/api/recipes/:id/rate', auth, async (req, res) => {
   const value = Math.round(Number(req.body && req.body.value));
   if (!(value >= 1 && value <= 5)) return res.status(400).json({ error: 'Rating must be 1–5' });
-  const all = readJSON(RECIPES_FILE);
-  const r = all.find(x => x.id === req.params.id);
+  const r = await sGetRecipeById(req.params.id);
   if (!r) return res.status(404).json({ error: 'Recipe not found' });
   r.ratings = r.ratings || [];
   const mine = r.ratings.find(x => x.userId === req.userId);
   if (mine) mine.value = value; else r.ratings.push({ userId: req.userId, value });
-  writeJSON(RECIPES_FILE, all);
+  await sUpdateRecipe(r.id, r);
   const avg = +(r.ratings.reduce((s, x) => s + x.value, 0) / r.ratings.length).toFixed(1);
   res.json({ avgRating: avg, ratingCount: r.ratings.length, mine: value });
 });
 
-app.post('/api/recipes/:id/bookmark', auth, (req, res) => {
-  const all = readJSON(BOOKMARKS_FILE);
-  const mine = all.find(x => x.recipeId === req.params.id && x.userId === req.userId);
-  let next = all, bookmarked;
-  if (mine) { next = all.filter(x => x !== mine); bookmarked = false; }
-  else { next.push({ userId: req.userId, recipeId: req.params.id, at: new Date().toISOString() }); bookmarked = true; }
-  writeJSON(BOOKMARKS_FILE, next);
+app.post('/api/recipes/:id/bookmark', auth, async (req, res) => {
+  const bookmarked = await sToggleBookmark(req.userId, req.params.id);
   res.json({ bookmarked });
 });
 
-app.get('/api/bookmarks', auth, (req, res) => {
-  const ids = readJSON(BOOKMARKS_FILE).filter(b => b.userId === req.userId).map(b => b.recipeId);
+app.get('/api/bookmarks', auth, async (req, res) => {
+  const ids = (await sGetBookmarks(b => b.userId === req.userId)).map(b => b.recipeId);
   res.json(ids);
 });
 
-app.post('/api/recipes/:id/report', auth, (req, res) => {
-  const all = readJSON(REPORTS_FILE);
-  all.push({ id: uuidv4(), recipeId: req.params.id, userId: req.userId,
+app.post('/api/recipes/:id/report', auth, async (req, res) => {
+  await sInsertRecipeReport({ id: uuidv4(), recipeId: req.params.id, userId: req.userId,
     reason: (req.body && String(req.body.reason || '').slice(0, 500)) || 'Unspecified', at: new Date().toISOString() });
-  writeJSON(REPORTS_FILE, all);
   res.json({ success: true, message: 'Thanks — our team will review this recipe.' });
 });
 
 // ── Comments (threaded one level) ──
-function shapeComments(recipeId) {
-  const all = readJSON(COMMENTS_FILE).filter(c => c.recipeId === recipeId);
+async function shapeComments(recipeId) {
+  const all = (await sGetRecipeComments()).filter(c => c.recipeId === recipeId);
   const roots = all.filter(c => !c.parentId).sort((a, b) => b.at.localeCompare(a.at));
   return roots.map(c => ({
     ...c, likeCount: (c.likes || []).length,
@@ -3482,46 +3709,36 @@ function shapeComments(recipeId) {
   }));
 }
 
-app.get('/api/recipes/:id/comments', (req, res) => res.json(shapeComments(req.params.id)));
+app.get('/api/recipes/:id/comments', async (req, res) => res.json(await shapeComments(req.params.id)));
 
-app.post('/api/recipes/:id/comments', auth, (req, res) => {
+app.post('/api/recipes/:id/comments', auth, async (req, res) => {
   const text = req.body && String(req.body.text || '').trim();
   if (!text) return res.status(400).json({ error: 'Comment cannot be empty' });
   const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
-  const all = readJSON(COMMENTS_FILE);
   const comment = { id: uuidv4(), recipeId: req.params.id, userId: req.userId,
     authorName: (user && user.name) || 'NutriFell User', text: text.slice(0, 2000),
     parentId: null, likes: [], at: new Date().toISOString() };
-  all.push(comment);
-  writeJSON(COMMENTS_FILE, all);
+  await sInsertRecipeComment(comment);
   res.status(201).json(comment);
 });
 
-app.post('/api/recipes/:id/comments/:cid/reply', auth, (req, res) => {
+app.post('/api/recipes/:id/comments/:cid/reply', auth, async (req, res) => {
   const text = req.body && String(req.body.text || '').trim();
   if (!text) return res.status(400).json({ error: 'Reply cannot be empty' });
   const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
-  const all = readJSON(COMMENTS_FILE);
-  const parent = all.find(c => c.id === req.params.cid);
+  const parent = await sGetRecipeCommentById(req.params.cid);
   if (!parent) return res.status(404).json({ error: 'Comment not found' });
   const reply = { id: uuidv4(), recipeId: req.params.id, userId: req.userId,
     authorName: (user && user.name) || 'NutriFell User', text: text.slice(0, 2000),
     parentId: parent.parentId || parent.id, likes: [], at: new Date().toISOString() };
-  all.push(reply);
-  writeJSON(COMMENTS_FILE, all);
+  await sInsertRecipeComment(reply);
   res.status(201).json(reply);
 });
 
-app.post('/api/recipes/:id/comments/:cid/like', auth, (req, res) => {
-  const all = readJSON(COMMENTS_FILE);
-  const c = all.find(x => x.id === req.params.cid);
-  if (!c) return res.status(404).json({ error: 'Comment not found' });
-  c.likes = c.likes || [];
-  const i = c.likes.indexOf(req.userId);
-  let liked;
-  if (i === -1) { c.likes.push(req.userId); liked = true; } else { c.likes.splice(i, 1); liked = false; }
-  writeJSON(COMMENTS_FILE, all);
-  res.json({ liked, likeCount: c.likes.length });
+app.post('/api/recipes/:id/comments/:cid/like', auth, async (req, res) => {
+  const out = await sToggleRecipeCommentLike(req.params.cid, req.userId);
+  if (!out) return res.status(404).json({ error: 'Comment not found' });
+  res.json(out);
 });
 
 // ── AI recipe analysis (Gemini, cached on the recipe) ──
@@ -3550,16 +3767,13 @@ function recipeAnalysisFallback(r) {
 }
 
 app.post('/api/recipes/:id/ai-analysis', async (req, res) => {
-  const all = readJSON(RECIPES_FILE);
-  const r = all.find(x => x.id === req.params.id);
+  const r = await sGetRecipeById(req.params.id);
   if (!r) return res.status(404).json({ error: 'Recipe not found' });
   if (r.aiAnalysis) return res.json(r.aiAnalysis); // cached
 
   const persist = (analysis) => {
     r.aiAnalysis = analysis;
-    const fresh = readJSON(RECIPES_FILE);
-    const i = fresh.findIndex(x => x.id === r.id);
-    if (i !== -1) { fresh[i].aiAnalysis = analysis; writeJSON(RECIPES_FILE, fresh); }
+    sUpdateRecipe(r.id, r).catch(e => console.error('ai-analysis persist:', e.message));
   };
 
   if (!genAI) { const a = recipeAnalysisFallback(r); persist(a); return res.json(a); }
@@ -4041,6 +4255,239 @@ function rowToStory(r) {
   };
 }
 
+// ─── Phase 2e helpers: recipes + recipe comments/reactions/reports, bookmarks,
+//     post_saves, post_reports, hashtag_follows. Each is "MySQL if db, else JSON"
+//     and dual-writes JSON on mutation so direct-JSON readers stay in sync. ─────
+
+// Convert a MySQL recipes row (JSON columns) back to the app's recipe object.
+function rowToRecipe(r) {
+  return {
+    id: r.id, userId: r.userId, authorName: r.authorName || 'NutriFell Chef',
+    name: r.name, category: r.category, description: r.description || '',
+    prepTime: r.prepTime || 0, cookTime: r.cookTime || 0,
+    servings: r.servings || 1, difficulty: r.difficulty || 'Easy',
+    photos: parseJ(r.photos, []), ingredients: parseJ(r.ingredients, []),
+    steps: parseJ(r.steps, []), opinion: r.opinion || '', tips: r.tips || '',
+    tags: parseJ(r.tags, []), nutrition: parseJ(r.nutrition, null),
+    ratings: parseJ(r.ratings, []), aiAnalysis: parseJ(r.aiAnalysis, null),
+    createdAt: r.createdAt || new Date().toISOString(),
+  };
+}
+
+async function sGetAllRecipes() {
+  if (!db) return readJSON(RECIPES_FILE);
+  const [rows] = await db.execute('SELECT * FROM `recipes` ORDER BY `createdAt` DESC');
+  return rows.map(rowToRecipe);
+}
+async function sGetRecipeById(id) {
+  if (!db) return readJSON(RECIPES_FILE).find(r => r.id === id) || null;
+  const [rows] = await db.execute('SELECT * FROM `recipes` WHERE `id` = ?', [id]);
+  return rows[0] ? rowToRecipe(rows[0]) : null;
+}
+async function sInsertRecipe(recipe) {
+  if (db) {
+    await db.execute(
+      'INSERT INTO `recipes` (`id`,`userId`,`authorName`,`name`,`category`,`description`,`prepTime`,`cookTime`,`servings`,`difficulty`,`photos`,`ingredients`,`steps`,`opinion`,`tips`,`tags`,`nutrition`,`ratings`,`aiAnalysis`,`createdAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [recipe.id, recipe.userId, recipe.authorName || null, recipe.name, recipe.category || null,
+       recipe.description || '', recipe.prepTime || 0, recipe.cookTime || 0, recipe.servings || 1,
+       recipe.difficulty || 'Easy', JSON.stringify(recipe.photos || []),
+       JSON.stringify(recipe.ingredients || []), JSON.stringify(recipe.steps || []),
+       recipe.opinion || '', recipe.tips || '', JSON.stringify(recipe.tags || []),
+       recipe.nutrition ? JSON.stringify(recipe.nutrition) : null,
+       JSON.stringify(recipe.ratings || []),
+       recipe.aiAnalysis ? JSON.stringify(recipe.aiAnalysis) : null,
+       recipe.createdAt || new Date().toISOString()]
+    );
+  }
+  const all = readJSON(RECIPES_FILE);
+  all.push(recipe);
+  writeJSON(RECIPES_FILE, all);
+}
+// Persist the full recipe object (used by edit, rate, ai-analysis).
+async function sUpdateRecipe(id, recipe) {
+  if (db) {
+    await db.execute(
+      'UPDATE `recipes` SET `name`=?,`category`=?,`description`=?,`prepTime`=?,`cookTime`=?,`servings`=?,`difficulty`=?,`photos`=?,`ingredients`=?,`steps`=?,`opinion`=?,`tips`=?,`tags`=?,`nutrition`=?,`ratings`=?,`aiAnalysis`=? WHERE `id`=?',
+      [recipe.name, recipe.category || null, recipe.description || '', recipe.prepTime || 0,
+       recipe.cookTime || 0, recipe.servings || 1, recipe.difficulty || 'Easy',
+       JSON.stringify(recipe.photos || []), JSON.stringify(recipe.ingredients || []),
+       JSON.stringify(recipe.steps || []), recipe.opinion || '', recipe.tips || '',
+       JSON.stringify(recipe.tags || []),
+       recipe.nutrition ? JSON.stringify(recipe.nutrition) : null,
+       JSON.stringify(recipe.ratings || []),
+       recipe.aiAnalysis ? JSON.stringify(recipe.aiAnalysis) : null, id]
+    );
+  }
+  const all = readJSON(RECIPES_FILE);
+  const i = all.findIndex(x => x.id === id);
+  if (i !== -1) { all[i] = recipe; writeJSON(RECIPES_FILE, all); }
+}
+async function sDeleteRecipe(id) {
+  if (db) {
+    await db.execute('DELETE FROM `recipes` WHERE `id`=?', [id]);
+    await db.execute('DELETE FROM `recipe_comments` WHERE `recipeId`=?', [id]);
+    await db.execute('DELETE FROM `recipe_reactions` WHERE `recipeId`=?', [id]);
+    await db.execute('DELETE FROM `bookmarks` WHERE `recipeId`=?', [id]);
+  }
+  writeJSON(RECIPES_FILE, readJSON(RECIPES_FILE).filter(x => x.id !== id));
+  writeJSON(COMMENTS_FILE, readJSON(COMMENTS_FILE).filter(c => c.recipeId !== id));
+  writeJSON(REACTIONS_FILE, readJSON(REACTIONS_FILE).filter(x => x.recipeId !== id));
+  writeJSON(BOOKMARKS_FILE, readJSON(BOOKMARKS_FILE).filter(x => x.recipeId !== id));
+}
+
+// Recipe reactions (one emoji per user per recipe).
+async function sGetRecipeReactions() {
+  if (!db) return readJSON(REACTIONS_FILE);
+  const [rows] = await db.execute('SELECT `id`,`recipeId`,`userId`,`emoji`,`createdAt` AS at FROM `recipe_reactions`');
+  return rows;
+}
+async function sToggleRecipeReaction(recipeId, userId, emoji) {
+  if (db) {
+    const [ex] = await db.execute('SELECT `emoji` FROM `recipe_reactions` WHERE `recipeId`=? AND `userId`=?', [recipeId, userId]);
+    const cur = ex[0];
+    if (cur && cur.emoji === emoji) await db.execute('DELETE FROM `recipe_reactions` WHERE `recipeId`=? AND `userId`=?', [recipeId, userId]);
+    else if (cur) await db.execute('UPDATE `recipe_reactions` SET `emoji`=? WHERE `recipeId`=? AND `userId`=?', [emoji, recipeId, userId]);
+    else await db.execute('INSERT INTO `recipe_reactions` (`id`,`recipeId`,`userId`,`emoji`) VALUES (?,?,?,?)', [uuidv4(), recipeId, userId, emoji]);
+  }
+  const all = readJSON(REACTIONS_FILE);
+  const mine = all.find(x => x.recipeId === recipeId && x.userId === userId);
+  let next = all;
+  if (mine && mine.emoji === emoji) next = all.filter(x => x !== mine);
+  else if (mine) { mine.emoji = emoji; mine.at = new Date().toISOString(); }
+  else next.push({ id: uuidv4(), recipeId, userId, emoji, at: new Date().toISOString() });
+  writeJSON(REACTIONS_FILE, next);
+  return next;
+}
+
+// Recipe comments (threaded one level).
+async function sGetRecipeComments() {
+  if (!db) return readJSON(COMMENTS_FILE);
+  const [rows] = await db.execute('SELECT `id`,`recipeId`,`userId`,`authorName`,`text`,`parentId`,`likes`,`createdAt` AS at FROM `recipe_comments`');
+  return rows.map(c => ({ ...c, likes: parseJ(c.likes, []) }));
+}
+async function sInsertRecipeComment(c) {
+  if (db) {
+    await db.execute(
+      'INSERT INTO `recipe_comments` (`id`,`recipeId`,`userId`,`authorName`,`text`,`parentId`,`likes`,`createdAt`) VALUES (?,?,?,?,?,?,?,?)',
+      [c.id, c.recipeId, c.userId, c.authorName || null, c.text, c.parentId || null, JSON.stringify(c.likes || []), c.at]
+    );
+  }
+  const all = readJSON(COMMENTS_FILE);
+  all.push(c);
+  writeJSON(COMMENTS_FILE, all);
+}
+async function sGetRecipeCommentById(id) {
+  if (!db) return readJSON(COMMENTS_FILE).find(c => c.id === id) || null;
+  const [rows] = await db.execute('SELECT `id`,`recipeId`,`userId`,`authorName`,`text`,`parentId`,`likes`,`createdAt` AS at FROM `recipe_comments` WHERE `id`=?', [id]);
+  return rows[0] ? { ...rows[0], likes: parseJ(rows[0].likes, []) } : null;
+}
+async function sToggleRecipeCommentLike(id, userId) {
+  if (db) {
+    const [rows] = await db.execute('SELECT `likes` FROM `recipe_comments` WHERE `id`=?', [id]);
+    if (!rows[0]) return null;
+    const likes = parseJ(rows[0].likes, []);
+    const i = likes.indexOf(userId);
+    if (i === -1) likes.push(userId); else likes.splice(i, 1);
+    await db.execute('UPDATE `recipe_comments` SET `likes`=? WHERE `id`=?', [JSON.stringify(likes), id]);
+    const all = readJSON(COMMENTS_FILE);
+    const c = all.find(x => x.id === id);
+    if (c) { c.likes = likes; writeJSON(COMMENTS_FILE, all); }
+    return { liked: i === -1, likeCount: likes.length };
+  }
+  const all = readJSON(COMMENTS_FILE);
+  const c = all.find(x => x.id === id);
+  if (!c) return null;
+  c.likes = c.likes || [];
+  const i = c.likes.indexOf(userId);
+  if (i === -1) c.likes.push(userId); else c.likes.splice(i, 1);
+  writeJSON(COMMENTS_FILE, all);
+  return { liked: i === -1, likeCount: c.likes.length };
+}
+
+// Recipe reports.
+async function sInsertRecipeReport(rep) {
+  if (db) {
+    await db.execute('INSERT INTO `recipe_reports` (`id`,`recipeId`,`userId`,`reason`,`createdAt`) VALUES (?,?,?,?,?)',
+      [rep.id, rep.recipeId, rep.userId, rep.reason || null, rep.at]);
+  }
+  const all = readJSON(REPORTS_FILE);
+  all.push(rep);
+  writeJSON(REPORTS_FILE, all);
+}
+
+// Bookmarks (recipe saves).
+async function sGetBookmarks(filter) {
+  if (!db) return readJSON(BOOKMARKS_FILE).filter(filter);
+  const [rows] = await db.execute('SELECT `userId`,`recipeId`,`postId`,`createdAt` AS at FROM `bookmarks`');
+  return rows.filter(filter);
+}
+async function sToggleBookmark(userId, recipeId) {
+  let bookmarked;
+  if (db) {
+    const [ex] = await db.execute('SELECT `id` FROM `bookmarks` WHERE `userId`=? AND `recipeId`=?', [userId, recipeId]);
+    if (ex[0]) { await db.execute('DELETE FROM `bookmarks` WHERE `userId`=? AND `recipeId`=?', [userId, recipeId]); bookmarked = false; }
+    else { await db.execute('INSERT INTO `bookmarks` (`id`,`userId`,`recipeId`) VALUES (?,?,?)', [uuidv4(), userId, recipeId]); bookmarked = true; }
+  }
+  const all = readJSON(BOOKMARKS_FILE);
+  const mine = all.find(x => x.recipeId === recipeId && x.userId === userId);
+  let next = all;
+  if (mine) { next = all.filter(x => x !== mine); bookmarked = false; }
+  else { next.push({ userId, recipeId, at: new Date().toISOString() }); bookmarked = true; }
+  writeJSON(BOOKMARKS_FILE, next);
+  return bookmarked;
+}
+
+// Post saves (one save per user per post).
+async function sToggleSave(userId, postId) {
+  let saved;
+  if (db) {
+    const [ex] = await db.execute('SELECT `id` FROM `post_saves` WHERE `userId`=? AND `postId`=?', [userId, postId]);
+    if (ex[0]) { await db.execute('DELETE FROM `post_saves` WHERE `userId`=? AND `postId`=?', [userId, postId]); saved = false; }
+    else { await db.execute('INSERT INTO `post_saves` (`id`,`userId`,`postId`) VALUES (?,?,?)', [uuidv4(), userId, postId]); saved = true; }
+  }
+  const all = readJSON(POST_SAVES_FILE);
+  const mine = all.find(x => x.postId === postId && x.userId === userId);
+  let next = all;
+  if (mine) { next = all.filter(x => x !== mine); saved = false; }
+  else { next.push({ userId, postId, at: new Date().toISOString() }); saved = true; }
+  writeJSON(POST_SAVES_FILE, next);
+  return saved;
+}
+
+// Post reports.
+async function sInsertPostReport(rep) {
+  if (db) {
+    await db.execute('INSERT INTO `post_reports` (`id`,`postId`,`userId`,`reason`,`createdAt`) VALUES (?,?,?,?,?)',
+      [rep.id, rep.postId, rep.userId, rep.reason || null, rep.at]);
+  }
+  const all = readJSON(POST_REPORTS_FILE);
+  all.push(rep);
+  writeJSON(POST_REPORTS_FILE, all);
+}
+
+// Hashtag follows.
+async function sToggleHashtagFollow(userId, tag) {
+  let following;
+  if (db) {
+    const [ex] = await db.execute('SELECT `id` FROM `hashtag_follows` WHERE `userId`=? AND `tag`=?', [userId, tag]);
+    if (ex[0]) { await db.execute('DELETE FROM `hashtag_follows` WHERE `userId`=? AND `tag`=?', [userId, tag]); following = false; }
+    else { await db.execute('INSERT INTO `hashtag_follows` (`id`,`userId`,`tag`) VALUES (?,?,?)', [uuidv4(), userId, tag]); following = true; }
+  }
+  const all = readJSON(HASHTAG_FOLLOWS_FILE);
+  const mine = all.find(f => f.userId === userId && f.tag === tag);
+  let next = all;
+  if (mine) { next = all.filter(f => f !== mine); following = false; }
+  else { next.push({ userId, tag, at: new Date().toISOString() }); following = true; }
+  writeJSON(HASHTAG_FOLLOWS_FILE, next);
+  return following;
+}
+async function sIsFollowingHashtag(userId, tag) {
+  if (!userId) return false;
+  if (!db) return readJSON(HASHTAG_FOLLOWS_FILE).some(f => f.userId === userId && f.tag === tag);
+  const [rows] = await db.execute('SELECT `id` FROM `hashtag_follows` WHERE `userId`=? AND `tag`=?', [userId, tag]);
+  return !!rows[0];
+}
+
 const POST_REACTIONS = ['❤️', '🔥', '😋', '👏', '🤩', '💪'];
 const POST_TYPES = ['photo', 'video', 'recipe', 'text'];
 
@@ -4332,7 +4779,7 @@ app.post('/api/posts', auth, (req, res) => {
       if (type === 'text' && !caption) return res.status(400).json({ error: 'Write something to share.' });
       let recipeRef = null;
       if (type === 'recipe') {
-        const recipe = readJSON(RECIPES_FILE).find(r => r.id === b.recipeId);
+        const recipe = await sGetRecipeById(b.recipeId);
         if (!recipe) return res.status(400).json({ error: 'Recipe not found.' });
         if (recipe.userId !== req.userId) return res.status(403).json({ error: 'You can only share your own recipes.' });
         recipeRef = { id: recipe.id, name: recipe.name, cover: (recipe.photos || [])[0] || null,
@@ -4451,13 +4898,8 @@ app.post('/api/posts/:id/like', auth, async (req, res) => {
 });
 
 // ── Save / unsave ──
-app.post('/api/posts/:id/save', auth, (req, res) => {
-  const all = readJSON(POST_SAVES_FILE);
-  const mine = all.find(x => x.postId === req.params.id && x.userId === req.userId);
-  let next = all, saved;
-  if (mine) { next = all.filter(x => x !== mine); saved = false; }
-  else { next.push({ userId: req.userId, postId: req.params.id, at: new Date().toISOString() }); saved = true; }
-  writeJSON(POST_SAVES_FILE, next);
+app.post('/api/posts/:id/save', auth, async (req, res) => {
+  const saved = await sToggleSave(req.userId, req.params.id);
   if (saved) {
     const post = readJSON(POSTS_FILE).find(p => p.id === req.params.id);
     if (post) pushNotification('save', { toUserId: post.userId, fromUserId: req.userId, postId: post.id, text: 'saved your post' });
@@ -4466,11 +4908,9 @@ app.post('/api/posts/:id/save', auth, (req, res) => {
 });
 
 // ── Report ──
-app.post('/api/posts/:id/report', auth, (req, res) => {
-  const all = readJSON(POST_REPORTS_FILE);
-  all.push({ id: uuidv4(), postId: req.params.id, userId: req.userId,
+app.post('/api/posts/:id/report', auth, async (req, res) => {
+  await sInsertPostReport({ id: uuidv4(), postId: req.params.id, userId: req.userId,
     reason: (req.body && String(req.body.reason || '').slice(0, 500)) || 'Unspecified', at: new Date().toISOString() });
-  writeJSON(POST_REPORTS_FILE, all);
   res.json({ success: true, message: 'Thanks — our team will review this post.' });
 });
 
@@ -5330,7 +5770,7 @@ app.get('/api/hashtags/trending', (req, res) => {
   res.json(Object.values(counts).sort((a, b) => b.recent - a.recent || b.count - a.count).slice(0, 10));
 });
 
-app.get('/api/hashtags/:tag', (req, res) => {
+app.get('/api/hashtags/:tag', async (req, res) => {
   const viewerId = optionalAuth(req);
   const tag = String(req.params.tag).toLowerCase().replace(/^#/, '');
   const posts = readJSON(POSTS_FILE).filter(p => (p.hashtags || []).includes(tag));
@@ -5339,7 +5779,7 @@ app.get('/api/hashtags/:tag', (req, res) => {
   const rel = {};
   posts.forEach(p => (p.hashtags || []).forEach(t => { if (t !== tag) rel[t] = (rel[t] || 0) + 1; }));
   const related = Object.entries(rel).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t, c]) => ({ tag: t, count: c }));
-  const isFollowing = viewerId ? readJSON(HASHTAG_FOLLOWS_FILE).some(f => f.userId === viewerId && f.tag === tag) : false;
+  const isFollowing = await sIsFollowingHashtag(viewerId, tag);
   res.json({ tag, postCount: posts.length, recentCount, related, isFollowing });
 });
 
@@ -5354,14 +5794,9 @@ app.get('/api/hashtags/:tag/posts', (req, res) => {
   res.json({ posts: list.slice(start, start + perPage), total: list.length, page, perPage, hasMore: start + perPage < list.length });
 });
 
-app.post('/api/hashtags/:tag/follow', auth, (req, res) => {
+app.post('/api/hashtags/:tag/follow', auth, async (req, res) => {
   const tag = String(req.params.tag).toLowerCase().replace(/^#/, '');
-  const all = readJSON(HASHTAG_FOLLOWS_FILE);
-  const mine = all.find(f => f.userId === req.userId && f.tag === tag);
-  let next = all, following;
-  if (mine) { next = all.filter(f => f !== mine); following = false; }
-  else { next.push({ userId: req.userId, tag, at: new Date().toISOString() }); following = true; }
-  writeJSON(HASHTAG_FOLLOWS_FILE, next);
+  const following = await sToggleHashtagFollow(req.userId, tag);
   res.json({ following });
 });
 

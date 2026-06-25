@@ -599,21 +599,48 @@ handshake; the client lib is served dynamically, not precached).
 - Audit: `node audit-run.js` → **36/36 passed** after Phase 1.
 - Env vars required: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`, `DB_PORT`.
 
-### Phase 2 — next up 🔜
-Migrate remaining JSON collections to MySQL. Planned tables:
-- `fridges` — `/api/fridge` CRUD
-- `water` — `/api/water/*`
-- `posts`, `post_reactions`, `post_comments`, `post_saves`, `post_reports`
-- `follows`, `hashtag_follows`
-- `notifications`
-- `conversations`, `messages`
-- `stories`, `story_views`
-- `recipes`, `comments`, `reactions`, `bookmarks`, `reports`
-- `mealplans`, `logs`, `smoking`, `waitlist`
+### Phases 2a–2d — social collections ✅
+Migrated to MySQL with the `s*` storage-helper pattern (`if (db) → MySQL, else
+→ JSON`) plus **JSON dual-write** on every mutation: `posts` (2a),
+`post_reactions` + `post_comments` (2b), `follows` + `notifications` (2c),
+`conversations` + `messages` + `stories` (2d). Dual-write is intentional —
+~100 direct `readJSON()` readers across feed/reels/profile/search still read
+these collections from JSON, so the helpers keep both stores in sync.
 
-Each table will get a `CREATE TABLE IF NOT EXISTS` auto-create block and a
-one-time seed from the corresponding JSON file. Dual-write removed once all
-readers of that collection are migrated.
+### Phase 2e — recipes + remaining social tables ✅ (2026-06-26)
+Final tables migrated, same `s*` + dual-write pattern as 2a–2d (kept dual-write;
+full JSON removal deferred until every direct-JSON reader is migrated — a later
+dedicated phase). New tables (each `CREATE TABLE IF NOT EXISTS` + one-time seed
+from JSON when empty, in the boot IIFE):
+- `recipes` — full recipe object; complex fields (`photos`, `ingredients`,
+  `steps`, `tags`, `nutrition`, `ratings`, `aiAnalysis`) stored as JSON columns.
+  Table mirrors the **actual** recipe shape (`name`/`opinion`/`tips`/`ratings[]`),
+  not the idealized spec (`title`/`authorNote`/`averageRating`), so it round-trips.
+- `recipe_comments`, `recipe_reactions`, `recipe_reports` — the recipe feature's
+  comments (threaded, JSON `likes`), one-emoji-per-user reactions, and reports.
+  (Not in the original 6-table spec, but required to fully migrate the recipe
+  feature per step 3 "replace ALL remaining readJSON/writeJSON".)
+- `bookmarks` (recipe saves; generated `id` since JSON rows had none),
+  `post_saves`, `post_reports`, `hashtag_follows`.
+- `hashtags` — counter table created per spec but left empty; hashtag pages still
+  aggregate from `posts` on the fly. Populating it is a future phase.
+
+Helpers (`s*`, all "MySQL-or-JSON + dual-write"): `sGetAllRecipes`,
+`sGetRecipeById`, `sInsertRecipe`, `sUpdateRecipe`, `sDeleteRecipe` (cascades
+comments/reactions/bookmarks), `sGetRecipeReactions`, `sToggleRecipeReaction`,
+`sGetRecipeComments`, `sInsertRecipeComment`, `sGetRecipeCommentById`,
+`sToggleRecipeCommentLike`, `sInsertRecipeReport`, `sGetBookmarks`,
+`sToggleBookmark`, `sToggleSave`, `sInsertPostReport`, `sToggleHashtagFollow`,
+`sIsFollowingHashtag`. All recipe/bookmark/save/hashtag-follow endpoints were
+converted to `async` and routed through these. Verified end-to-end against the
+live Hostinger DB (list/detail round-trip, react toggle, rate, comment/reply/like,
+bookmark on/off, recipe + post report, hashtag follow/unfollow) and
+`node audit-run.js` → **36/36 passed**.
+
+### Still on JSON (not yet migrated)
+`fridges`, `water`, `mealplans`, `logs`, `smoking`, `waitlist`, `story_views` —
+no MySQL table yet; these remain pure file-based. A future phase can migrate them
+and then remove dual-write once all direct-JSON readers are gone.
 
 ## Running locally
 ```bash
