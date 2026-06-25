@@ -1,6 +1,6 @@
 # NutriFell — Progress & Roadmap
 
-> Last updated: 2026-06-24
+> Last updated: 2026-06-25
 > Formerly "NutriBase Georgia" — rebranded to **NutriFell** on 2026-06-16.
 
 An interactive 3D nutrition explorer + installable PWA. Browse 74 foods with
@@ -13,8 +13,9 @@ assistant.
 - **Backend:** Node.js + Express 4 (`server.js`, single file), hardened with
   `compression` (gzip), `helmet`, and `express-rate-limit`
 - **Auth:** JWT (7-day expiry) + bcrypt password hashing
-- **Storage:** File-based JSON in `data/` (no database) — `users`, `fridges`,
-  `mealplans`, `logs`. Auto-created on boot; gitignored.
+- **Storage:** Hybrid — **MySQL on Hostinger** for users/auth (Phase 1 complete);
+  file-based JSON in `data/` for all other collections (fridges, posts, water,
+  etc.) until Phase 2+ migration. JSON files auto-created on boot; gitignored.
 - **AI:** Google Gemini (`gemini-2.5-flash`) with a rule-based fallback when no
   API key is configured.
 - **Frontend:** Vanilla JS, no framework. Three.js r128 (GLTFLoader + Draco +
@@ -578,10 +579,47 @@ transcoding 503) and the client degrades to the existing polling.
 bypassed in the fetch handler (caching the polling endpoint would break the
 handshake; the client lib is served dynamically, not precached).
 
+## MySQL migration
+
+### Phase 1 — Auth / Users ✅ (2026-06-25, commit fa12487)
+- `npm install mysql2` added; connection pool via `mysql2/promise`.
+- On startup: `CREATE TABLE IF NOT EXISTS users` (auto-creates, idempotent),
+  then seeds from `data/users.json` if the table is empty (one-time migration).
+- All auth + profile endpoints now read/write MySQL:
+  `auth` middleware, `POST /api/auth/send-code`, `POST /api/auth/verify-code`,
+  `POST /api/register`, `POST /api/login`, `GET /api/profile`,
+  `PUT /api/profile`, `GET /api/profile/stats`.
+- **Dual-write**: every user write also updates `data/users.json` so non-migrated
+  endpoints (AI chat, Stripe webhooks, water goal, subscription status) continue
+  to work until Phase 2 replaces them.
+- `db` helper functions: `dbFindUserById`, `dbFindUserByEmail`, `dbInsertUser`,
+  `dbUpdateUser`. All use parameterized queries (`execute()` with `?`).
+- JSON fallback: if `DB_HOST`/`DB_USER` are unset, `db` stays `null` and every
+  function falls back to `readJSON(USERS_FILE)` — server boots without MySQL.
+- Audit: `node audit-run.js` → **36/36 passed** after Phase 1.
+- Env vars required: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`, `DB_PORT`.
+
+### Phase 2 — next up 🔜
+Migrate remaining JSON collections to MySQL. Planned tables:
+- `fridges` — `/api/fridge` CRUD
+- `water` — `/api/water/*`
+- `posts`, `post_reactions`, `post_comments`, `post_saves`, `post_reports`
+- `follows`, `hashtag_follows`
+- `notifications`
+- `conversations`, `messages`
+- `stories`, `story_views`
+- `recipes`, `comments`, `reactions`, `bookmarks`, `reports`
+- `mealplans`, `logs`, `smoking`, `waitlist`
+
+Each table will get a `CREATE TABLE IF NOT EXISTS` auto-create block and a
+one-time seed from the corresponding JSON file. Dual-write removed once all
+readers of that collection are migrated.
+
 ## Running locally
 ```bash
 npm install
 npm run dev      # nodemon, or: npm start
 # http://localhost:3000
 ```
-Env (`.env`): `GEMINI_API_KEY`, `JWT_SECRET`, `PORT`.
+Env (`.env`): `GEMINI_API_KEY`, `JWT_SECRET`, `PORT`,
+`DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`, `DB_PORT` (MySQL / Hostinger).
