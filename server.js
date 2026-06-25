@@ -562,6 +562,103 @@ async function dbUpdateUser(id, user) {
       }
       if (seedNotifs.length) console.log(`Migrated ${seedNotifs.length} notifications from JSON → MySQL`);
     }
+
+    // ─── Phase 2d: conversations table ───────────────────────────────────
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`conversations\` (
+        \`id\`            VARCHAR(36)   PRIMARY KEY,
+        \`participant1\`  VARCHAR(36)   NOT NULL,
+        \`participant2\`  VARCHAR(36)   NOT NULL,
+        \`lastMessage\`   TEXT,
+        \`lastMessageAt\` DATETIME,
+        \`createdAt\`     DATETIME      DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY \`unique_conversation\` (\`participant1\`, \`participant2\`),
+        INDEX \`idx_participant1\` (\`participant1\`),
+        INDEX \`idx_participant2\` (\`participant2\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ convoCnt }]] = await db.execute('SELECT COUNT(*) AS convoCnt FROM `conversations`');
+    if (convoCnt === 0) {
+      const seedConvos = readJSON(CONVERSATIONS_FILE);
+      for (const c of seedConvos) {
+        const [p1, p2] = [...c.participants].sort();
+        try {
+          await db.execute(
+            'INSERT INTO `conversations` (`id`,`participant1`,`participant2`,`lastMessage`,`lastMessageAt`,`createdAt`) VALUES (?,?,?,?,?,?)',
+            [c.id, p1, p2, c.lastMessage ? JSON.stringify(c.lastMessage) : null,
+             c.lastMessageAt || c.createdAt, c.createdAt]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedConvos.length) console.log(`Migrated ${seedConvos.length} conversations from JSON → MySQL`);
+    }
+
+    // ─── Phase 2d: messages table ─────────────────────────────────────────
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`messages\` (
+        \`id\`             VARCHAR(36)   PRIMARY KEY,
+        \`conversationId\` VARCHAR(36)   NOT NULL,
+        \`senderId\`       VARCHAR(36)   NOT NULL,
+        \`receiverId\`     VARCHAR(36)   NOT NULL,
+        \`text\`           TEXT,
+        \`read\`           TINYINT(1)    DEFAULT 0,
+        \`readAt\`         DATETIME,
+        \`createdAt\`      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_conversationId\` (\`conversationId\`),
+        INDEX \`idx_senderId\`       (\`senderId\`),
+        INDEX \`idx_receiverId\`     (\`receiverId\`),
+        INDEX \`idx_createdAt\`      (\`createdAt\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ msgCnt }]] = await db.execute('SELECT COUNT(*) AS msgCnt FROM `messages`');
+    if (msgCnt === 0) {
+      const seedConvos2 = readJSON(CONVERSATIONS_FILE);
+      const convoMap = new Map(seedConvos2.map(c => [c.id, c]));
+      const seedMsgs = readJSON(MESSAGES_FILE);
+      for (const m of seedMsgs) {
+        const convo = convoMap.get(m.conversationId);
+        if (!convo) continue;
+        const receiverId = convo.participants.find(p => p !== m.fromUserId) || convo.participants[0];
+        try {
+          await db.execute(
+            'INSERT INTO `messages` (`id`,`conversationId`,`senderId`,`receiverId`,`text`,`read`,`createdAt`) VALUES (?,?,?,?,?,?,?)',
+            [m.id, m.conversationId, m.fromUserId, receiverId, m.text || '', m.read ? 1 : 0, m.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedMsgs.length) console.log(`Migrated ${seedMsgs.length} messages from JSON → MySQL`);
+    }
+
+    // ─── Phase 2d: stories table ──────────────────────────────────────────
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`stories\` (
+        \`id\`        VARCHAR(36)              PRIMARY KEY,
+        \`userId\`    VARCHAR(36)              NOT NULL,
+        \`mediaUrl\`  VARCHAR(500)             NOT NULL,
+        \`mediaType\` ENUM('photo','video')    DEFAULT 'photo',
+        \`caption\`   TEXT,
+        \`viewers\`   JSON,
+        \`expiresAt\` DATETIME                 NOT NULL,
+        \`createdAt\` DATETIME                 DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_userId\`    (\`userId\`),
+        INDEX \`idx_expiresAt\` (\`expiresAt\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ storyCnt }]] = await db.execute('SELECT COUNT(*) AS storyCnt FROM `stories`');
+    if (storyCnt === 0) {
+      const seedStories = readJSON(STORIES_FILE);
+      for (const s of seedStories) {
+        const mediaType = s.type === 'video' ? 'video' : 'photo';
+        const views = readJSON(STORY_VIEWS_FILE).filter(v => v.storyId === s.id).map(v => v.userId);
+        try {
+          await db.execute(
+            'INSERT INTO `stories` (`id`,`userId`,`mediaUrl`,`mediaType`,`caption`,`viewers`,`expiresAt`,`createdAt`) VALUES (?,?,?,?,?,?,?,?)',
+            [s.id, s.userId, s.media, mediaType, s.caption || '', JSON.stringify(views), s.expiresAt, s.createdAt]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedStories.length) console.log(`Migrated ${seedStories.length} stories from JSON → MySQL`);
+    }
   } catch (e) {
     console.error('MySQL setup failed:', e.message);
     db = null;
@@ -3770,6 +3867,180 @@ async function sMarkAllNotificationsRead(userId) {
   writeJSON(NOTIFICATIONS_FILE, all);
 }
 
+// ─── Phase 2d: Conversations & Messages helpers ───────────────────────────────
+function rowToConvo(r) {
+  return {
+    id: r.id,
+    participants: [r.participant1, r.participant2],
+    participant1: r.participant1, participant2: r.participant2,
+    lastMessage: parseJ(r.lastMessage, null),
+    lastMessageAt: r.lastMessageAt || r.createdAt,
+    createdAt: r.createdAt,
+  };
+}
+
+function rowToMessage(r) {
+  return {
+    id: r.id, conversationId: r.conversationId,
+    fromUserId: r.senderId, toUserId: r.receiverId,
+    text: r.text || '', attachment: null,
+    read: !!r.read, at: r.createdAt,
+  };
+}
+
+// Find an existing 1:1 conversation by participant pair (order-independent).
+async function sGetConversation(userId1, userId2) {
+  const [p1, p2] = [userId1, userId2].sort();
+  if (!db) return findConversation(readJSON(CONVERSATIONS_FILE), userId1, userId2) || null;
+  const [rows] = await db.execute(
+    'SELECT * FROM `conversations` WHERE `participant1`=? AND `participant2`=?', [p1, p2]
+  );
+  return rows[0] ? rowToConvo(rows[0]) : null;
+}
+
+// Find-or-create a 1:1 conversation, dual-writing JSON.
+async function sGetOrCreateConversation(userId1, userId2) {
+  const [p1, p2] = [userId1, userId2].sort();
+  const now = new Date().toISOString();
+  if (db) {
+    const [rows] = await db.execute(
+      'SELECT * FROM `conversations` WHERE `participant1`=? AND `participant2`=?', [p1, p2]
+    );
+    if (rows[0]) return rowToConvo(rows[0]);
+    const id = uuidv4();
+    await db.execute(
+      'INSERT INTO `conversations` (`id`,`participant1`,`participant2`,`createdAt`) VALUES (?,?,?,?)',
+      [id, p1, p2, now]
+    );
+    const all = readJSON(CONVERSATIONS_FILE);
+    if (!findConversation(all, userId1, userId2)) {
+      all.unshift({ id, participants: [userId1, userId2], createdAt: now, lastMessageAt: now, lastMessage: null });
+      writeJSON(CONVERSATIONS_FILE, all);
+    }
+    return { id, participants: [userId1, userId2], participant1: p1, participant2: p2, lastMessage: null, lastMessageAt: now, createdAt: now };
+  }
+  const all = readJSON(CONVERSATIONS_FILE);
+  let convo = findConversation(all, userId1, userId2);
+  if (!convo) {
+    convo = { id: uuidv4(), participants: [userId1, userId2], createdAt: now, lastMessageAt: now, lastMessage: null };
+    all.unshift(convo);
+    writeJSON(CONVERSATIONS_FILE, all);
+  }
+  return convo;
+}
+
+// List all conversations for a user with unread counts.
+async function sGetUserConversations(userId) {
+  if (!db) {
+    const convos = readJSON(CONVERSATIONS_FILE).filter(c => c.participants.includes(userId));
+    const messages = readJSON(MESSAGES_FILE);
+    return convos.map(c => ({
+      ...c, unreadCount: messages.filter(m => m.conversationId === c.id && m.fromUserId !== userId && !m.read).length,
+    }));
+  }
+  const [rows] = await db.execute(
+    'SELECT * FROM `conversations` WHERE `participant1`=? OR `participant2`=? ORDER BY `lastMessageAt` DESC',
+    [userId, userId]
+  );
+  if (!rows.length) return [];
+  const convoIds = rows.map(r => r.id);
+  const [unreadRows] = await db.execute(
+    `SELECT \`conversationId\`, COUNT(*) AS cnt FROM \`messages\` WHERE \`conversationId\` IN (${convoIds.map(() => '?').join(',')}) AND \`receiverId\`=? AND \`read\`=0 GROUP BY \`conversationId\``,
+    [...convoIds, userId]
+  );
+  const unreadMap = Object.fromEntries(unreadRows.map(r => [r.conversationId, r.cnt]));
+  return rows.map(r => ({ ...rowToConvo(r), unreadCount: unreadMap[r.id] || 0 }));
+}
+
+// Paginated messages for a conversation (last N, oldest-first within that page).
+async function sGetConversationMessages(convoId, before, perPage) {
+  if (!db) {
+    let msgs = readJSON(MESSAGES_FILE).filter(m => m.conversationId === convoId);
+    msgs.sort((a, b) => a.at.localeCompare(b.at));
+    if (before) msgs = msgs.filter(m => m.at < before);
+    return { messages: msgs.slice(-perPage), total: msgs.length };
+  }
+  let sql = 'SELECT * FROM `messages` WHERE `conversationId`=?';
+  const params = [convoId];
+  if (before) { sql += ' AND `createdAt` < ?'; params.push(before); }
+  sql += ' ORDER BY `createdAt` ASC';
+  const [rows] = await db.execute(sql, params);
+  const all = rows.map(rowToMessage);
+  return { messages: all.slice(-perPage), total: all.length };
+}
+
+// Send a message: MySQL insert + update conversation + dual-write JSON + RT push.
+async function sSendMessage(convo, senderId, receiverId, text, attachment) {
+  const clean = String(text || '').trim().slice(0, 2000);
+  let att = null;
+  if (attachment && (attachment.kind === 'post' || attachment.kind === 'reel') && attachment.postId) {
+    att = { kind: attachment.kind, postId: String(attachment.postId) };
+  }
+  if (!clean && !att) throw new Error('Write a message.');
+  const now = new Date().toISOString();
+  const msgId = uuidv4();
+  if (db) {
+    await db.execute(
+      'INSERT INTO `messages` (`id`,`conversationId`,`senderId`,`receiverId`,`text`,`read`,`createdAt`) VALUES (?,?,?,?,?,?,?)',
+      [msgId, convo.id, senderId, receiverId, clean, 0, now]
+    );
+    await db.execute('UPDATE `conversations` SET `lastMessage`=?, `lastMessageAt`=? WHERE `id`=?',
+      [clean, now, convo.id]);
+  }
+  // Dual-write JSON (keeps /api/conversations endpoints in sync)
+  const msg = { id: msgId, conversationId: convo.id, fromUserId: senderId, text: clean, attachment: att, read: false, at: now };
+  const messages = readJSON(MESSAGES_FILE);
+  messages.push(msg);
+  writeJSON(MESSAGES_FILE, messages);
+  const convos = readJSON(CONVERSATIONS_FILE);
+  const c = convos.find(x => x.id === convo.id);
+  if (c) { c.lastMessage = { text: clean || 'Shared a post', fromUserId: senderId, at: now }; c.lastMessageAt = now; writeJSON(CONVERSATIONS_FILE, convos); }
+  const enriched = enrichMessageAttachment(msg, readJSON(POSTS_FILE));
+  RT.toUser(receiverId, 'dm:receive', { conversationId: convo.id, from: senderId, message: enriched });
+  return enriched;
+}
+
+// Mark messages from other party as read in MySQL + dual-write JSON.
+async function sMarkConversationRead(convoId, readerId) {
+  const now = new Date().toISOString();
+  if (db) {
+    await db.execute(
+      'UPDATE `messages` SET `read`=1, `readAt`=? WHERE `conversationId`=? AND `receiverId`=? AND `read`=0',
+      [now, convoId, readerId]
+    );
+  }
+  const messages = readJSON(MESSAGES_FILE);
+  let changed = false;
+  messages.forEach(m => { if (m.conversationId === convoId && m.fromUserId !== readerId && !m.read) { m.read = true; changed = true; } });
+  if (changed) writeJSON(MESSAGES_FILE, messages);
+}
+
+// Total unread DMs for a user (the nav badge).
+async function sGetUnreadMessageCount(userId) {
+  if (!db) {
+    const convoIds = new Set(readJSON(CONVERSATIONS_FILE).filter(c => c.participants.includes(userId)).map(c => c.id));
+    return readJSON(MESSAGES_FILE).filter(m => convoIds.has(m.conversationId) && m.fromUserId !== userId && !m.read).length;
+  }
+  const [[{ cnt }]] = await db.execute(
+    'SELECT COUNT(*) AS cnt FROM `messages` WHERE `receiverId`=? AND `read`=0', [userId]
+  );
+  return cnt;
+}
+
+// ─── Phase 2d: Stories helpers ────────────────────────────────────────────────
+// Convert a MySQL stories row to the JSON-compatible shape.
+function rowToStory(r) {
+  return {
+    id: r.id, userId: r.userId,
+    type: r.mediaType === 'video' ? 'video' : 'image',
+    media: r.mediaUrl,
+    caption: r.caption || '',
+    viewers: parseJ(r.viewers, []),
+    createdAt: r.createdAt || new Date().toISOString(),
+    expiresAt: r.expiresAt || new Date().toISOString(),
+  };
+}
+
 const POST_REACTIONS = ['❤️', '🔥', '😋', '👏', '🤩', '💪'];
 const POST_TYPES = ['photo', 'video', 'recipe', 'text'];
 
@@ -4659,10 +4930,68 @@ app.put('/api/conversations/:id/read', auth, (req, res) => {
 });
 
 // Total unread across all of the viewer's threads (powers the nav DM badge).
-app.get('/api/messages/unread-count', auth, (req, res) => {
-  const convoIds = new Set(readJSON(CONVERSATIONS_FILE).filter(c => c.participants.includes(req.userId)).map(c => c.id));
-  const count = readJSON(MESSAGES_FILE).filter(m => convoIds.has(m.conversationId) && m.fromUserId !== req.userId && !m.read).length;
-  res.json({ count });
+app.get('/api/messages/unread-count', auth, async (req, res) => {
+  try { res.json({ count: await sGetUnreadMessageCount(req.userId) }); }
+  catch (e) { console.error('Unread count error:', e.message); res.status(500).json({ error: 'Could not get count.' }); }
+});
+
+// ─── Phase 2d: /api/messages user-centric routes (MySQL-backed) ───────────────
+// List all conversations for the viewer, newest first.
+app.get('/api/messages', auth, async (req, res) => {
+  try {
+    const convos = await sGetUserConversations(req.userId);
+    const users = readJSON(USERS_FILE);
+    const list = convos
+      .map(c => ({ id: c.id, user: otherParticipant(c, req.userId, users), lastMessage: c.lastMessage || null, lastMessageAt: c.lastMessageAt, unreadCount: c.unreadCount || 0 }))
+      .sort((a, b) => String(b.lastMessageAt || '').localeCompare(String(a.lastMessageAt || '')));
+    res.json({ conversations: list });
+  } catch (e) { console.error('Messages list error:', e.message); res.status(500).json({ error: 'Could not load messages.' }); }
+});
+
+// Get messages between the viewer and :userId.
+app.get('/api/messages/:userId', auth, async (req, res) => {
+  try {
+    const convo = await sGetConversation(req.userId, req.params.userId);
+    if (!convo) return res.json({ messages: [], hasMore: false });
+    const { messages, total } = await sGetConversationMessages(convo.id, req.query.before, 30);
+    const posts = readJSON(POSTS_FILE);
+    const users = readJSON(USERS_FILE);
+    const u = users.find(x => x.id === req.params.userId);
+    res.json({
+      messages: messages.map(m => enrichMessageAttachment(m, posts)),
+      hasMore: total > 30,
+      user: { id: req.params.userId, name: (u && u.name) || 'NutriFell User', username: userHandle(u), avatar: (u && u.avatar) || null },
+    });
+  } catch (e) { console.error('Messages get error:', e.message); res.status(500).json({ error: 'Could not load messages.' }); }
+});
+
+// Send a message to :userId (find-or-create conversation).
+app.post('/api/messages/:userId', auth, async (req, res) => {
+  try {
+    const otherId = req.params.userId;
+    if (otherId === req.userId) return res.status(400).json({ error: 'You cannot message yourself.' });
+    const users = readJSON(USERS_FILE);
+    if (!users.find(u => u.id === otherId)) return res.status(404).json({ error: 'User not found.' });
+    const convo = await sGetOrCreateConversation(req.userId, otherId);
+    const enriched = await sSendMessage(convo, req.userId, otherId, (req.body && req.body.text) || '', req.body && req.body.attachment);
+    res.status(201).json(enriched);
+  } catch (e) {
+    const code = e.message === 'Write a message.' ? 400 : 500;
+    console.error('Message send error:', e.message);
+    res.status(code).json({ error: e.message || 'Could not send message.' });
+  }
+});
+
+// Mark all messages from :userId as read in this conversation.
+app.put('/api/messages/:userId/read', auth, async (req, res) => {
+  try {
+    const convo = await sGetConversation(req.userId, req.params.userId);
+    if (convo) {
+      await sMarkConversationRead(convo.id, req.userId);
+      RT.toUser(req.params.userId, 'dm:read', { conversationId: convo.id, by: req.userId, at: new Date().toISOString() });
+    }
+    res.json({ success: true });
+  } catch (e) { console.error('Mark read error:', e.message); res.status(500).json({ error: 'Could not mark as read.' }); }
 });
 
 // Presence snapshot for a user (online + last-seen). Live updates flow over the
@@ -4713,6 +5042,8 @@ const isActiveStory = (s) => new Date(s.expiresAt).getTime() > Date.now();
 
 // Remove expired stories + their views, and delete the orphaned media files.
 function sweepExpiredStories() {
+  // MySQL sweep (fire-and-forget; table may not exist yet on first startup call)
+  if (db) db.execute('DELETE FROM `stories` WHERE `expiresAt` < NOW()').catch(() => {});
   try {
     const all = readJSON(STORIES_FILE);
     const expired = all.filter(s => !isActiveStory(s));
@@ -4744,6 +5075,14 @@ app.post('/api/stories', auth, (req, res) => {
         createdAt: new Date(now).toISOString(),
         expiresAt: new Date(now + STORY_TTL).toISOString(),
       };
+      if (db) {
+        const mediaType = type === 'video' ? 'video' : 'photo';
+        await db.execute(
+          'INSERT INTO `stories` (`id`,`userId`,`mediaUrl`,`mediaType`,`caption`,`viewers`,`expiresAt`,`createdAt`) VALUES (?,?,?,?,?,?,?,?)',
+          [story.id, story.userId, story.media, mediaType, story.caption, JSON.stringify([]), story.expiresAt, story.createdAt]
+        );
+      }
+      // Dual-write JSON
       const all = readJSON(STORIES_FILE);
       all.unshift(story);
       writeJSON(STORIES_FILE, all);
@@ -4757,50 +5096,80 @@ app.post('/api/stories', auth, (req, res) => {
 
 // Active story tray — your own + people you follow, grouped by author.
 // Order: self first, then unseen (most recent first), then fully-seen.
-app.get('/api/stories', auth, (req, res) => {
-  const followingIds = new Set(readJSON(FOLLOWS_FILE).filter(f => f.followerId === req.userId).map(f => f.followingId));
-  followingIds.add(req.userId);
-  const stories = readJSON(STORIES_FILE).filter(s => isActiveStory(s) && followingIds.has(s.userId));
-  const views = readJSON(STORY_VIEWS_FILE);
-  const seen = new Set(views.filter(v => v.userId === req.userId).map(v => v.storyId));
-  const users = readJSON(USERS_FILE);
-  const groups = {};
-  stories.forEach(s => {
-    if (!groups[s.userId]) {
-      const u = users.find(x => x.id === s.userId);
-      groups[s.userId] = {
-        user: { id: s.userId, name: (u && u.name) || 'NutriFell User', username: userHandle(u), avatar: (u && u.avatar) || null },
-        isOwn: s.userId === req.userId, stories: [], hasUnseen: false, latestAt: s.createdAt,
-      };
+app.get('/api/stories', auth, async (req, res) => {
+  try {
+    const followingIds = new Set(readJSON(FOLLOWS_FILE).filter(f => f.followerId === req.userId).map(f => f.followingId));
+    followingIds.add(req.userId);
+    let stories, seen;
+    if (db) {
+      const ids = [...followingIds];
+      const [rows] = await db.execute(
+        `SELECT * FROM \`stories\` WHERE \`userId\` IN (${ids.map(() => '?').join(',')}) AND \`expiresAt\` > NOW() ORDER BY \`createdAt\` ASC`,
+        ids
+      );
+      stories = rows.map(rowToStory);
+      seen = new Set();
+      rows.forEach(r => { const v = parseJ(r.viewers, []); if (v.includes(req.userId)) seen.add(r.id); });
+    } else {
+      stories = readJSON(STORIES_FILE).filter(s => isActiveStory(s) && followingIds.has(s.userId));
+      const views = readJSON(STORY_VIEWS_FILE);
+      seen = new Set(views.filter(v => v.userId === req.userId).map(v => v.storyId));
     }
-    const g = groups[s.userId];
-    g.stories.push({ id: s.id, type: s.type, media: s.media, caption: s.caption, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed: seen.has(s.id) });
-    if (!seen.has(s.id)) g.hasUnseen = true;
-    if (s.createdAt > g.latestAt) g.latestAt = s.createdAt;
-  });
-  const list = Object.values(groups);
-  list.forEach(g => g.stories.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
-  list.sort((a, b) => {
-    if (a.isOwn !== b.isOwn) return a.isOwn ? -1 : 1;
-    if (a.hasUnseen !== b.hasUnseen) return a.hasUnseen ? -1 : 1;
-    return b.latestAt.localeCompare(a.latestAt);
-  });
-  res.json({ groups: list });
+    const users = readJSON(USERS_FILE);
+    const groups = {};
+    stories.forEach(s => {
+      if (!groups[s.userId]) {
+        const u = users.find(x => x.id === s.userId);
+        groups[s.userId] = {
+          user: { id: s.userId, name: (u && u.name) || 'NutriFell User', username: userHandle(u), avatar: (u && u.avatar) || null },
+          isOwn: s.userId === req.userId, stories: [], hasUnseen: false, latestAt: s.createdAt,
+        };
+      }
+      const g = groups[s.userId];
+      g.stories.push({ id: s.id, type: s.type, media: s.media, caption: s.caption, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed: seen.has(s.id) });
+      if (!seen.has(s.id)) g.hasUnseen = true;
+      if (s.createdAt > g.latestAt) g.latestAt = s.createdAt;
+    });
+    const list = Object.values(groups);
+    list.forEach(g => g.stories.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
+    list.sort((a, b) => {
+      if (a.isOwn !== b.isOwn) return a.isOwn ? -1 : 1;
+      if (a.hasUnseen !== b.hasUnseen) return a.hasUnseen ? -1 : 1;
+      return b.latestAt.localeCompare(a.latestAt);
+    });
+    res.json({ groups: list });
+  } catch (e) { console.error('Stories error:', e.message); res.status(500).json({ error: 'Could not load stories.' }); }
 });
 
 // Record that the viewer saw a story (idempotent).
-app.post('/api/stories/:id/view', auth, (req, res) => {
-  const story = readJSON(STORIES_FILE).find(s => s.id === req.params.id);
-  if (!story || !isActiveStory(story)) return res.status(404).json({ error: 'Story not found.' });
-  const views = readJSON(STORY_VIEWS_FILE);
-  if (!views.some(v => v.storyId === story.id && v.userId === req.userId) && story.userId !== req.userId) {
-    views.push({ storyId: story.id, userId: req.userId, at: new Date().toISOString() });
-    writeJSON(STORY_VIEWS_FILE, views);
-    // Live: notify the story owner who just watched.
-    const me = readJSON(USERS_FILE).find(u => u.id === req.userId);
-    RT.toUser(story.userId, 'story:viewed', { storyId: story.id, viewer: { id: req.userId, name: (me && me.name) || 'Someone', avatar: (me && me.avatar) || null } });
-  }
-  res.json({ success: true });
+app.post('/api/stories/:id/view', auth, async (req, res) => {
+  try {
+    let story;
+    if (db) {
+      const [rows] = await db.execute('SELECT * FROM `stories` WHERE `id`=?', [req.params.id]);
+      story = rows[0] ? rowToStory(rows[0]) : null;
+    } else {
+      story = readJSON(STORIES_FILE).find(s => s.id === req.params.id) || null;
+    }
+    if (!story || !isActiveStory(story)) return res.status(404).json({ error: 'Story not found.' });
+    const isOwner = story.userId === req.userId;
+    const alreadyViewed = (story.viewers || []).includes(req.userId);
+    if (!isOwner && !alreadyViewed) {
+      if (db) {
+        const viewers = [...(story.viewers || []), req.userId];
+        await db.execute('UPDATE `stories` SET `viewers`=? WHERE `id`=?', [JSON.stringify(viewers), story.id]);
+      }
+      // Dual-write STORY_VIEWS_FILE (used by GET /api/stories/:id/viewers)
+      const views = readJSON(STORY_VIEWS_FILE);
+      if (!views.some(v => v.storyId === story.id && v.userId === req.userId)) {
+        views.push({ storyId: story.id, userId: req.userId, at: new Date().toISOString() });
+        writeJSON(STORY_VIEWS_FILE, views);
+      }
+      const me = readJSON(USERS_FILE).find(u => u.id === req.userId);
+      RT.toUser(story.userId, 'story:viewed', { storyId: story.id, viewer: { id: req.userId, name: (me && me.name) || 'Someone', avatar: (me && me.avatar) || null } });
+    }
+    res.json({ success: true });
+  } catch (e) { console.error('Story view error:', e.message); res.status(500).json({ error: 'Could not record view.' }); }
 });
 
 // Who viewed a story — owner only.
@@ -4817,16 +5186,24 @@ app.get('/api/stories/:id/viewers', auth, (req, res) => {
 });
 
 // Delete your own story.
-app.delete('/api/stories/:id', auth, (req, res) => {
-  const all = readJSON(STORIES_FILE);
-  const story = all.find(s => s.id === req.params.id);
-  if (!story) return res.status(404).json({ error: 'Story not found.' });
-  if (story.userId !== req.userId) return res.status(403).json({ error: 'Not your story.' });
-  writeJSON(STORIES_FILE, all.filter(s => s.id !== story.id));
-  writeJSON(STORY_VIEWS_FILE, readJSON(STORY_VIEWS_FILE).filter(v => v.storyId !== story.id));
-  const fp = path.join(__dirname, 'public', story.media || '');
-  try { if (story.media && fp.startsWith(STORIES_UPLOAD_DIR) && fs.existsSync(fp)) fs.unlinkSync(fp); } catch { /* ignore */ }
-  res.json({ success: true });
+app.delete('/api/stories/:id', auth, async (req, res) => {
+  try {
+    let story;
+    if (db) {
+      const [rows] = await db.execute('SELECT * FROM `stories` WHERE `id`=?', [req.params.id]);
+      story = rows[0] ? rowToStory(rows[0]) : null;
+    } else {
+      story = readJSON(STORIES_FILE).find(s => s.id === req.params.id) || null;
+    }
+    if (!story) return res.status(404).json({ error: 'Story not found.' });
+    if (story.userId !== req.userId) return res.status(403).json({ error: 'Not your story.' });
+    if (db) await db.execute('DELETE FROM `stories` WHERE `id`=?', [story.id]);
+    writeJSON(STORIES_FILE, readJSON(STORIES_FILE).filter(s => s.id !== story.id));
+    writeJSON(STORY_VIEWS_FILE, readJSON(STORY_VIEWS_FILE).filter(v => v.storyId !== story.id));
+    const fp = path.join(__dirname, 'public', story.media || '');
+    try { if (story.media && fp.startsWith(STORIES_UPLOAD_DIR) && fs.existsSync(fp)) fs.unlinkSync(fp); } catch { /* ignore */ }
+    res.json({ success: true });
+  } catch (e) { console.error('Story delete error:', e.message); res.status(500).json({ error: 'Could not delete story.' }); }
 });
 
 // ═════════════════════════════════════════════════════════════════════════
