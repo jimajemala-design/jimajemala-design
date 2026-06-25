@@ -16,3 +16,4 @@ public/uploads/*
 
 # scratch
 .commitmsg.tmp
+scripts/tmp/
