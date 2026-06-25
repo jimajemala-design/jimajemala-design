@@ -10,9 +10,6 @@ console.log('=== ENV CHECK ===');
 console.log('EMAIL_USER:', process.env.EMAIL_USER || 'undefined');
 console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'SET' : 'NOT SET');
 console.log('GEMINI_KEY:', process.env.GEMINI_API_KEY ? 'SET' : 'NOT SET');
-console.log('DB_HOST:', process.env.DB_HOST ? 'SET' : 'NOT SET');
-console.log('DB_USER:', process.env.DB_USER ? 'SET' : 'NOT SET');
-console.log('DB_PASS:', process.env.DB_PASS ? 'SET' : 'NOT SET');
 console.log('=================');
 
 const express = require('express');
