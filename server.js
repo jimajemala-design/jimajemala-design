@@ -298,32 +298,117 @@ const writeJSON = (f, data) => {
   fs.writeFileSync(f, JSON.stringify(data, null, 2), 'utf8');
   try { _jsonCache.set(f, { mtime: fs.statSync(f).mtimeMs, data }); } catch {}
 };
-const publicUser = (u) => { const { password, _id, __v, ...rest } = u; return rest; };
+const publicUser = (u) => { const { password, ...rest } = u; return rest; };
 
-// ─── Phase 1: MongoDB (Auth + Users) ────────────────────────────────────
-// User is null until mongoose connects; all auth/profile code falls back to
-// JSON while null. Once connected, new writes go to both MongoDB and JSON
-// (dual-write) so non-migrated endpoints that still read USERS_FILE work.
-let User = null;
+// ─── Phase 1: MySQL / Hostinger (Auth + Users) ───────────────────────────
+// db is null until the pool is verified; all code falls back to JSON while
+// null. Dual-write keeps data/users.json in sync for non-migrated endpoints.
+let db = null;
+
+// Columns that exist in the `users` table — used to safely pick fields
+// before INSERT/UPDATE so extra properties never reach the SQL layer.
+const USER_COLS = ['id', 'email', 'password', 'name', 'username', 'bio',
+  'location', 'website', 'avatar', 'cover', 'age', 'weight', 'targetWeight',
+  'height', 'gender', 'goal', 'activityLevel', 'timeline', 'emailVerified',
+  'language', 'plan', 'planValidUntil', 'cancelAtPeriodEnd', 'stripeCustomerId',
+  'stripeSubscriptionId', 'waterGoalMl', 'createdAt'];
+
+function pickUserFields(obj) {
+  const out = {};
+  for (const k of USER_COLS) if (obj[k] !== undefined) out[k] = obj[k] ?? null;
+  return out;
+}
+function rowToUser(row) {
+  if (!row) return null;
+  return { ...row, emailVerified: !!row.emailVerified, cancelAtPeriodEnd: !!row.cancelAtPeriodEnd };
+}
+async function dbFindUserById(id) {
+  const [rows] = await db.execute('SELECT * FROM `users` WHERE `id` = ?', [id]);
+  return rows[0] ? rowToUser(rows[0]) : null;
+}
+async function dbFindUserByEmail(email) {
+  const [rows] = await db.execute('SELECT * FROM `users` WHERE `email` = ?', [email]);
+  return rows[0] ? rowToUser(rows[0]) : null;
+}
+async function dbInsertUser(user) {
+  const fields = pickUserFields(user);
+  const cols = Object.keys(fields).map(k => `\`${k}\``).join(', ');
+  const vals = Object.values(fields);
+  await db.execute(
+    `INSERT INTO \`users\` (${cols}) VALUES (${vals.map(() => '?').join(', ')})`,
+    vals
+  );
+}
+async function dbUpdateUser(id, user) {
+  const fields = pickUserFields(user);
+  delete fields.id;
+  const keys = Object.keys(fields);
+  if (!keys.length) return;
+  const set = keys.map(k => `\`${k}\` = ?`).join(', ');
+  await db.execute(`UPDATE \`users\` SET ${set} WHERE \`id\` = ?`, [...Object.values(fields), id]);
+}
+
 (async () => {
-  if (!process.env.MONGODB_URI) return console.warn('MONGODB_URI not set — JSON fallback active');
+  if (!process.env.DB_HOST || !process.env.DB_USER) {
+    return console.warn('DB_HOST/DB_USER not set — MySQL disabled, JSON fallback active');
+  }
   try {
-    const mg = require('mongoose');
-    await mg.connect(process.env.MONGODB_URI);
-    User = require('./models/User');
-    console.log('MongoDB Atlas connected');
-    // One-time seed: import JSON users if the collection is empty
-    const count = await User.countDocuments();
-    if (count === 0) {
+    const mysql = require('mysql2/promise');
+    db = mysql.createPool({
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASS || '',
+      database: process.env.DB_NAME,
+      port: Number(process.env.DB_PORT) || 3306,
+      waitForConnections: true,
+      connectionLimit: 10,
+      charset: 'utf8mb4',
+    });
+    // Auto-create users table (idempotent)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`users\` (
+        \`id\`                   VARCHAR(36)   PRIMARY KEY,
+        \`email\`                VARCHAR(255)  UNIQUE NOT NULL,
+        \`password\`             VARCHAR(255),
+        \`name\`                 VARCHAR(255),
+        \`username\`             VARCHAR(100),
+        \`bio\`                  TEXT,
+        \`location\`             VARCHAR(255),
+        \`website\`              VARCHAR(500),
+        \`avatar\`               VARCHAR(500),
+        \`cover\`                VARCHAR(500),
+        \`age\`                  INT,
+        \`weight\`               FLOAT,
+        \`targetWeight\`         FLOAT,
+        \`height\`               FLOAT,
+        \`gender\`               VARCHAR(20),
+        \`goal\`                 VARCHAR(50)   DEFAULT 'maintain',
+        \`activityLevel\`        VARCHAR(50),
+        \`timeline\`             INT,
+        \`emailVerified\`        TINYINT(1)    DEFAULT 0,
+        \`language\`             VARCHAR(10)   DEFAULT 'en',
+        \`plan\`                 VARCHAR(20)   DEFAULT 'free',
+        \`planValidUntil\`       DATETIME,
+        \`cancelAtPeriodEnd\`    TINYINT(1)    DEFAULT 0,
+        \`stripeCustomerId\`     VARCHAR(255),
+        \`stripeSubscriptionId\` VARCHAR(255),
+        \`waterGoalMl\`          INT,
+        \`createdAt\`            DATETIME      DEFAULT CURRENT_TIMESTAMP
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    console.log('MySQL connected (Hostinger)');
+    // One-time seed: import JSON users if the table is empty
+    const [[{ cnt }]] = await db.execute('SELECT COUNT(*) AS cnt FROM `users`');
+    if (cnt === 0) {
       const seed = readJSON(USERS_FILE);
-      if (seed.length > 0) {
-        await User.insertMany(seed, { ordered: false });
-        console.log(`Migrated ${seed.length} users from JSON → MongoDB`);
+      for (const u of seed) {
+        try { await dbInsertUser(u); } catch { /* skip duplicates */ }
       }
+      if (seed.length) console.log(`Migrated ${seed.length} users from JSON → MySQL`);
     }
   } catch (e) {
-    console.error('MongoDB setup failed:', e.message);
-    User = null;
+    console.error('MySQL setup failed:', e.message);
+    db = null;
   }
 })();
 
@@ -342,8 +427,8 @@ async function auth(req, res, next) {
   // (e.g. data reset, or a token from a previous run). Return 401 — NOT 404 —
   // so the client clears it and routes to login, instead of every endpoint
   // failing with a confusing "User not found" (notably on profile Save).
-  const user = User
-    ? await User.findOne({ id: payload.id }).lean()
+  const user = db
+    ? await dbFindUserById(payload.id)
     : readJSON(USERS_FILE).find(u => u.id === payload.id);
   if (!user) {
     console.warn('Auth: token valid but user missing:', payload.id);
@@ -1916,8 +2001,8 @@ app.post('/api/auth/send-code', async (req, res) => {
   if (String(password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
   const emailNorm = String(email).trim().toLowerCase();
-  const existingUser = User
-    ? await User.findOne({ email: emailNorm }).lean()
+  const existingUser = db
+    ? await dbFindUserByEmail(emailNorm)
     : readJSON(USERS_FILE).find(u => u.email.toLowerCase() === emailNorm);
   if (existingUser) {
     return res.status(409).json({ error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
@@ -1954,8 +2039,8 @@ app.post('/api/auth/verify-code', async (req, res) => {
   }
   if (String(code).trim() !== pending.code) return res.status(400).json({ error: 'Incorrect code — please try again.', code: 'CODE_INCORRECT' });
 
-  const existingCheck = User
-    ? await User.findOne({ email: emailNorm }).lean()
+  const existingCheck = db
+    ? await dbFindUserByEmail(emailNorm)
     : readJSON(USERS_FILE).find(u => u.email.toLowerCase() === emailNorm);
   if (existingCheck) {
     pendingVerifications.delete(emailNorm);
@@ -1966,7 +2051,7 @@ app.post('/api/auth/verify-code', async (req, res) => {
     age: null, weight: null, height: null, gender: null, goal: 'maintain',
     emailVerified: true, plan: 'free', createdAt: new Date().toISOString(),
   };
-  if (User) await new User(user).save();
+  if (db) await dbInsertUser(user);
   const users = readJSON(USERS_FILE);
   users.push(user);
   writeJSON(USERS_FILE, users);
@@ -1983,8 +2068,8 @@ app.post('/api/register', async (req, res) => {
   if (String(password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
   const emailNorm = String(email).trim().toLowerCase();
-  const existingUser = User
-    ? await User.findOne({ email: emailNorm }).lean()
+  const existingUser = db
+    ? await dbFindUserByEmail(emailNorm)
     : readJSON(USERS_FILE).find(u => u.email.toLowerCase() === emailNorm);
   if (existingUser) {
     return res.status(409).json({ error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
@@ -2001,7 +2086,7 @@ app.post('/api/register', async (req, res) => {
     goal: goal || 'maintain',
     createdAt: new Date().toISOString(),
   };
-  if (User) await new User(user).save();
+  if (db) await dbInsertUser(user);
   const users = readJSON(USERS_FILE);
   users.push(user);
   writeJSON(USERS_FILE, users);
@@ -2013,8 +2098,8 @@ app.post('/api/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required', code: 'VALIDATION_ERROR' });
   const emailLower = String(email).trim().toLowerCase();
-  const user = User
-    ? await User.findOne({ email: emailLower }).lean()
+  const user = db
+    ? await dbFindUserByEmail(emailLower)
     : readJSON(USERS_FILE).find(u => u.email.toLowerCase() === emailLower);
   const passwordMatch = user ? await bcrypt.compare(String(password), user.password) : false;
   if (!user || !passwordMatch) {
@@ -2057,7 +2142,7 @@ app.put('/api/profile', auth, async (req, res) => {
   } else if (goal != null) {
     u.goal = String(goal);
   }
-  if (User) await User.findOneAndUpdate({ id: req.userId }, u);
+  if (db) await dbUpdateUser(req.userId, u);
   const users = readJSON(USERS_FILE);
   const idx = users.findIndex(u2 => u2.id === req.userId);
   if (idx !== -1) { users[idx] = u; writeJSON(USERS_FILE, users); }
