@@ -298,10 +298,37 @@ const writeJSON = (f, data) => {
   fs.writeFileSync(f, JSON.stringify(data, null, 2), 'utf8');
   try { _jsonCache.set(f, { mtime: fs.statSync(f).mtimeMs, data }); } catch {}
 };
-const publicUser = (u) => { const { password, ...rest } = u; return rest; };
+const publicUser = (u) => { const { password, _id, __v, ...rest } = u; return rest; };
+
+// ─── Phase 1: MongoDB (Auth + Users) ────────────────────────────────────
+// User is null until mongoose connects; all auth/profile code falls back to
+// JSON while null. Once connected, new writes go to both MongoDB and JSON
+// (dual-write) so non-migrated endpoints that still read USERS_FILE work.
+let User = null;
+(async () => {
+  if (!process.env.MONGODB_URI) return console.warn('MONGODB_URI not set — JSON fallback active');
+  try {
+    const mg = require('mongoose');
+    await mg.connect(process.env.MONGODB_URI);
+    User = require('./models/User');
+    console.log('MongoDB Atlas connected');
+    // One-time seed: import JSON users if the collection is empty
+    const count = await User.countDocuments();
+    if (count === 0) {
+      const seed = readJSON(USERS_FILE);
+      if (seed.length > 0) {
+        await User.insertMany(seed, { ordered: false });
+        console.log(`Migrated ${seed.length} users from JSON → MongoDB`);
+      }
+    }
+  } catch (e) {
+    console.error('MongoDB setup failed:', e.message);
+    User = null;
+  }
+})();
 
 // JWT auth middleware
-function auth(req, res, next) {
+async function auth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'No token provided', code: 'AUTH_REQUIRED' });
@@ -315,7 +342,9 @@ function auth(req, res, next) {
   // (e.g. data reset, or a token from a previous run). Return 401 — NOT 404 —
   // so the client clears it and routes to login, instead of every endpoint
   // failing with a confusing "User not found" (notably on profile Save).
-  const user = readJSON(USERS_FILE).find(u => u.id === payload.id);
+  const user = User
+    ? await User.findOne({ id: payload.id }).lean()
+    : readJSON(USERS_FILE).find(u => u.id === payload.id);
   if (!user) {
     console.warn('Auth: token valid but user missing:', payload.id);
     return res.status(401).json({ error: 'Session no longer valid — please log in again', code: 'SESSION_EXPIRED' });
@@ -1887,8 +1916,10 @@ app.post('/api/auth/send-code', async (req, res) => {
   if (String(password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
   const emailNorm = String(email).trim().toLowerCase();
-  const users = readJSON(USERS_FILE);
-  if (users.find(u => u.email.toLowerCase() === emailNorm)) {
+  const existingUser = User
+    ? await User.findOne({ email: emailNorm }).lean()
+    : readJSON(USERS_FILE).find(u => u.email.toLowerCase() === emailNorm);
+  if (existingUser) {
     return res.status(409).json({ error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
   }
 
@@ -1923,8 +1954,10 @@ app.post('/api/auth/verify-code', async (req, res) => {
   }
   if (String(code).trim() !== pending.code) return res.status(400).json({ error: 'Incorrect code — please try again.', code: 'CODE_INCORRECT' });
 
-  const users = readJSON(USERS_FILE);
-  if (users.find(u => u.email.toLowerCase() === emailNorm)) {
+  const existingCheck = User
+    ? await User.findOne({ email: emailNorm }).lean()
+    : readJSON(USERS_FILE).find(u => u.email.toLowerCase() === emailNorm);
+  if (existingCheck) {
     pendingVerifications.delete(emailNorm);
     return res.status(409).json({ error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
   }
@@ -1933,6 +1966,8 @@ app.post('/api/auth/verify-code', async (req, res) => {
     age: null, weight: null, height: null, gender: null, goal: 'maintain',
     emailVerified: true, plan: 'free', createdAt: new Date().toISOString(),
   };
+  if (User) await new User(user).save();
+  const users = readJSON(USERS_FILE);
   users.push(user);
   writeJSON(USERS_FILE, users);
   pendingVerifications.delete(emailNorm);
@@ -1947,13 +1982,16 @@ app.post('/api/register', async (req, res) => {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
   if (String(password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
-  const users = readJSON(USERS_FILE);
-  if (users.find(u => u.email.toLowerCase() === String(email).toLowerCase())) {
+  const emailNorm = String(email).trim().toLowerCase();
+  const existingUser = User
+    ? await User.findOne({ email: emailNorm }).lean()
+    : readJSON(USERS_FILE).find(u => u.email.toLowerCase() === emailNorm);
+  if (existingUser) {
     return res.status(409).json({ error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
   }
   const user = {
     id: uuidv4(),
-    email: String(email).trim().toLowerCase(),
+    email: emailNorm,
     password: await bcrypt.hash(String(password), 10),
     name: String(name).trim(),
     age: age ? Number(age) : null,
@@ -1963,6 +2001,8 @@ app.post('/api/register', async (req, res) => {
     goal: goal || 'maintain',
     createdAt: new Date().toISOString(),
   };
+  if (User) await new User(user).save();
+  const users = readJSON(USERS_FILE);
   users.push(user);
   writeJSON(USERS_FILE, users);
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
@@ -1972,8 +2012,10 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required', code: 'VALIDATION_ERROR' });
-  const users = readJSON(USERS_FILE);
-  const user = users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
+  const emailLower = String(email).trim().toLowerCase();
+  const user = User
+    ? await User.findOne({ email: emailLower }).lean()
+    : readJSON(USERS_FILE).find(u => u.email.toLowerCase() === emailLower);
   const passwordMatch = user ? await bcrypt.compare(String(password), user.password) : false;
   if (!user || !passwordMatch) {
     return res.status(401).json({ error: 'Invalid email or password', code: 'INVALID_CREDENTIALS' });
@@ -1991,17 +2033,13 @@ app.get('/api/i18n/detect', (req, res) => {
 });
 
 app.get('/api/profile', auth, (req, res) => {
-  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json({ user: publicUser(user), calories: calcCalories(user) });
+  res.json({ user: publicUser(req.user), calories: calcCalories(req.user) });
 });
 
-app.put('/api/profile', auth, (req, res) => {
-  const users = readJSON(USERS_FILE);
-  const idx = users.findIndex(u => u.id === req.userId);
-  if (idx === -1) return res.status(404).json({ error: 'User not found' });
-  const u = users[idx];
+app.put('/api/profile', auth, async (req, res) => {
   const { name, age, weight, currentWeight, targetWeight, height, gender, goal, timeline, activityLevel, language } = req.body || {};
+  const u = Object.assign({}, req.user);
+  delete u._id; delete u.__v;
   if (name != null) u.name = String(name).trim();
   if (language != null && ['en', 'ka'].includes(String(language))) u.language = String(language);
   if (age != null) u.age = Number(age);
@@ -2019,15 +2057,16 @@ app.put('/api/profile', auth, (req, res) => {
   } else if (goal != null) {
     u.goal = String(goal);
   }
-  users[idx] = u;
-  writeJSON(USERS_FILE, users);
+  if (User) await User.findOneAndUpdate({ id: req.userId }, u);
+  const users = readJSON(USERS_FILE);
+  const idx = users.findIndex(u2 => u2.id === req.userId);
+  if (idx !== -1) { users[idx] = u; writeJSON(USERS_FILE, users); }
   res.json({ user: publicUser(u), calories: calcCalories(u) });
 });
 
 // ─── PROFILE STATS ────────────────────────────────────────────────────────
 app.get('/api/profile/stats', auth, (req, res) => {
-  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
-  if (!user) return res.status(404).json({ error: 'User not found' });
+  const user = req.user;
   const cal = calcCalories(user);
   if (!cal) return res.status(400).json({ error: 'Profile incomplete — fill in your stats first.' });
   const bmi = user.height ? +(user.weight / Math.pow(user.height / 100, 2)).toFixed(1) : null;
