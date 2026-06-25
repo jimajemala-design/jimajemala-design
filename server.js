@@ -505,6 +505,63 @@ async function dbUpdateUser(id, user) {
       }
       if (seedCmts.length) console.log(`Migrated ${seedCmts.length} post_comments from JSON → MySQL`);
     }
+
+    // ─── Phase 2c: follows table ──────────────────────────────────────────
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`follows\` (
+        \`id\`          VARCHAR(36)  PRIMARY KEY,
+        \`followerId\`  VARCHAR(36)  NOT NULL,
+        \`followingId\` VARCHAR(36)  NOT NULL,
+        \`createdAt\`   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY \`unique_follow\` (\`followerId\`, \`followingId\`),
+        INDEX \`idx_followerId\`  (\`followerId\`),
+        INDEX \`idx_followingId\` (\`followingId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ flwCnt }]] = await db.execute('SELECT COUNT(*) AS flwCnt FROM `follows`');
+    if (flwCnt === 0) {
+      const seedFollows = readJSON(FOLLOWS_FILE);
+      for (const f of seedFollows) {
+        try {
+          await db.execute(
+            'INSERT INTO `follows` (`id`,`followerId`,`followingId`,`createdAt`) VALUES (?,?,?,?)',
+            [f.id || uuidv4(), f.followerId, f.followingId, f.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedFollows.length) console.log(`Migrated ${seedFollows.length} follows from JSON → MySQL`);
+    }
+
+    // ─── Phase 2c: notifications table ───────────────────────────────────
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`notifications\` (
+        \`id\`        VARCHAR(36)   PRIMARY KEY,
+        \`userId\`    VARCHAR(36)   NOT NULL,
+        \`type\`      VARCHAR(50)   NOT NULL,
+        \`actorId\`   VARCHAR(36)   DEFAULT NULL,
+        \`postId\`    VARCHAR(36)   DEFAULT NULL,
+        \`commentId\` VARCHAR(36)   DEFAULT NULL,
+        \`text\`      TEXT,
+        \`read\`      TINYINT(1)    DEFAULT 0,
+        \`createdAt\` DATETIME      DEFAULT CURRENT_TIMESTAMP,
+        INDEX \`idx_userId\`    (\`userId\`),
+        INDEX \`idx_read\`      (\`read\`),
+        INDEX \`idx_createdAt\` (\`createdAt\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
+    const [[{ notifCnt }]] = await db.execute('SELECT COUNT(*) AS notifCnt FROM `notifications`');
+    if (notifCnt === 0) {
+      const seedNotifs = readJSON(NOTIFICATIONS_FILE);
+      for (const n of seedNotifs) {
+        try {
+          await db.execute(
+            'INSERT INTO `notifications` (`id`,`userId`,`type`,`actorId`,`postId`,`text`,`read`,`createdAt`) VALUES (?,?,?,?,?,?,?,?)',
+            [n.id, n.toUserId, n.type, n.fromUserId || null, n.postId || null, n.text || '', n.read ? 1 : 0, n.at || new Date().toISOString()]
+          );
+        } catch { /* skip duplicates */ }
+      }
+      if (seedNotifs.length) console.log(`Migrated ${seedNotifs.length} notifications from JSON → MySQL`);
+    }
   } catch (e) {
     console.error('MySQL setup failed:', e.message);
     db = null;
@@ -3609,6 +3666,110 @@ async function sCountPostComments(postId) {
   return cnt;
 }
 
+// ─── Phase 2c: Follows helpers (MySQL with JSON dual-write) ──────────────────
+// Toggle follow in MySQL + dual-write JSON. Returns { following, followerCount }.
+async function sToggleFollow(followerId, followingId) {
+  let following;
+  if (db) {
+    const [ex] = await db.execute(
+      'SELECT `id` FROM `follows` WHERE `followerId` = ? AND `followingId` = ?', [followerId, followingId]
+    );
+    if (ex[0]) {
+      await db.execute('DELETE FROM `follows` WHERE `followerId` = ? AND `followingId` = ?', [followerId, followingId]);
+      following = false;
+    } else {
+      await db.execute(
+        'INSERT INTO `follows` (`id`,`followerId`,`followingId`) VALUES (?,?,?)', [uuidv4(), followerId, followingId]
+      );
+      following = true;
+    }
+  }
+  // Dual-write JSON
+  const all = readJSON(FOLLOWS_FILE);
+  const mine = all.find(f => f.followerId === followerId && f.followingId === followingId);
+  let next = all;
+  if (mine) { next = all.filter(f => f !== mine); following = false; }
+  else { next.push({ followerId, followingId, at: new Date().toISOString() }); following = true; }
+  writeJSON(FOLLOWS_FILE, next);
+  let followerCount;
+  if (db) {
+    const [[{ cnt }]] = await db.execute('SELECT COUNT(*) AS cnt FROM `follows` WHERE `followingId` = ?', [followingId]);
+    followerCount = cnt;
+  } else {
+    followerCount = next.filter(f => f.followingId === followingId).length;
+  }
+  return { following, followerCount };
+}
+
+// Get all follows from MySQL (or JSON), applying an in-memory filter function.
+async function sGetFollows(filter) {
+  if (!db) return readJSON(FOLLOWS_FILE).filter(filter);
+  const [rows] = await db.execute('SELECT `followerId`, `followingId`, `createdAt` AS at FROM `follows`');
+  return rows.filter(filter);
+}
+
+// ─── Phase 2c: Notifications helpers (MySQL with JSON dual-write) ─────────────
+// Convert a MySQL notifications row back to the JSON-compatible shape.
+function rowToNotification(r) {
+  return {
+    id: r.id, type: r.type,
+    toUserId: r.userId,
+    fromUserId: r.actorId || null,
+    postId: r.postId || null,
+    text: r.text || '',
+    read: !!r.read,
+    at: r.createdAt || new Date().toISOString(),
+    fromName: null, fromAvatar: null,
+  };
+}
+
+// Read paginated notifications for a user from MySQL (or JSON fallback).
+async function sGetNotifications(userId, filter, page, perPage) {
+  if (!db) {
+    let list = readJSON(NOTIFICATIONS_FILE).filter(n => n.toUserId === userId);
+    const unread = list.filter(n => !n.read).length;
+    if (filter && NOTIF_GROUPS[filter]) list = list.filter(n => NOTIF_GROUPS[filter].includes(n.type));
+    const total = list.length;
+    const start = (page - 1) * perPage;
+    return { items: list.slice(start, start + perPage), total, unread };
+  }
+  let sql = 'SELECT * FROM `notifications` WHERE `userId` = ?';
+  const params = [userId];
+  if (filter && NOTIF_GROUPS[filter]) {
+    sql += ' AND `type` IN (' + NOTIF_GROUPS[filter].map(() => '?').join(',') + ')';
+    params.push(...NOTIF_GROUPS[filter]);
+  }
+  const [[{ total }]] = await db.execute(
+    'SELECT COUNT(*) AS total FROM `notifications` WHERE `userId` = ?', [userId]
+  );
+  const [[{ unread }]] = await db.execute(
+    'SELECT COUNT(*) AS unread FROM `notifications` WHERE `userId` = ? AND `read` = 0', [userId]
+  );
+  sql += ' ORDER BY `createdAt` DESC LIMIT ? OFFSET ?';
+  params.push(perPage, (page - 1) * perPage);
+  const [rows] = await db.execute(sql, params);
+  return { items: rows.map(rowToNotification), total, unread };
+}
+
+// Count unread notifications for a user.
+async function sCountUnreadNotifications(userId) {
+  if (!db) return readJSON(NOTIFICATIONS_FILE).filter(n => n.toUserId === userId && !n.read).length;
+  const [[{ cnt }]] = await db.execute(
+    'SELECT COUNT(*) AS cnt FROM `notifications` WHERE `userId` = ? AND `read` = 0', [userId]
+  );
+  return cnt;
+}
+
+// Mark all notifications read for a user in MySQL + dual-write JSON.
+async function sMarkAllNotificationsRead(userId) {
+  if (db) {
+    await db.execute('UPDATE `notifications` SET `read` = 1 WHERE `userId` = ?', [userId]);
+  }
+  const all = readJSON(NOTIFICATIONS_FILE);
+  all.forEach(n => { if (n.toUserId === userId) n.read = true; });
+  writeJSON(NOTIFICATIONS_FILE, all);
+}
+
 const POST_REACTIONS = ['❤️', '🔥', '😋', '👏', '🤩', '💪'];
 const POST_TYPES = ['photo', 'video', 'recipe', 'text'];
 
@@ -3628,8 +3789,8 @@ function optionalAuth(req) {
   try { return jwt.verify(token, JWT_SECRET).id; } catch { return null; }
 }
 
-// Store a notification (best-effort; never notify yourself). Powers the Phase 3
-// bell UI; counts are already queryable via /api/notifications/count.
+// Store a notification (best-effort; never notify yourself). Phase 2c: MySQL
+// fire-and-forget + JSON dual-write so all callers remain synchronous.
 function pushNotification(type, { toUserId, fromUserId, postId, text }) {
   if (!toUserId || toUserId === fromUserId) return;
   const from = readJSON(USERS_FILE).find(u => u.id === fromUserId);
@@ -3638,10 +3799,18 @@ function pushNotification(type, { toUserId, fromUserId, postId, text }) {
     fromName: (from && from.name) || 'Someone', fromAvatar: (from && from.avatar) || null,
     postId: postId || null, text: text || '', read: false, at: new Date().toISOString(),
   };
+  // MySQL fire-and-forget (callers don't await pushNotification)
+  if (db) {
+    db.execute(
+      'INSERT INTO `notifications` (`id`,`userId`,`type`,`actorId`,`postId`,`text`,`read`,`createdAt`) VALUES (?,?,?,?,?,?,?,?)',
+      [notif.id, toUserId, type, fromUserId || null, postId || null, notif.text, 0, notif.at]
+    ).catch(e => console.error('notif insert:', e.message));
+  }
+  // Dual-write JSON so non-migrated single-notif endpoints stay in sync.
   const all = readJSON(NOTIFICATIONS_FILE);
   all.unshift(notif);
   writeJSON(NOTIFICATIONS_FILE, all.slice(0, 500));
-  // Phase 5: push it live to the recipient's bell (if connected).
+  // Push live to recipient's bell (if connected).
   const post = postId ? readJSON(POSTS_FILE).find(p => p.id === postId) : null;
   RT.toUser(toUserId, 'notification:new', {
     id: notif.id, type, text: notif.text, at: notif.at,
@@ -4107,19 +4276,21 @@ app.post('/api/posts/:id/comments/:cid/like', auth, async (req, res) => {
 });
 
 // ── Follow system ──
-app.get('/api/users/suggested', (req, res) => {
-  const viewerId = optionalAuth(req);
-  const follows = readJSON(FOLLOWS_FILE);
-  const followingIds = new Set(follows.filter(f => f.followerId === viewerId).map(f => f.followingId));
-  const followerCount = {};
-  follows.forEach(f => { followerCount[f.followingId] = (followerCount[f.followingId] || 0) + 1; });
-  const users = readJSON(USERS_FILE)
-    .filter(u => u.id !== viewerId && !followingIds.has(u.id))
-    .map(u => ({ id: u.id, name: u.name, username: userHandle(u), avatar: u.avatar || null,
-      bio: (u.bio || '').slice(0, 80), followers: followerCount[u.id] || 0 }))
-    .sort((a, b) => b.followers - a.followers)
-    .slice(0, 5);
-  res.json(users);
+app.get('/api/users/suggested', async (req, res) => {
+  try {
+    const viewerId = optionalAuth(req);
+    const follows = await sGetFollows(() => true);
+    const followingIds = new Set(follows.filter(f => f.followerId === viewerId).map(f => f.followingId));
+    const followerCount = {};
+    follows.forEach(f => { followerCount[f.followingId] = (followerCount[f.followingId] || 0) + 1; });
+    const users = readJSON(USERS_FILE)
+      .filter(u => u.id !== viewerId && !followingIds.has(u.id))
+      .map(u => ({ id: u.id, name: u.name, username: userHandle(u), avatar: u.avatar || null,
+        bio: (u.bio || '').slice(0, 80), followers: followerCount[u.id] || 0 }))
+      .sort((a, b) => b.followers - a.followers)
+      .slice(0, 5);
+    res.json(users);
+  } catch (e) { console.error('Suggested error:', e.message); res.status(500).json({ error: 'Could not load suggestions.' }); }
 });
 
 function profileSummary(u, viewerId) {
@@ -4154,22 +4325,16 @@ app.get('/api/users/:id/posts', (req, res) => {
   res.json(list);
 });
 
-app.post('/api/users/:id/follow', auth, (req, res) => {
-  const targetId = req.params.id;
-  if (targetId === req.userId) return res.status(400).json({ error: "You can't follow yourself" });
-  const target = readJSON(USERS_FILE).find(u => u.id === targetId);
-  if (!target) return res.status(404).json({ error: 'User not found' });
-  const all = readJSON(FOLLOWS_FILE);
-  const mine = all.find(f => f.followerId === req.userId && f.followingId === targetId);
-  let next = all, following;
-  if (mine) { next = all.filter(f => f !== mine); following = false; }
-  else {
-    next.push({ followerId: req.userId, followingId: targetId, at: new Date().toISOString() });
-    following = true;
-    pushNotification('follow', { toUserId: targetId, fromUserId: req.userId, text: 'started following you' });
-  }
-  writeJSON(FOLLOWS_FILE, next);
-  res.json({ following, followers: next.filter(f => f.followingId === targetId).length });
+app.post('/api/users/:id/follow', auth, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    if (targetId === req.userId) return res.status(400).json({ error: "You can't follow yourself" });
+    const target = readJSON(USERS_FILE).find(u => u.id === targetId);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    const { following, followerCount } = await sToggleFollow(req.userId, targetId);
+    if (following) pushNotification('follow', { toUserId: targetId, fromUserId: req.userId, text: 'started following you' });
+    res.json({ following, followers: followerCount });
+  } catch (e) { console.error('Follow error:', e.message); res.status(500).json({ error: 'Could not toggle follow.' }); }
 });
 
 // ── Phase 2: full profiles (edit, image upload, followers/following, liked) ──
@@ -4274,16 +4439,18 @@ app.post('/api/upload/cover', auth, profileImageHandler('cover', COVERS_UPLOAD_D
 
 // Followers / following lists (newest first; each row carries viewer follow-state).
 function followList(targetField, idField) {
-  return (req, res) => {
-    const viewerId = optionalAuth(req);
-    const follows = readJSON(FOLLOWS_FILE);
-    const byId = new Map(readJSON(USERS_FILE).map(u => [u.id, u]));
-    const viewerFollowing = new Set(follows.filter(f => f.followerId === viewerId).map(f => f.followingId));
-    const list = follows.filter(f => f[targetField] === req.params.id)
-      .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
-      .map(f => byId.get(f[idField])).filter(Boolean)
-      .map(u => userMini(u, viewerId, viewerFollowing));
-    res.json(list);
+  return async (req, res) => {
+    try {
+      const viewerId = optionalAuth(req);
+      const follows = await sGetFollows(() => true);
+      const byId = new Map(readJSON(USERS_FILE).map(u => [u.id, u]));
+      const viewerFollowing = new Set(follows.filter(f => f.followerId === viewerId).map(f => f.followingId));
+      const list = follows.filter(f => f[targetField] === req.params.id)
+        .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
+        .map(f => byId.get(f[idField])).filter(Boolean)
+        .map(u => userMini(u, viewerId, viewerFollowing));
+      res.json(list);
+    } catch (e) { console.error('Follow list error:', e.message); res.status(500).json({ error: 'Could not load list.' }); }
   };
 }
 app.get('/api/users/:id/followers', followList('followingId', 'followerId'));
@@ -4329,29 +4496,25 @@ function decorateNotification(n, posts, users) {
   };
 }
 
-app.get('/api/notifications', auth, (req, res) => {
-  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-  const perPage = 20;
-  let list = readJSON(NOTIFICATIONS_FILE).filter(n => n.toUserId === req.userId);
-  const filter = req.query.type;
-  if (filter && NOTIF_GROUPS[filter]) list = list.filter(n => NOTIF_GROUPS[filter].includes(n.type));
-  const total = list.length;
-  const unread = readJSON(NOTIFICATIONS_FILE).filter(n => n.toUserId === req.userId && !n.read).length;
-  const start = (page - 1) * perPage;
-  const posts = readJSON(POSTS_FILE);
-  const users = readJSON(USERS_FILE);
-  const items = list.slice(start, start + perPage).map(n => decorateNotification(n, posts, users));
-  res.json({ notifications: items, page, perPage, total, unread, hasMore: start + perPage < total });
+app.get('/api/notifications', auth, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const perPage = 20;
+    const filter = req.query.type;
+    const { items, total, unread } = await sGetNotifications(req.userId, filter, page, perPage);
+    const posts = readJSON(POSTS_FILE);
+    const users = readJSON(USERS_FILE);
+    const decorated = items.map(n => decorateNotification(n, posts, users));
+    res.json({ notifications: decorated, page, perPage, total, unread, hasMore: (page - 1) * perPage + perPage < total });
+  } catch (e) { console.error('Notifications error:', e.message); res.status(500).json({ error: 'Could not load notifications.' }); }
 });
-app.get('/api/notifications/count', auth, (req, res) => {
-  const n = readJSON(NOTIFICATIONS_FILE).filter(x => x.toUserId === req.userId && !x.read).length;
-  res.json({ count: n });
+app.get('/api/notifications/count', auth, async (req, res) => {
+  try { res.json({ count: await sCountUnreadNotifications(req.userId) }); }
+  catch (e) { console.error('Notif count error:', e.message); res.status(500).json({ error: 'Could not get count.' }); }
 });
-app.put('/api/notifications/read', auth, (req, res) => {
-  const all = readJSON(NOTIFICATIONS_FILE);
-  all.forEach(n => { if (n.toUserId === req.userId) n.read = true; });
-  writeJSON(NOTIFICATIONS_FILE, all);
-  res.json({ success: true });
+app.put('/api/notifications/read', auth, async (req, res) => {
+  try { await sMarkAllNotificationsRead(req.userId); res.json({ success: true }); }
+  catch (e) { console.error('Notif read error:', e.message); res.status(500).json({ error: 'Could not mark read.' }); }
 });
 app.put('/api/notifications/:id/read', auth, (req, res) => {
   const all = readJSON(NOTIFICATIONS_FILE);
