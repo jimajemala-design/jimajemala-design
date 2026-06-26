@@ -112,6 +112,14 @@
     .pill.active-s { background: rgba(34,197,94,.15); color: var(--green-lt); }
     .pill.banned-s { background: rgba(239,68,68,.15); color: var(--red); }
     .pill.admin-s { background: rgba(245,158,11,.15); color: var(--gold); }
+    .pill.mod-s { background: rgba(59,130,246,.18); color: #93c5fd; }
+    .pill.user-s { background: var(--glass-2); color: var(--text-2); }
+    .role-sel { background: var(--bg-2); color: var(--text); border: 1px solid var(--line-2);
+      border-radius: 8px; padding: 6px 8px; font-size: .8rem; font-weight: 600; cursor: pointer; }
+    .role-sel:focus { outline: none; border-color: var(--green); }
+    .ad-nav button[hidden] { display: none; }
+    .role-tag { font-size: .6rem; font-weight: 700; letter-spacing: .12em; padding: 2px 7px;
+      border-radius: 20px; text-transform: uppercase; margin-left: 6px; }
     .rep-badge { background: var(--red); color: #fff; font-size: .72rem; font-weight: 800;
       padding: 2px 8px; border-radius: 20px; }
     .num { font-variant-numeric: tabular-nums; color: var(--text-2); }
@@ -240,8 +248,8 @@
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>User</th><th>Email</th><th>Joined</th><th>Posts</th><th>Status</th><th></th></tr></thead>
-          <tbody id="usersBody"><tr><td colspan="6" class="loading">Loading…</td></tr></tbody>
+          <thead><tr><th>User</th><th>Email</th><th>Joined</th><th>Posts</th><th>Role</th><th>Status</th><th></th></tr></thead>
+          <tbody id="usersBody"><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
         </table>
       </div>
       <div class="pager" id="usersPager"></div>
@@ -258,14 +266,17 @@
   <script>
   (function () {
     // ── Frontend security gate ─────────────────────────────────────────────
-    // No token at all → straight to login. We also probe the server below;
-    // the API itself (auth + requireAdmin) is the real authority — a stale
-    // localStorage user can't grant access to any data.
+    // No token at all → straight to login. The real authority is the server:
+    // we probe /api/admin/me on boot for the caller's true role (handles stale
+    // localStorage) and every /api/admin route is role-gated server-side.
     if (typeof Auth === 'undefined' || !Auth.isAuthed()) {
       location.href = '/login.html'; return;
     }
-    const me = Auth.user() || {};
-    document.getElementById('whoami').textContent = (me.name || me.email || '') + ' · admin';
+    let myRole = 'user', myId = '';
+    // Roles allowed to see each tab (mirrors the server's requireRole levels).
+    const PAGE_ROLE = { dashboard: 'admin', posts: 'moderator', comments: 'moderator', users: 'admin', reports: 'moderator' };
+    const LEVEL = { user: 1, moderator: 2, admin: 3 };
+    const canSee = (page) => LEVEL[myRole] >= LEVEL[PAGE_ROLE[page]];
 
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -290,6 +301,9 @@
       go(btn.dataset.page);
     });
     function go(page) {
+      // Never honour a request for a tab this role can't see (e.g. a moderator
+      // following a #users deep-link) — fall back to the first allowed tab.
+      if (!canSee(page)) page = ['posts', 'comments', 'reports', 'dashboard'].find(canSee) || 'posts';
       document.querySelectorAll('.ad-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
       document.querySelectorAll('.page').forEach(s => s.classList.toggle('active', s.id === 'page-' + page));
       document.getElementById('pageTitle').textContent = TITLES[page];
@@ -298,14 +312,13 @@
     }
     document.getElementById('adLogout').addEventListener('click', () => Auth.logout());
 
-    // Centralised API call: on 403 the user isn't an admin → bounce to login.
+    // Centralised API call. Auth.api already redirects to login on a 401 (dead
+    // token). A 403 here means authenticated-but-wrong-role — surface it as a
+    // toast; we do NOT log the user out, since their session is still valid.
     async function api(path, opts) {
       try { return await Auth.api(path, opts); }
       catch (err) {
-        if (/admin only/i.test(err.message) || /403/.test(err.message)) {
-          toast('Admin access required.', 'error');
-          setTimeout(() => location.href = '/login.html', 800);
-        }
+        if (/role|permission|forbidden/i.test(err.message)) toast("You don't have permission for that action.", 'error');
         throw err;
       }
     }
@@ -451,24 +464,40 @@
 
     // ════════════ USERS ════════════
     const userState = { page: 1, search: '' };
+    const rolePill = (r) => r === 'admin' ? '<span class="pill admin-s">ADMIN</span>'
+      : r === 'moderator' ? '<span class="pill mod-s">MOD</span>' : '<span class="pill user-s">USER</span>';
     loaders.users = async function () {
       const body = document.getElementById('usersBody');
-      body.innerHTML = '<tr><td colspan="6" class="loading">Loading…</td></tr>';
+      body.innerHTML = '<tr><td colspan="7" class="loading">Loading…</td></tr>';
       try {
         const q = new URLSearchParams({ page: userState.page, limit: 20 });
         if (userState.search) q.set('search', userState.search);
         const data = await api('/api/admin/users?' + q);
-        if (!data.users.length) { body.innerHTML = '<tr><td colspan="6" class="empty">No users found.</td></tr>'; }
-        else body.innerHTML = data.users.map(u => `
+        if (!data.users.length) { body.innerHTML = '<tr><td colspan="7" class="empty">No users found.</td></tr>'; }
+        else body.innerHTML = data.users.map(u => {
+          const isSelf = u.id === myId;
+          // Admins are immutable from the UI; self can't be modified either.
+          const locked = u.role === 'admin' || isSelf;
+          const roleCell = locked
+            ? rolePill(u.role) + (isSelf ? ' <span class="muted">(you)</span>' : '')
+            : `<select class="role-sel" data-roleid="${esc(u.id)}">
+                 <option value="user" ${u.role === 'user' ? 'selected' : ''}>User</option>
+                 <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Moderator</option>
+               </select>`;
+          const action = locked
+            ? '<button class="btn btn-ghost" disabled>—</button>'
+            : `<button class="btn ${u.banned ? 'btn-unban' : 'btn-ban'}" data-id="${esc(u.id)}" data-ban="${u.banned ? '0' : '1'}">${u.banned ? 'Unban' : 'Ban'}</button>`;
+          return `
           <tr>
-            <td><div class="user-cell">${avatarHtml(u.avatar, u.name)}<span class="nm">${esc(u.name)}</span>${u.isAdmin ? '<span class="pill admin-s">ADMIN</span>' : ''}</div></td>
+            <td><div class="user-cell">${avatarHtml(u.avatar, u.name)}<span class="nm">${esc(u.name)}</span></div></td>
             <td class="num">${esc(u.email)}</td>
             <td class="num">${fmtDate(u.createdAt)}</td>
             <td class="num">${u.postCount}</td>
+            <td>${roleCell}</td>
             <td><span class="pill ${u.banned ? 'banned-s' : 'active-s'}">${u.banned ? 'Banned' : 'Active'}</span></td>
-            <td>${u.isAdmin ? '<button class="btn btn-ghost" disabled>—</button>' :
-              `<button class="btn ${u.banned ? 'btn-unban' : 'btn-ban'}" data-id="${esc(u.id)}" data-ban="${u.banned ? '0' : '1'}">${u.banned ? 'Unban' : 'Ban'}</button>`}</td>
-          </tr>`).join('');
+            <td>${action}</td>
+          </tr>`;
+        }).join('');
         renderPager(document.getElementById('usersPager'), data, (pg) => { userState.page = pg; loaders.users(); });
         document.querySelectorAll('#usersBody [data-id]').forEach(b => b.addEventListener('click', async () => {
           const ban = b.dataset.ban === '1';
@@ -477,7 +506,14 @@
             toast(ban ? 'User banned.' : 'User unbanned.', 'success'); loaders.users(); }
           catch (e) { toast(e.message, 'error'); }
         }));
-      } catch (e) { body.innerHTML = '<tr><td colspan="6" class="empty">Failed to load.</td></tr>'; }
+        document.querySelectorAll('#usersBody .role-sel').forEach(sel => sel.addEventListener('change', async () => {
+          const role = sel.value, id = sel.dataset.roleid;
+          if (!confirm(`Change this user's role to "${role}"?`)) { loaders.users(); return; }
+          try { await api('/api/admin/users/' + id + '/role', { method: 'PUT', body: JSON.stringify({ role }) });
+            toast('Role updated to ' + role + '.', 'success'); loaders.users(); }
+          catch (e) { toast(e.message, 'error'); loaders.users(); }
+        }));
+      } catch (e) { body.innerHTML = '<tr><td colspan="7" class="empty">Failed to load.</td></tr>'; }
     };
     document.getElementById('userSearch').addEventListener('input', debounce((e) => {
       userState.search = e.target.value.trim(); userState.page = 1; loaders.users();
@@ -517,8 +553,27 @@
     };
 
     // ── Boot ───────────────────────────────────────────────────────────────
-    const start = (location.hash || '#dashboard').slice(1);
-    go(TITLES[start] ? start : 'dashboard');
+    // Ask the server who we are (authoritative), configure tabs for the role,
+    // then open the right starting tab.
+    (async function init() {
+      try {
+        const meSrv = await Auth.api('/api/admin/me');
+        myRole = meSrv.role || 'user';
+        myId = meSrv.id || '';
+        document.getElementById('whoami').textContent = (meSrv.name || meSrv.email || '') + ' · ' + myRole;
+      } catch (e) {
+        // 401 already bounced to login inside Auth.api; anything else → no access.
+        location.href = '/feed.html'; return;
+      }
+      // Plain users have no business here.
+      if (myRole !== 'admin' && myRole !== 'moderator') { location.href = '/feed.html'; return; }
+      // Moderators: hide the admin-only tabs (Dashboard stats + Users roster).
+      document.querySelectorAll('.ad-nav button[data-page]').forEach(b => {
+        b.hidden = !canSee(b.dataset.page);
+      });
+      const start = (location.hash || '').slice(1);
+      go(canSee(start) ? start : (['dashboard', 'posts'].find(canSee) || 'posts'));
+    })();
   })();
   </script>
 </body>

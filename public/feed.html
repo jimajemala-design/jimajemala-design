@@ -185,9 +185,11 @@
       } else {
         av.textContent = '?'; av.href = '/login.html';
       }
-      // Reveal the Admin link only for admin accounts (real enforcement is
+      // Reveal the Admin link for moderators and admins (real enforcement is
       // server-side on every /api/admin route + the admin page's own gate).
-      if (u && (u.isAdmin === true || u.isAdmin === 1)) {
+      // Tolerates legacy sessions that still carry the old isAdmin flag.
+      var role = u && (u.role || (u.isAdmin ? 'admin' : 'user'));
+      if (role === 'admin' || role === 'moderator') {
         var adminLink = document.getElementById('adminNavLink');
         if (adminLink) adminLink.hidden = false;
       }

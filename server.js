@@ -224,9 +224,20 @@ try { sharp = require('sharp'); } catch (e) { /* resize skipped if unavailable *
 // .trim() guards against a stray trailing space/newline in .env so the secret
 // used to SIGN is byte-for-byte identical to the one used to VERIFY.
 const JWT_SECRET = (process.env.JWT_SECRET || 'nutrifell-georgia-secret-key-2035').trim();
-// The owner account that is granted admin rights on boot (idempotent). Override
-// via ADMIN_EMAIL in .env; defaults to the project owner.
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'jimajemala@gmail.com').trim().toLowerCase();
+// ─── Role-based access control ──────────────────────────────────────────
+// Discord-style hierarchy: higher number = more power. A route's minimum
+// required role is compared against the caller's effective level.
+const ROLE_LEVELS = { user: 1, moderator: 2, admin: 3 };
+// Effective role of a user object, tolerant of legacy/missing data: prefer the
+// explicit `role` string, fall back to the deprecated `isAdmin` flag, else 'user'.
+const roleOf = (u) => (u && u.role) || (u && u.isAdmin ? 'admin' : 'user');
+const roleLevel = (r) => ROLE_LEVELS[r] || 1;
+// Accounts auto-granted the 'admin' role on every boot, in BOTH MySQL and JSON.
+// jimajemala@gmail.com (the repo owner) is retained so the owner is never locked
+// out after the isAdmin→role migration; override the whole list via ADMIN_EMAILS.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ||
+  'tarnished326@gmail.com,tornikegml@gmail.com,jimajemala@gmail.com')
+  .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const FRIDGES_FILE = path.join(DATA_DIR, 'fridges.json');
@@ -304,7 +315,10 @@ const writeJSON = (f, data) => {
   fs.writeFileSync(f, JSON.stringify(data, null, 2), 'utf8');
   try { _jsonCache.set(f, { mtime: fs.statSync(f).mtimeMs, data }); } catch {}
 };
-const publicUser = (u) => { const { password, ...rest } = u; return rest; };
+// Strip the password, drop the deprecated isAdmin flag, and guarantee a
+// normalised `role` string on every client-facing user payload (login,
+// register, profile, etc.) so the frontend can gate UI on user.role.
+const publicUser = (u) => { const { password, isAdmin, ...rest } = u; return { ...rest, role: roleOf(u) }; };
 
 // ─── Phase 1: MySQL / Hostinger (Auth + Users) ───────────────────────────
 // db is null until the pool is verified; all code falls back to JSON while
@@ -317,7 +331,7 @@ const USER_COLS = ['id', 'email', 'password', 'name', 'username', 'bio',
   'location', 'website', 'avatar', 'cover', 'age', 'weight', 'targetWeight',
   'height', 'gender', 'goal', 'activityLevel', 'timeline', 'emailVerified',
   'language', 'plan', 'planValidUntil', 'cancelAtPeriodEnd', 'stripeCustomerId',
-  'stripeSubscriptionId', 'waterGoalMl', 'createdAt', 'isAdmin', 'banned'];
+  'stripeSubscriptionId', 'waterGoalMl', 'createdAt', 'role', 'banned'];
 
 function pickUserFields(obj) {
   const out = {};
@@ -327,7 +341,7 @@ function pickUserFields(obj) {
 function rowToUser(row) {
   if (!row) return null;
   return { ...row, emailVerified: !!row.emailVerified, cancelAtPeriodEnd: !!row.cancelAtPeriodEnd,
-    isAdmin: !!row.isAdmin, banned: !!row.banned };
+    role: row.role || (row.isAdmin ? 'admin' : 'user'), banned: !!row.banned };
 }
 async function dbFindUserById(id) {
   const [rows] = await db.execute('SELECT * FROM `users` WHERE `id` = ?', [id]);
@@ -355,25 +369,31 @@ async function dbUpdateUser(id, user) {
   await db.execute(`UPDATE \`users\` SET ${set} WHERE \`id\` = ?`, [...Object.values(fields), id]);
 }
 
-// Ensure the owner account carries isAdmin in the JSON store. Safe to call in
-// either mode — it's the source of truth when MySQL is disabled and a mirror
-// of the DB grant when it isn't.
-function ensureAdminInJSON() {
+// Bring the JSON store in line with the role model. Safe to call in either
+// mode — it's the source of truth when MySQL is disabled and a mirror of the
+// DB grant when it isn't. Idempotent:
+//   • migrates legacy isAdmin → role:'admin', then drops the isAdmin field
+//   • defaults every user to role:'user' and banned:false
+//   • force-grants the configured ADMIN_EMAILS the 'admin' role
+function ensureAdminsInJSON() {
   try {
     const users = readJSON(USERS_FILE);
     let changed = false;
     for (const u of users) {
-      const shouldBeAdmin = (u.email || '').toLowerCase() === ADMIN_EMAIL;
-      if (shouldBeAdmin && !u.isAdmin) { u.isAdmin = true; changed = true; }
+      if (!u.role) { u.role = u.isAdmin ? 'admin' : 'user'; changed = true; }
+      if ('isAdmin' in u) { delete u.isAdmin; changed = true; }       // deprecated — drop it
       if (u.banned === undefined) { u.banned = false; changed = true; }
+      if (ADMIN_EMAILS.includes((u.email || '').toLowerCase()) && u.role !== 'admin') {
+        u.role = 'admin'; changed = true;
+      }
     }
     if (changed) writeJSON(USERS_FILE, users);
-  } catch (e) { /* users.json not present yet — nothing to grant */ }
+  } catch (e) { /* users.json not present yet — nothing to migrate */ }
 }
 
 (async () => {
   if (!process.env.DB_HOST || !process.env.DB_USER) {
-    ensureAdminInJSON();
+    ensureAdminsInJSON();
     return console.warn('DB_HOST/DB_USER not set — MySQL disabled, JSON fallback active');
   }
   try {
@@ -419,21 +439,36 @@ function ensureAdminInJSON() {
         \`stripeCustomerId\`     VARCHAR(255),
         \`stripeSubscriptionId\` VARCHAR(255),
         \`waterGoalMl\`          INT,
-        \`isAdmin\`              TINYINT(1)    DEFAULT 0,
+        \`role\`                 VARCHAR(20)   DEFAULT 'user',
         \`banned\`               TINYINT(1)    DEFAULT 0,
         \`createdAt\`            DATETIME      DEFAULT CURRENT_TIMESTAMP
       ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
-    // Migration for pre-existing installs: add admin/ban columns if the table
-    // predates them. ADD COLUMN IF NOT EXISTS isn't portable across MySQL
-    // versions, so we try each ALTER and swallow the "duplicate column" error.
+    // ─── Role migration (idempotent, safe on a live production schema) ─────
+    // Adds `role`/`banned` to pre-existing tables, then upgrades the legacy
+    // boolean `isAdmin` into the new string `role` BEFORE dropping it. We probe
+    // information_schema so the destructive DROP only runs once isAdmin's data
+    // has actually been carried over — no live data is wiped.
     for (const ddl of [
-      "ALTER TABLE `users` ADD COLUMN `isAdmin` TINYINT(1) DEFAULT 0",
-      "ALTER TABLE `users` ADD COLUMN `banned`  TINYINT(1) DEFAULT 0",
+      "ALTER TABLE `users` ADD COLUMN `role`   VARCHAR(20) DEFAULT 'user'",
+      "ALTER TABLE `users` ADD COLUMN `banned` TINYINT(1)  DEFAULT 0",
     ]) {
       try { await db.execute(ddl); } catch (e) { /* column already exists */ }
     }
+    const [[{ hasIsAdmin }]] = await db.execute(
+      "SELECT COUNT(*) AS hasIsAdmin FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'isAdmin'");
+    if (hasIsAdmin) {
+      // Carry legacy admins across, then drop the deprecated column.
+      await db.execute("UPDATE `users` SET `role` = 'admin' WHERE `isAdmin` = 1 AND (`role` IS NULL OR `role` = 'user')");
+      try { await db.execute("ALTER TABLE `users` DROP COLUMN `isAdmin`"); console.log('Migrated isAdmin → role and dropped isAdmin column'); }
+      catch (e) { console.warn('Could not drop isAdmin column:', e.message); }
+    }
+    // Backfill any NULL roles to the default so comparisons are never undefined.
+    await db.execute("UPDATE `users` SET `role` = 'user' WHERE `role` IS NULL");
     console.log('MySQL connected (Hostinger)');
+    // Migrate the JSON file's roles FIRST so a fresh-DB seed (below) carries
+    // each user's role across instead of silently dropping legacy isAdmin.
+    ensureAdminsInJSON();
     // One-time seed: import JSON users if the table is empty
     const [[{ cnt }]] = await db.execute('SELECT COUNT(*) AS cnt FROM `users`');
     if (cnt === 0) {
@@ -443,10 +478,15 @@ function ensureAdminInJSON() {
       }
       if (seed.length) console.log(`Migrated ${seed.length} users from JSON → MySQL`);
     }
-    // Grant admin to the owner account (idempotent — runs every boot).
-    const [adminRes] = await db.execute('UPDATE `users` SET `isAdmin` = 1 WHERE LOWER(`email`) = ?', [ADMIN_EMAIL]);
-    if (adminRes.changedRows) console.log(`Admin granted to ${ADMIN_EMAIL}`);
-    ensureAdminInJSON(); // keep data/users.json in sync for dual-write paths
+    // Auto-grant the 'admin' role to the configured owner emails (every boot).
+    if (ADMIN_EMAILS.length) {
+      const placeholders = ADMIN_EMAILS.map(() => '?').join(',');
+      const [adminRes] = await db.execute(
+        `UPDATE \`users\` SET \`role\` = 'admin' WHERE LOWER(\`email\`) IN (${placeholders}) AND \`role\` <> 'admin'`,
+        ADMIN_EMAILS);
+      if (adminRes.changedRows) console.log(`Admin role granted to ${adminRes.changedRows} owner account(s)`);
+    }
+    ensureAdminsInJSON(); // keep data/users.json in sync for dual-write paths
 
     // ─── Phase 2a: posts table ────────────────────────────────────────────
     await db.execute(`
@@ -1205,14 +1245,25 @@ async function auth(req, res, next) {
   next();
 }
 
-// Admin gate — MUST be chained AFTER `auth` so req.user is populated:
-//   app.get('/api/admin/...', auth, requireAdmin, handler)
-const requireAdmin = (req, res, next) => {
-  if (!req.user || !req.user.isAdmin) {
-    return res.status(403).json({ error: 'Admin only', code: 'ADMIN_REQUIRED' });
+// Hierarchical role gate — MUST be chained AFTER `auth` so req.user is set:
+//   app.get('/api/admin/...', auth, requireRole('moderator'), handler)
+// Anyone whose effective role level is below the minimum gets 403.
+const requireRole = (minRole) => (req, res, next) => {
+  const need = ROLE_LEVELS[minRole] || ROLE_LEVELS.admin;
+  if (!req.user || roleLevel(roleOf(req.user)) < need) {
+    return res.status(403).json({ error: `Requires ${minRole} role or higher`, code: 'ROLE_REQUIRED', required: minRole });
   }
   next();
 };
+// A moderator/admin may only act on accounts strictly BELOW their own level —
+// this prevents privilege loops (a mod banning an admin, an admin demoting a
+// peer admin, etc.). Returns an error string if the action is disallowed.
+function rankGuard(actor, target) {
+  if (roleLevel(roleOf(target)) >= roleLevel(roleOf(actor))) {
+    return 'You cannot modify a user with an equal or higher role than your own.';
+  }
+  return null;
+}
 
 // Activity multipliers
 const ACTIVITY = { sedentary: 1.2, light: 1.375, moderate: 1.55, very: 1.725, extreme: 1.9 };
@@ -2859,6 +2910,8 @@ app.post('/api/register', async (req, res) => {
     height: null,
     gender: null,
     goal: goal || 'maintain',
+    role: 'user',
+    banned: false,
     createdAt: new Date().toISOString(),
   };
   if (db) await dbInsertUser(user);
@@ -5172,7 +5225,8 @@ function diversifyByAuthor(sorted) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// ADMIN PANEL API   (every route is auth + requireAdmin protected)
+// ADMIN PANEL API   (auth + role-gated: moderators get content moderation,
+// admins additionally get user roster, stats, bans and role management)
 // Dual-mode: MySQL when `db` is live, JSON files otherwise — mirroring the
 // pattern used throughout the rest of the server.
 // ════════════════════════════════════════════════════════════════════════
@@ -5193,8 +5247,15 @@ function postThumb(p) {
   return photos[0] || p.videoThumb || null;
 }
 
+// ─── GET /api/admin/me ── caller's effective role (authoritative for the UI) ──
+// Any logged-in user may call this; it lets the admin page configure its tabs
+// from the server's truth instead of a possibly-stale localStorage user.
+app.get('/api/admin/me', auth, (req, res) => {
+  res.json({ id: req.user.id, name: req.user.name, email: req.user.email, role: roleOf(req.user) });
+});
+
 // ─── GET /api/admin/posts ── paginated, searchable, with author + counts ──
-app.get('/api/admin/posts', auth, requireAdmin, async (req, res) => {
+app.get('/api/admin/posts', auth, requireRole('moderator'), async (req, res) => {
   try {
     const { page, limit, offset } = adminPaging(req);
     const search = String(req.query.search || '').trim();
@@ -5261,7 +5322,7 @@ app.get('/api/admin/posts', auth, requireAdmin, async (req, res) => {
 });
 
 // ─── DELETE /api/admin/posts/:id ── removes post + its reactions/comments/saves/reports + media ──
-app.delete('/api/admin/posts/:id', auth, requireAdmin, async (req, res) => {
+app.delete('/api/admin/posts/:id', auth, requireRole('moderator'), async (req, res) => {
   try {
     const id = req.params.id;
     const post = await sGetPostById(id);
@@ -5288,7 +5349,7 @@ app.delete('/api/admin/posts/:id', auth, requireAdmin, async (req, res) => {
 });
 
 // ─── GET /api/admin/comments ── all comments with author + post context ──
-app.get('/api/admin/comments', auth, requireAdmin, async (req, res) => {
+app.get('/api/admin/comments', auth, requireRole('moderator'), async (req, res) => {
   try {
     const { page, limit, offset } = adminPaging(req);
     const search = String(req.query.search || '').trim();
@@ -5336,7 +5397,7 @@ app.get('/api/admin/comments', auth, requireAdmin, async (req, res) => {
 });
 
 // ─── DELETE /api/admin/comments/:id ── removes the comment + any replies to it ──
-app.delete('/api/admin/comments/:id', auth, requireAdmin, async (req, res) => {
+app.delete('/api/admin/comments/:id', auth, requireRole('moderator'), async (req, res) => {
   try {
     const id = req.params.id;
     if (db) {
@@ -5348,7 +5409,7 @@ app.delete('/api/admin/comments/:id', auth, requireAdmin, async (req, res) => {
 });
 
 // ─── GET /api/admin/users ── all users with post count, searchable ──
-app.get('/api/admin/users', auth, requireAdmin, async (req, res) => {
+app.get('/api/admin/users', auth, requireRole('admin'), async (req, res) => {
   try {
     const { page, limit, offset } = adminPaging(req);
     const search = String(req.query.search || '').trim();
@@ -5359,13 +5420,13 @@ app.get('/api/admin/users', auth, requireAdmin, async (req, res) => {
       const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
       const [[{ total }]] = await db.execute(`SELECT COUNT(*) AS total FROM \`users\` u ${whereSql}`, params);
       const [rows] = await db.execute(`
-        SELECT u.id, u.name, u.email, u.avatar, u.createdAt, u.banned, u.isAdmin,
+        SELECT u.id, u.name, u.email, u.avatar, u.createdAt, u.banned, u.role,
                (SELECT COUNT(*) FROM \`posts\` p WHERE p.userId = u.id) AS postCount
         FROM \`users\` u ${whereSql}
         ORDER BY u.createdAt DESC LIMIT ${limit} OFFSET ${offset}`, params);
       const usersOut = rows.map(r => ({
         id: r.id, name: r.name || 'NutriFell User', email: r.email, avatar: r.avatar || null,
-        createdAt: r.createdAt, banned: !!r.banned, isAdmin: !!r.isAdmin, postCount: Number(r.postCount),
+        createdAt: r.createdAt, banned: !!r.banned, role: r.role || 'user', postCount: Number(r.postCount),
       }));
       return res.json({ users: usersOut, total: Number(total), page, limit, pages: Math.ceil(total / limit) });
     }
@@ -5380,32 +5441,59 @@ app.get('/api/admin/users', auth, requireAdmin, async (req, res) => {
     const total = all.length;
     const usersOut = all.slice(offset, offset + limit).map(u => ({
       id: u.id, name: u.name || 'NutriFell User', email: u.email, avatar: u.avatar || null,
-      createdAt: u.createdAt || null, banned: !!u.banned, isAdmin: !!u.isAdmin,
+      createdAt: u.createdAt || null, banned: !!u.banned, role: roleOf(u),
       postCount: posts.filter(p => p.userId === u.id).length,
     }));
     res.json({ users: usersOut, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (e) { console.error('Admin users error:', e.message); res.status(500).json({ error: 'Could not load users.' }); }
 });
 
-// ─── PUT /api/admin/users/:id/ban ── set banned true/false ──
-app.put('/api/admin/users/:id/ban', auth, requireAdmin, async (req, res) => {
+// Shared dual-write of a single user field (MySQL + JSON), returns the target.
+async function adminUpdateUserField(id, field, value) {
+  if (db) await db.execute(`UPDATE \`users\` SET \`${field}\` = ? WHERE \`id\` = ?`, [value, id]);
+  const users = readJSON(USERS_FILE);
+  const idx = users.findIndex(u => u.id === id);
+  if (idx !== -1) { users[idx][field] = value; writeJSON(USERS_FILE, users); }
+}
+
+// ─── PUT /api/admin/users/:id/ban ── set banned true/false (admin only) ──
+app.put('/api/admin/users/:id/ban', auth, requireRole('admin'), async (req, res) => {
   try {
     const id = req.params.id;
     const banned = !!(req.body && req.body.banned);
     if (id === req.userId) return res.status(400).json({ error: 'You cannot ban your own account.' });
     const target = db ? await dbFindUserById(id) : readJSON(USERS_FILE).find(u => u.id === id);
     if (!target) return res.status(404).json({ error: 'User not found' });
-    if (target.isAdmin) return res.status(403).json({ error: 'Cannot ban an admin account.' });
-    if (db) await db.execute('UPDATE `users` SET `banned` = ? WHERE `id` = ?', [banned ? 1 : 0, id]);
-    const users = readJSON(USERS_FILE);
-    const idx = users.findIndex(u => u.id === id);
-    if (idx !== -1) { users[idx].banned = banned; writeJSON(USERS_FILE, users); }
+    const blocked = rankGuard(req.user, target);
+    if (blocked) return res.status(403).json({ error: blocked });
+    await adminUpdateUserField(id, 'banned', banned ? 1 : 0);
     res.json({ success: true, banned });
   } catch (e) { console.error('Admin ban error:', e.message); res.status(500).json({ error: 'Could not update user.' }); }
 });
 
+// ─── PUT /api/admin/users/:id/role ── promote/demote between user ↔ moderator (admin only) ──
+app.put('/api/admin/users/:id/role', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const id = req.params.id;
+    const role = String((req.body && req.body.role) || '').toLowerCase();
+    // This endpoint deliberately only toggles user ↔ moderator. Admin is granted
+    // via the boot-time ADMIN_EMAILS allowlist, never through the UI.
+    if (!['user', 'moderator'].includes(role)) {
+      return res.status(400).json({ error: "Role must be 'user' or 'moderator'." });
+    }
+    if (id === req.userId) return res.status(400).json({ error: 'You cannot change your own role.' });
+    const target = db ? await dbFindUserById(id) : readJSON(USERS_FILE).find(u => u.id === id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    // Can't touch a peer/superior (e.g. demote another admin).
+    const blocked = rankGuard(req.user, target);
+    if (blocked) return res.status(403).json({ error: blocked });
+    await adminUpdateUserField(id, 'role', role);
+    res.json({ success: true, role });
+  } catch (e) { console.error('Admin role error:', e.message); res.status(500).json({ error: 'Could not update role.' }); }
+});
+
 // ─── GET /api/admin/reports ── reported posts with reporter + reason + preview ──
-app.get('/api/admin/reports', auth, requireAdmin, async (req, res) => {
+app.get('/api/admin/reports', auth, requireRole('moderator'), async (req, res) => {
   try {
     const { page, limit, offset } = adminPaging(req);
     if (db) {
@@ -5446,7 +5534,7 @@ app.get('/api/admin/reports', auth, requireAdmin, async (req, res) => {
 });
 
 // ─── DELETE /api/admin/reports/:id ── dismiss a single report ──
-app.delete('/api/admin/reports/:id', auth, requireAdmin, async (req, res) => {
+app.delete('/api/admin/reports/:id', auth, requireRole('moderator'), async (req, res) => {
   try {
     const id = req.params.id;
     if (db) await db.execute('DELETE FROM `post_reports` WHERE `id` = ?', [id]);
@@ -5456,7 +5544,7 @@ app.delete('/api/admin/reports/:id', auth, requireAdmin, async (req, res) => {
 });
 
 // ─── GET /api/admin/stats ── dashboard metrics ──
-app.get('/api/admin/stats', auth, requireAdmin, async (req, res) => {
+app.get('/api/admin/stats', auth, requireRole('admin'), async (req, res) => {
   try {
     if (db) {
       const [[{ totalUsers }]] = await db.execute('SELECT COUNT(*) AS totalUsers FROM `users`');
