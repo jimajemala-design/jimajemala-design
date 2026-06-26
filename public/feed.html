@@ -56,6 +56,7 @@
         <a class="side-item" href="/recipes.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v7a3 3 0 0 0 6 0V2M10 9v13M17 2c-1.5 1-2 3-2 6s.5 5 2 6V2z"/></svg> Recipes</a>
         <a class="side-item" href="/water.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 8 7 13a7 7 0 0 1-14 0c0-5 7-13 7-13z"/></svg> Water</a>
         <button class="side-item side-create" data-open-create><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Create Post</button>
+        <a class="side-item" id="adminNavLink" href="/admin.html" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Admin</a>
       </nav>
     </aside>
 
@@ -183,6 +184,12 @@
         document.getElementById('bnProfile').href = '/profile-social.html?id=' + u.id;
       } else {
         av.textContent = '?'; av.href = '/login.html';
+      }
+      // Reveal the Admin link only for admin accounts (real enforcement is
+      // server-side on every /api/admin route + the admin page's own gate).
+      if (u && (u.isAdmin === true || u.isAdmin === 1)) {
+        var adminLink = document.getElementById('adminNavLink');
+        if (adminLink) adminLink.hidden = false;
       }
       // Mount the Stories tray (logged-in only).
       if (u && window.Stories) Stories.load(document.getElementById('storyTray'));

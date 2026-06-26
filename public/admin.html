@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>NutriFell · Admin</title>
+  <style>
+    :root {
+      --bg: #080c14; --bg-2: #0c1220; --panel: #0f1626;
+      --green: #22c55e; --green-lt: #4ade80; --gold: #f59e0b;
+      --red: #ef4444; --info: #3b82f6;
+      --text: #f8fafc; --text-2: #94a3b8; --text-3: #64748b;
+      --glass: rgba(255,255,255,.03); --glass-2: rgba(255,255,255,.05);
+      --line: rgba(255,255,255,.08); --line-2: rgba(255,255,255,.12);
+      --radius: 12px; --shadow: 0 2px 12px rgba(0,0,0,.3);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex; min-height: 100vh; }
+    a { color: inherit; text-decoration: none; }
+
+    /* Sidebar */
+    .ad-side { width: 232px; flex-shrink: 0; background: var(--bg-2);
+      border-right: 1px solid var(--line); padding: 20px 14px; position: sticky; top: 0;
+      height: 100vh; display: flex; flex-direction: column; gap: 6px; }
+    .ad-logo { font-size: 1.25rem; font-weight: 800; padding: 6px 10px 18px; }
+    .ad-logo span { color: var(--green); }
+    .ad-logo small { display: block; font-size: .65rem; font-weight: 600;
+      letter-spacing: .15em; color: var(--text-3); text-transform: uppercase; margin-top: 2px; }
+    .ad-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    .ad-nav button { display: flex; align-items: center; gap: 12px; width: 100%;
+      background: none; border: none; color: var(--text-2); font-size: .92rem;
+      font-weight: 600; padding: 11px 12px; border-radius: 10px; cursor: pointer;
+      text-align: left; transition: background .15s, color .15s; }
+    .ad-nav button:hover { background: var(--glass); color: var(--text); }
+    .ad-nav button.active { background: rgba(34,197,94,.12); color: var(--green-lt); }
+    .ad-nav button .em { font-size: 1.05rem; }
+    .ad-side-foot { border-top: 1px solid var(--line); padding-top: 10px;
+      display: flex; flex-direction: column; gap: 4px; }
+    .ad-side-foot a, .ad-side-foot button { display: flex; align-items: center; gap: 10px;
+      color: var(--text-3); font-size: .82rem; font-weight: 600; padding: 9px 12px;
+      border-radius: 9px; background: none; border: none; cursor: pointer; }
+    .ad-side-foot a:hover, .ad-side-foot button:hover { background: var(--glass); color: var(--text); }
+
+    /* Main */
+    .ad-main { flex: 1; padding: 28px 32px; overflow-x: hidden; min-width: 0; }
+    .ad-head { display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 22px; flex-wrap: wrap; gap: 12px; }
+    .ad-head h1 { font-size: 1.5rem; font-weight: 800; }
+    .ad-head .who { font-size: .8rem; color: var(--text-3); }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* Cards */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr));
+      gap: 16px; margin-bottom: 26px; }
+    .stat-card { background: var(--panel); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
+    .stat-card .lbl { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--text-3); font-weight: 700; }
+    .stat-card .val { font-size: 2rem; font-weight: 800; margin-top: 6px; }
+    .stat-card .val.green { color: var(--green-lt); }
+    .stat-card .val.gold { color: var(--gold); }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 18px; }
+    .panel h3 { font-size: .95rem; margin-bottom: 12px; }
+    .feed-row { display: flex; gap: 10px; align-items: center; padding: 9px 0;
+      border-bottom: 1px solid var(--line); font-size: .85rem; }
+    .feed-row:last-child { border-bottom: none; }
+    .feed-row .badge-type { font-size: .65rem; padding: 2px 7px; border-radius: 20px;
+      background: var(--glass-2); color: var(--text-2); font-weight: 700; text-transform: uppercase; }
+    .feed-row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .feed-row .muted { color: var(--text-3); font-size: .78rem; }
+
+    /* Toolbar */
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+    .toolbar input[type=search], .toolbar input[type=text] {
+      flex: 1; min-width: 200px; background: var(--bg-2); border: 1px solid var(--line-2);
+      color: var(--text); padding: 10px 14px; border-radius: 10px; font-size: .9rem; }
+    .toolbar input:focus { outline: none; border-color: var(--green); }
+    .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+    .filters button { background: var(--glass); border: 1px solid var(--line);
+      color: var(--text-2); padding: 8px 14px; border-radius: 20px; font-size: .82rem;
+      font-weight: 600; cursor: pointer; }
+    .filters button.active { background: var(--green); color: #04130a; border-color: var(--green); }
+
+    /* Table */
+    .tbl-wrap { background: var(--panel); border: 1px solid var(--line);
+      border-radius: var(--radius); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+    th { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-3); font-weight: 700; background: var(--bg-2); }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--glass); }
+    .thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover;
+      background: var(--bg-2); display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; color: var(--text-3); }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
+      background: var(--green); color: #04130a; display: inline-flex; align-items: center;
+      justify-content: center; font-weight: 800; font-size: .8rem; flex-shrink: 0; }
+    .user-cell { display: flex; align-items: center; gap: 10px; }
+    .user-cell .nm { font-weight: 600; }
+    .user-cell .em-sub { font-size: .74rem; color: var(--text-3); }
+    .cap { max-width: 280px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pill { font-size: .72rem; padding: 3px 9px; border-radius: 20px; font-weight: 700; }
+    .pill.active-s { background: rgba(34,197,94,.15); color: var(--green-lt); }
+    .pill.banned-s { background: rgba(239,68,68,.15); color: var(--red); }
+    .pill.admin-s { background: rgba(245,158,11,.15); color: var(--gold); }
+    .rep-badge { background: var(--red); color: #fff; font-size: .72rem; font-weight: 800;
+      padding: 2px 8px; border-radius: 20px; }
+    .num { font-variant-numeric: tabular-nums; color: var(--text-2); }
+
+    .btn { border: none; border-radius: 8px; padding: 7px 12px; font-size: .8rem;
+      font-weight: 700; cursor: pointer; }
+    .btn-del { background: rgba(239,68,68,.15); color: var(--red); }
+    .btn-del:hover { background: var(--red); color: #fff; }
+    .btn-ban { background: rgba(239,68,68,.15); color: var(--red); }
+    .btn-unban { background: rgba(34,197,94,.15); color: var(--green-lt); }
+    .btn-warn { background: rgba(245,158,11,.15); color: var(--gold); }
+    .btn-ghost { background: var(--glass); color: var(--text-2); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    .pager { display: flex; gap: 8px; align-items: center; justify-content: center;
+      margin-top: 18px; font-size: .85rem; color: var(--text-2); }
+    .pager button { background: var(--glass); border: 1px solid var(--line); color: var(--text);
+      padding: 7px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .pager button:disabled { opacity: .4; cursor: not-allowed; }
+
+    .bulkbar { display: none; align-items: center; gap: 12px; margin-bottom: 12px;
+      padding: 10px 14px; background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25);
+      border-radius: 10px; font-size: .85rem; }
+    .bulkbar.show { display: flex; }
+    .empty { text-align: center; color: var(--text-3); padding: 40px; font-size: .9rem; }
+
+    .rep-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 16px 18px; margin-bottom: 12px; }
+    .rep-card .rep-top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+    .rep-card .reason { color: var(--gold); font-weight: 600; font-size: .9rem; }
+    .rep-card .preview { background: var(--bg-2); border-radius: 8px; padding: 10px 12px;
+      color: var(--text-2); font-size: .85rem; margin: 8px 0; }
+    .rep-card .actions { display: flex; gap: 8px; }
+
+    .loading { text-align: center; color: var(--text-3); padding: 30px; }
+
+    @media (max-width: 720px) {
+      .ad-side { width: 64px; padding: 16px 8px; }
+      .ad-logo small, .ad-nav button .tx, .ad-side-foot .tx { display: none; }
+      .ad-logo { font-size: 0; padding: 6px 0 14px; }
+      .ad-main { padding: 18px; }
+      .cap { max-width: 120px; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="ad-side">
+    <div class="ad-logo">Nutri<span>Fell</span><small>Admin</small></div>
+    <nav class="ad-nav" id="adNav">
+      <button data-page="dashboard" class="active"><span class="em">📊</span><span class="tx">Dashboard</span></button>
+      <button data-page="posts"><span class="em">📝</span><span class="tx">Posts</span></button>
+      <button data-page="comments"><span class="em">💬</span><span class="tx">Comments</span></button>
+      <button data-page="users"><span class="em">👥</span><span class="tx">Users</span></button>
+      <button data-page="reports"><span class="em">🚨</span><span class="tx">Reports</span></button>
+    </nav>
+    <div class="ad-side-foot">
+      <a href="/feed.html"><span>←</span><span class="tx">Back to app</span></a>
+      <button id="adLogout"><span>⏻</span><span class="tx">Log out</span></button>
+    </div>
+  </aside>
+
+  <main class="ad-main">
+    <div class="ad-head">
+      <h1 id="pageTitle">Dashboard</h1>
+      <div class="who" id="whoami"></div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <section class="page active" id="page-dashboard">
+      <div class="stat-grid" id="statGrid">
+        <div class="loading">Loading stats…</div>
+      </div>
+      <div class="two-col">
+        <div class="panel"><h3>📈 Recent Activity</h3><div id="recentFeed"><div class="loading">…</div></div></div>
+        <div class="panel"><h3>🚨 Most Reported Content</h3><div id="mostReported"><div class="loading">…</div></div></div>
+      </div>
+    </section>
+
+    <!-- POSTS -->
+    <section class="page" id="page-posts">
+      <div class="toolbar">
+        <input type="search" id="postSearch" placeholder="Search caption, author name or email…" />
+        <div class="filters" id="postFilters">
+          <button data-type="" class="active">All</button>
+          <button data-type="photo">Photos</button>
+          <button data-type="video">Videos</button>
+          <button data-type="text">Text</button>
+          <button data-type="recipe">Recipes</button>
+        </div>
+      </div>
+      <div class="bulkbar" id="postBulk">
+        <span id="bulkCount">0 selected</span>
+        <button class="btn btn-del" id="bulkDelete">Delete selected</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th><input type="checkbox" id="selectAll" /></th>
+            <th>Media</th><th>Author</th><th>Caption</th><th>Type</th>
+            <th>Date</th><th>❤️</th><th>💬</th><th>🚨</th><th></th>
+          </tr></thead>
+          <tbody id="postsBody"><tr><td colspan="10" class="loading">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pager" id="postsPager"></div>
+    </section>
+
+    <!-- COMMENTS -->
+    <section class="page" id="page-comments">
+      <div class="toolbar">
+        <input type="search" id="commentSearch" placeholder="Search comment text or author…" />
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Author</th><th>Comment</th><th>On post</th><th>Date</th><th></th></tr></thead>
+          <tbody id="commentsBody"><tr><td colspan="5" class="loading">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pager" id="commentsPager"></div>
+    </section>
+
+    <!-- USERS -->
+    <section class="page" id="page-users">
+      <div class="toolbar">
+        <input type="search" id="userSearch" placeholder="Search by name or email…" />
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>User</th><th>Email</th><th>Joined</th><th>Posts</th><th>Status</th><th></th></tr></thead>
+          <tbody id="usersBody"><tr><td colspan="6" class="loading">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pager" id="usersPager"></div>
+    </section>
+
+    <!-- REPORTS -->
+    <section class="page" id="page-reports">
+      <div id="reportsList"><div class="loading">Loading…</div></div>
+      <div class="pager" id="reportsPager"></div>
+    </section>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script>
+  (function () {
+    // ── Frontend security gate ─────────────────────────────────────────────
+    // No token at all → straight to login. We also probe the server below;
+    // the API itself (auth + requireAdmin) is the real authority — a stale
+    // localStorage user can't grant access to any data.
+    if (typeof Auth === 'undefined' || !Auth.isAuthed()) {
+      location.href = '/login.html'; return;
+    }
+    const me = Auth.user() || {};
+    document.getElementById('whoami').textContent = (me.name || me.email || '') + ' · admin';
+
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const initials = (n) => (n || '?').trim().charAt(0).toUpperCase();
+    const trunc = (s, n) => { s = s || ''; return s.length > n ? s.slice(0, n) + '…' : s; };
+    const fmtDate = (d) => {
+      if (!d) return '—';
+      const dt = new Date(String(d).replace(' ', 'T'));
+      if (isNaN(dt)) return '—';
+      return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    };
+    const avatarHtml = (url, name) => url
+      ? `<span class="avatar"><img src="${esc(url)}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover"></span>`
+      : `<span class="avatar">${esc(initials(name))}</span>`;
+    const toast = (msg, type) => (window.Toast ? Toast[type || 'info'](msg) : alert(msg));
+
+    // ── Navigation (SPA section toggle) ────────────────────────────────────
+    const TITLES = { dashboard: 'Dashboard', posts: 'Posts', comments: 'Comments', users: 'Users', reports: 'Reports' };
+    const loaders = {};
+    document.getElementById('adNav').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-page]'); if (!btn) return;
+      go(btn.dataset.page);
+    });
+    function go(page) {
+      document.querySelectorAll('.ad-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
+      document.querySelectorAll('.page').forEach(s => s.classList.toggle('active', s.id === 'page-' + page));
+      document.getElementById('pageTitle').textContent = TITLES[page];
+      location.hash = page;
+      if (loaders[page]) loaders[page]();
+    }
+    document.getElementById('adLogout').addEventListener('click', () => Auth.logout());
+
+    // Centralised API call: on 403 the user isn't an admin → bounce to login.
+    async function api(path, opts) {
+      try { return await Auth.api(path, opts); }
+      catch (err) {
+        if (/admin only/i.test(err.message) || /403/.test(err.message)) {
+          toast('Admin access required.', 'error');
+          setTimeout(() => location.href = '/login.html', 800);
+        }
+        throw err;
+      }
+    }
+
+    // ── Pager helper ───────────────────────────────────────────────────────
+    function renderPager(el, data, onGo) {
+      if (!data || data.pages <= 1) { el.innerHTML = ''; return; }
+      el.innerHTML = `<button ${data.page <= 1 ? 'disabled' : ''} data-go="${data.page - 1}">‹ Prev</button>
+        <span>Page ${data.page} of ${data.pages} · ${data.total} total</span>
+        <button ${data.page >= data.pages ? 'disabled' : ''} data-go="${data.page + 1}">Next ›</button>`;
+      el.querySelectorAll('button[data-go]').forEach(b =>
+        b.addEventListener('click', () => onGo(parseInt(b.dataset.go, 10))));
+    }
+    const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+    // ════════════ DASHBOARD ════════════
+    loaders.dashboard = async function () {
+      try {
+        const s = await api('/api/admin/stats');
+        document.getElementById('statGrid').innerHTML = `
+          ${card('Total Users', s.totalUsers, 'green')}
+          ${card('Total Posts', s.totalPosts, '')}
+          ${card('Total Comments', s.totalComments, '')}
+          ${card('New Today', s.newToday, 'gold')}`;
+        const rf = document.getElementById('recentFeed');
+        rf.innerHTML = (s.recentActivity || []).length ? s.recentActivity.map(a => `
+          <div class="feed-row">
+            <span class="badge-type">${esc(a.type)}</span>
+            <span class="grow">${esc(trunc(a.caption, 60) || '(no caption)')}</span>
+            <span class="muted">${esc(a.authorName)}</span>
+          </div>`).join('') : '<div class="empty">No activity yet.</div>';
+        const mr = document.getElementById('mostReported');
+        mr.innerHTML = (s.mostReported || []).length ? s.mostReported.map(m => `
+          <div class="feed-row">
+            <span class="rep-badge">${m.reportCount}</span>
+            <span class="grow">${esc(trunc(m.caption, 60) || '(' + esc(m.type) + ' post)')}</span>
+            <span class="muted">${esc(m.authorName)}</span>
+          </div>`).join('') : '<div class="empty">Nothing reported. 🎉</div>';
+      } catch (e) { document.getElementById('statGrid').innerHTML = '<div class="empty">Failed to load stats.</div>'; }
+    };
+    function card(lbl, val, cls) {
+      return `<div class="stat-card"><div class="lbl">${lbl}</div><div class="val ${cls}">${val}</div></div>`;
+    }
+
+    // ════════════ POSTS ════════════
+    const postState = { page: 1, search: '', type: '', data: null };
+    const selected = new Set();
+    loaders.posts = async function () {
+      const body = document.getElementById('postsBody');
+      body.innerHTML = '<tr><td colspan="10" class="loading">Loading…</td></tr>';
+      try {
+        const q = new URLSearchParams({ page: postState.page, limit: 20 });
+        if (postState.search) q.set('search', postState.search);
+        if (postState.type) q.set('type', postState.type);
+        const data = await api('/api/admin/posts?' + q);
+        postState.data = data;
+        if (!data.posts.length) { body.innerHTML = '<tr><td colspan="10" class="empty">No posts found.</td></tr>'; }
+        else body.innerHTML = data.posts.map(p => `
+          <tr data-id="${esc(p.id)}">
+            <td><input type="checkbox" class="psel" value="${esc(p.id)}" ${selected.has(p.id) ? 'checked' : ''}></td>
+            <td>${p.thumb ? `<img class="thumb" src="${esc(p.thumb)}" alt="">` : `<span class="thumb">${p.type === 'recipe' ? '🍲' : p.type === 'video' ? '🎬' : '📄'}</span>`}</td>
+            <td><div class="user-cell">${avatarHtml(p.authorAvatar, p.authorName)}<div><div class="nm">${esc(p.authorName)}</div><div class="em-sub">${esc(p.authorEmail)}</div></div></div></td>
+            <td class="cap">${esc(trunc(p.caption, 50)) || '<span class="muted">—</span>'}</td>
+            <td><span class="badge-type">${esc(p.type)}</span></td>
+            <td class="num">${fmtDate(p.createdAt)}</td>
+            <td class="num">${p.reactionsCount}</td>
+            <td class="num">${p.commentsCount}</td>
+            <td>${p.reportsCount ? `<span class="rep-badge">${p.reportsCount}</span>` : '<span class="num">0</span>'}</td>
+            <td><button class="btn btn-del" data-del="${esc(p.id)}">Delete</button></td>
+          </tr>`).join('');
+        renderPager(document.getElementById('postsPager'), data, (pg) => { postState.page = pg; loaders.posts(); });
+        wirePostRows();
+      } catch (e) { body.innerHTML = '<tr><td colspan="10" class="empty">Failed to load.</td></tr>'; }
+    };
+    function wirePostRows() {
+      document.querySelectorAll('#postsBody [data-del]').forEach(b => b.addEventListener('click', async () => {
+        if (!confirm('Delete this post and all its comments, reactions and reports? This cannot be undone.')) return;
+        try { await api('/api/admin/posts/' + b.dataset.del, { method: 'DELETE' });
+          selected.delete(b.dataset.del); toast('Post deleted.', 'success'); loaders.posts(); updateBulk(); }
+        catch (e) { toast(e.message, 'error'); }
+      }));
+      document.querySelectorAll('#postsBody .psel').forEach(c => c.addEventListener('change', () => {
+        c.checked ? selected.add(c.value) : selected.delete(c.value); updateBulk();
+      }));
+      document.getElementById('selectAll').checked = false;
+    }
+    function updateBulk() {
+      const bar = document.getElementById('postBulk');
+      document.getElementById('bulkCount').textContent = selected.size + ' selected';
+      bar.classList.toggle('show', selected.size > 0);
+    }
+    document.getElementById('selectAll').addEventListener('change', (e) => {
+      document.querySelectorAll('#postsBody .psel').forEach(c => {
+        c.checked = e.target.checked; c.checked ? selected.add(c.value) : selected.delete(c.value);
+      });
+      updateBulk();
+    });
+    document.getElementById('bulkDelete').addEventListener('click', async () => {
+      if (!selected.size) return;
+      if (!confirm(`Delete ${selected.size} selected post(s)? This cannot be undone.`)) return;
+      const ids = [...selected];
+      for (const id of ids) { try { await api('/api/admin/posts/' + id, { method: 'DELETE' }); selected.delete(id); } catch (e) {} }
+      toast('Selected posts deleted.', 'success'); updateBulk(); loaders.posts();
+    });
+    document.getElementById('postSearch').addEventListener('input', debounce((e) => {
+      postState.search = e.target.value.trim(); postState.page = 1; loaders.posts();
+    }, 350));
+    document.getElementById('postFilters').addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      document.querySelectorAll('#postFilters button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active'); postState.type = b.dataset.type; postState.page = 1; loaders.posts();
+    });
+
+    // ════════════ COMMENTS ════════════
+    const cmtState = { page: 1, search: '' };
+    loaders.comments = async function () {
+      const body = document.getElementById('commentsBody');
+      body.innerHTML = '<tr><td colspan="5" class="loading">Loading…</td></tr>';
+      try {
+        const q = new URLSearchParams({ page: cmtState.page, limit: 20 });
+        if (cmtState.search) q.set('search', cmtState.search);
+        const data = await api('/api/admin/comments?' + q);
+        if (!data.comments.length) { body.innerHTML = '<tr><td colspan="5" class="empty">No comments found.</td></tr>'; }
+        else body.innerHTML = data.comments.map(c => `
+          <tr>
+            <td><div class="user-cell">${avatarHtml(c.authorAvatar, c.authorName)}<span class="nm">${esc(c.authorName)}</span></div></td>
+            <td class="cap" style="max-width:340px;white-space:normal;color:var(--text)">${esc(c.text)}</td>
+            <td class="cap">${esc(trunc(c.postCaption, 40)) || '<span class="muted">(' + esc(c.postType) + ')</span>'}</td>
+            <td class="num">${fmtDate(c.createdAt)}</td>
+            <td><button class="btn btn-del" data-del="${esc(c.id)}">Delete</button></td>
+          </tr>`).join('');
+        renderPager(document.getElementById('commentsPager'), data, (pg) => { cmtState.page = pg; loaders.comments(); });
+        document.querySelectorAll('#commentsBody [data-del]').forEach(b => b.addEventListener('click', async () => {
+          if (!confirm('Delete this comment (and any replies to it)?')) return;
+          try { await api('/api/admin/comments/' + b.dataset.del, { method: 'DELETE' }); toast('Comment deleted.', 'success'); loaders.comments(); }
+          catch (e) { toast(e.message, 'error'); }
+        }));
+      } catch (e) { body.innerHTML = '<tr><td colspan="5" class="empty">Failed to load.</td></tr>'; }
+    };
+    document.getElementById('commentSearch').addEventListener('input', debounce((e) => {
+      cmtState.search = e.target.value.trim(); cmtState.page = 1; loaders.comments();
+    }, 350));
+
+    // ════════════ USERS ════════════
+    const userState = { page: 1, search: '' };
+    loaders.users = async function () {
+      const body = document.getElementById('usersBody');
+      body.innerHTML = '<tr><td colspan="6" class="loading">Loading…</td></tr>';
+      try {
+        const q = new URLSearchParams({ page: userState.page, limit: 20 });
+        if (userState.search) q.set('search', userState.search);
+        const data = await api('/api/admin/users?' + q);
+        if (!data.users.length) { body.innerHTML = '<tr><td colspan="6" class="empty">No users found.</td></tr>'; }
+        else body.innerHTML = data.users.map(u => `
+          <tr>
+            <td><div class="user-cell">${avatarHtml(u.avatar, u.name)}<span class="nm">${esc(u.name)}</span>${u.isAdmin ? '<span class="pill admin-s">ADMIN</span>' : ''}</div></td>
+            <td class="num">${esc(u.email)}</td>
+            <td class="num">${fmtDate(u.createdAt)}</td>
+            <td class="num">${u.postCount}</td>
+            <td><span class="pill ${u.banned ? 'banned-s' : 'active-s'}">${u.banned ? 'Banned' : 'Active'}</span></td>
+            <td>${u.isAdmin ? '<button class="btn btn-ghost" disabled>—</button>' :
+              `<button class="btn ${u.banned ? 'btn-unban' : 'btn-ban'}" data-id="${esc(u.id)}" data-ban="${u.banned ? '0' : '1'}">${u.banned ? 'Unban' : 'Ban'}</button>`}</td>
+          </tr>`).join('');
+        renderPager(document.getElementById('usersPager'), data, (pg) => { userState.page = pg; loaders.users(); });
+        document.querySelectorAll('#usersBody [data-id]').forEach(b => b.addEventListener('click', async () => {
+          const ban = b.dataset.ban === '1';
+          if (!confirm(ban ? 'Ban this user? They will be unable to log in.' : 'Unban this user?')) return;
+          try { await api('/api/admin/users/' + b.dataset.id + '/ban', { method: 'PUT', body: JSON.stringify({ banned: ban }) });
+            toast(ban ? 'User banned.' : 'User unbanned.', 'success'); loaders.users(); }
+          catch (e) { toast(e.message, 'error'); }
+        }));
+      } catch (e) { body.innerHTML = '<tr><td colspan="6" class="empty">Failed to load.</td></tr>'; }
+    };
+    document.getElementById('userSearch').addEventListener('input', debounce((e) => {
+      userState.search = e.target.value.trim(); userState.page = 1; loaders.users();
+    }, 350));
+
+    // ════════════ REPORTS ════════════
+    const repState = { page: 1 };
+    loaders.reports = async function () {
+      const list = document.getElementById('reportsList');
+      list.innerHTML = '<div class="loading">Loading…</div>';
+      try {
+        const data = await api('/api/admin/reports?' + new URLSearchParams({ page: repState.page, limit: 15 }));
+        if (!data.reports.length) { list.innerHTML = '<div class="empty">No reports. Everything looks clean. 🎉</div>'; document.getElementById('reportsPager').innerHTML = ''; return; }
+        list.innerHTML = data.reports.map(r => `
+          <div class="rep-card">
+            <div class="rep-top">
+              <div><strong>${esc(r.reporterName)}</strong> <span class="muted">reported a ${esc(r.postType || 'post')}</span> · <span class="num">${fmtDate(r.createdAt)}</span></div>
+              <div class="reason">“${esc(r.reason)}”</div>
+            </div>
+            <div class="preview">${r.postExists ? (esc(trunc(r.postCaption, 160)) || '<em>(no caption — ' + esc(r.postType) + ' post)</em>') + (r.postAuthorName ? ` <span class="muted">— by ${esc(r.postAuthorName)}</span>` : '') : '<em>Content already removed.</em>'}</div>
+            <div class="actions">
+              <button class="btn btn-ghost" data-dismiss="${esc(r.id)}">Dismiss</button>
+              ${r.postExists ? `<button class="btn btn-del" data-delpost="${esc(r.postId)}">Delete content</button>` : ''}
+            </div>
+          </div>`).join('');
+        renderPager(document.getElementById('reportsPager'), data, (pg) => { repState.page = pg; loaders.reports(); });
+        list.querySelectorAll('[data-dismiss]').forEach(b => b.addEventListener('click', async () => {
+          try { await api('/api/admin/reports/' + b.dataset.dismiss, { method: 'DELETE' }); toast('Report dismissed.', 'success'); loaders.reports(); }
+          catch (e) { toast(e.message, 'error'); }
+        }));
+        list.querySelectorAll('[data-delpost]').forEach(b => b.addEventListener('click', async () => {
+          if (!confirm('Delete the reported post and everything attached to it?')) return;
+          try { await api('/api/admin/posts/' + b.dataset.delpost, { method: 'DELETE' }); toast('Content deleted.', 'success'); loaders.reports(); }
+          catch (e) { toast(e.message, 'error'); }
+        }));
+      } catch (e) { list.innerHTML = '<div class="empty">Failed to load reports.</div>'; }
+    };
+
+    // ── Boot ───────────────────────────────────────────────────────────────
+    const start = (location.hash || '#dashboard').slice(1);
+    go(TITLES[start] ? start : 'dashboard');
+  })();
+  </script>
+</body>
+</html>

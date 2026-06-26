@@ -224,6 +224,9 @@ try { sharp = require('sharp'); } catch (e) { /* resize skipped if unavailable *
 // .trim() guards against a stray trailing space/newline in .env so the secret
 // used to SIGN is byte-for-byte identical to the one used to VERIFY.
 const JWT_SECRET = (process.env.JWT_SECRET || 'nutrifell-georgia-secret-key-2035').trim();
+// The owner account that is granted admin rights on boot (idempotent). Override
+// via ADMIN_EMAIL in .env; defaults to the project owner.
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'jimajemala@gmail.com').trim().toLowerCase();
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const FRIDGES_FILE = path.join(DATA_DIR, 'fridges.json');
@@ -314,7 +317,7 @@ const USER_COLS = ['id', 'email', 'password', 'name', 'username', 'bio',
   'location', 'website', 'avatar', 'cover', 'age', 'weight', 'targetWeight',
   'height', 'gender', 'goal', 'activityLevel', 'timeline', 'emailVerified',
   'language', 'plan', 'planValidUntil', 'cancelAtPeriodEnd', 'stripeCustomerId',
-  'stripeSubscriptionId', 'waterGoalMl', 'createdAt'];
+  'stripeSubscriptionId', 'waterGoalMl', 'createdAt', 'isAdmin', 'banned'];
 
 function pickUserFields(obj) {
   const out = {};
@@ -323,7 +326,8 @@ function pickUserFields(obj) {
 }
 function rowToUser(row) {
   if (!row) return null;
-  return { ...row, emailVerified: !!row.emailVerified, cancelAtPeriodEnd: !!row.cancelAtPeriodEnd };
+  return { ...row, emailVerified: !!row.emailVerified, cancelAtPeriodEnd: !!row.cancelAtPeriodEnd,
+    isAdmin: !!row.isAdmin, banned: !!row.banned };
 }
 async function dbFindUserById(id) {
   const [rows] = await db.execute('SELECT * FROM `users` WHERE `id` = ?', [id]);
@@ -351,8 +355,25 @@ async function dbUpdateUser(id, user) {
   await db.execute(`UPDATE \`users\` SET ${set} WHERE \`id\` = ?`, [...Object.values(fields), id]);
 }
 
+// Ensure the owner account carries isAdmin in the JSON store. Safe to call in
+// either mode — it's the source of truth when MySQL is disabled and a mirror
+// of the DB grant when it isn't.
+function ensureAdminInJSON() {
+  try {
+    const users = readJSON(USERS_FILE);
+    let changed = false;
+    for (const u of users) {
+      const shouldBeAdmin = (u.email || '').toLowerCase() === ADMIN_EMAIL;
+      if (shouldBeAdmin && !u.isAdmin) { u.isAdmin = true; changed = true; }
+      if (u.banned === undefined) { u.banned = false; changed = true; }
+    }
+    if (changed) writeJSON(USERS_FILE, users);
+  } catch (e) { /* users.json not present yet — nothing to grant */ }
+}
+
 (async () => {
   if (!process.env.DB_HOST || !process.env.DB_USER) {
+    ensureAdminInJSON();
     return console.warn('DB_HOST/DB_USER not set — MySQL disabled, JSON fallback active');
   }
   try {
@@ -398,9 +419,20 @@ async function dbUpdateUser(id, user) {
         \`stripeCustomerId\`     VARCHAR(255),
         \`stripeSubscriptionId\` VARCHAR(255),
         \`waterGoalMl\`          INT,
+        \`isAdmin\`              TINYINT(1)    DEFAULT 0,
+        \`banned\`               TINYINT(1)    DEFAULT 0,
         \`createdAt\`            DATETIME      DEFAULT CURRENT_TIMESTAMP
       ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
+    // Migration for pre-existing installs: add admin/ban columns if the table
+    // predates them. ADD COLUMN IF NOT EXISTS isn't portable across MySQL
+    // versions, so we try each ALTER and swallow the "duplicate column" error.
+    for (const ddl of [
+      "ALTER TABLE `users` ADD COLUMN `isAdmin` TINYINT(1) DEFAULT 0",
+      "ALTER TABLE `users` ADD COLUMN `banned`  TINYINT(1) DEFAULT 0",
+    ]) {
+      try { await db.execute(ddl); } catch (e) { /* column already exists */ }
+    }
     console.log('MySQL connected (Hostinger)');
     // One-time seed: import JSON users if the table is empty
     const [[{ cnt }]] = await db.execute('SELECT COUNT(*) AS cnt FROM `users`');
@@ -411,6 +443,10 @@ async function dbUpdateUser(id, user) {
       }
       if (seed.length) console.log(`Migrated ${seed.length} users from JSON → MySQL`);
     }
+    // Grant admin to the owner account (idempotent — runs every boot).
+    const [adminRes] = await db.execute('UPDATE `users` SET `isAdmin` = 1 WHERE LOWER(`email`) = ?', [ADMIN_EMAIL]);
+    if (adminRes.changedRows) console.log(`Admin granted to ${ADMIN_EMAIL}`);
+    ensureAdminInJSON(); // keep data/users.json in sync for dual-write paths
 
     // ─── Phase 2a: posts table ────────────────────────────────────────────
     await db.execute(`
@@ -1168,6 +1204,15 @@ async function auth(req, res, next) {
   req.user = user;
   next();
 }
+
+// Admin gate — MUST be chained AFTER `auth` so req.user is populated:
+//   app.get('/api/admin/...', auth, requireAdmin, handler)
+const requireAdmin = (req, res, next) => {
+  if (!req.user || !req.user.isAdmin) {
+    return res.status(403).json({ error: 'Admin only', code: 'ADMIN_REQUIRED' });
+  }
+  next();
+};
 
 // Activity multipliers
 const ACTIVITY = { sedentary: 1.2, light: 1.375, moderate: 1.55, very: 1.725, extreme: 1.9 };
@@ -2834,6 +2879,10 @@ app.post('/api/login', async (req, res) => {
   const passwordMatch = user ? await bcrypt.compare(String(password), user.password) : false;
   if (!user || !passwordMatch) {
     return res.status(401).json({ error: 'Invalid email or password', code: 'INVALID_CREDENTIALS' });
+  }
+  // Banned users are blocked at the door — same for MySQL (1/0) and JSON (true).
+  if (user.banned) {
+    return res.status(403).json({ error: 'Your account has been suspended. Contact support if you believe this is a mistake.', code: 'ACCOUNT_BANNED' });
   }
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: publicUser(user) });
@@ -5121,6 +5170,340 @@ function diversifyByAuthor(sorted) {
   }
   return out;
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// ADMIN PANEL API   (every route is auth + requireAdmin protected)
+// Dual-mode: MySQL when `db` is live, JSON files otherwise — mirroring the
+// pattern used throughout the rest of the server.
+// ════════════════════════════════════════════════════════════════════════
+
+// Parse + clamp pagination query params. limit/offset are validated integers
+// so they're safe to inline into LIMIT/OFFSET (mysql2 prepared LIMIT params
+// are finicky; inlining sanitized ints avoids that).
+function adminPaging(req) {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  return { page, limit, offset: (page - 1) * limit };
+}
+
+// Shared: media thumbnail for a post (first photo, or the video poster).
+function postThumb(p) {
+  if (p.type === 'video') return p.videoThumb || null;
+  const photos = p.photos || [];
+  return photos[0] || p.videoThumb || null;
+}
+
+// ─── GET /api/admin/posts ── paginated, searchable, with author + counts ──
+app.get('/api/admin/posts', auth, requireAdmin, async (req, res) => {
+  try {
+    const { page, limit, offset } = adminPaging(req);
+    const search = String(req.query.search || '').trim();
+    const typeFilter = ['photo', 'video', 'text', 'recipe'].includes(req.query.type) ? req.query.type : null;
+
+    if (db) {
+      const where = [];
+      const params = [];
+      if (search) { where.push('(p.caption LIKE ? OR u.name LIKE ? OR u.email LIKE ?)'); const s = `%${search}%`; params.push(s, s, s); }
+      if (typeFilter) { where.push('p.type = ?'); params.push(typeFilter); }
+      const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+      const [[{ total }]] = await db.execute(
+        `SELECT COUNT(*) AS total FROM \`posts\` p LEFT JOIN \`users\` u ON u.id = p.userId ${whereSql}`, params);
+      const [rows] = await db.execute(`
+        SELECT p.id, p.userId, p.type, p.caption, p.mediaUrls, p.videoThumb, p.createdAt,
+               u.name AS authorName, u.email AS authorEmail, u.avatar AS authorAvatar,
+               (SELECT COUNT(*) FROM \`post_reactions\` r WHERE r.postId = p.id) AS reactionsCount,
+               (SELECT COUNT(*) FROM \`post_comments\`  c WHERE c.postId = p.id) AS commentsCount,
+               (SELECT COUNT(*) FROM \`post_reports\`   rp WHERE rp.postId = p.id) AS reportsCount
+        FROM \`posts\` p LEFT JOIN \`users\` u ON u.id = p.userId
+        ${whereSql}
+        ORDER BY p.createdAt DESC LIMIT ${limit} OFFSET ${offset}`, params);
+      const posts = rows.map(r => ({
+        id: r.id, userId: r.userId, type: r.type, caption: r.caption || '',
+        thumb: postThumb({ type: r.type, photos: parseJ(r.mediaUrls, []), videoThumb: r.videoThumb }),
+        authorName: r.authorName || 'NutriFell User', authorEmail: r.authorEmail || '', authorAvatar: r.authorAvatar || null,
+        createdAt: r.createdAt, reactionsCount: Number(r.reactionsCount), commentsCount: Number(r.commentsCount), reportsCount: Number(r.reportsCount),
+      }));
+      return res.json({ posts, total: Number(total), page, limit, pages: Math.ceil(total / limit) });
+    }
+
+    // JSON fallback
+    const users = readJSON(USERS_FILE);
+    const byId = Object.fromEntries(users.map(u => [u.id, u]));
+    const reactions = readJSON(POST_REACTIONS_FILE);
+    const comments = readJSON(POST_COMMENTS_FILE);
+    const reports = readJSON(POST_REPORTS_FILE);
+    let all = readJSON(POSTS_FILE).slice();
+    if (typeFilter) all = all.filter(p => (p.type || 'text') === typeFilter);
+    if (search) {
+      const s = search.toLowerCase();
+      all = all.filter(p => {
+        const u = byId[p.userId] || {};
+        return (p.caption || '').toLowerCase().includes(s)
+          || (u.name || '').toLowerCase().includes(s)
+          || (u.email || '').toLowerCase().includes(s);
+      });
+    }
+    all.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    const total = all.length;
+    const posts = all.slice(offset, offset + limit).map(p => {
+      const u = byId[p.userId] || {};
+      return {
+        id: p.id, userId: p.userId, type: p.type || 'text', caption: p.caption || '',
+        thumb: postThumb(p),
+        authorName: u.name || 'NutriFell User', authorEmail: u.email || '', authorAvatar: u.avatar || null,
+        createdAt: p.createdAt, reportsCount: reports.filter(r => r.postId === p.id).length,
+        reactionsCount: reactions.filter(r => r.postId === p.id).length,
+        commentsCount: comments.filter(c => c.postId === p.id).length,
+      };
+    });
+    res.json({ posts, total, page, limit, pages: Math.ceil(total / limit) });
+  } catch (e) { console.error('Admin posts error:', e.message); res.status(500).json({ error: 'Could not load posts.' }); }
+});
+
+// ─── DELETE /api/admin/posts/:id ── removes post + its reactions/comments/saves/reports + media ──
+app.delete('/api/admin/posts/:id', auth, requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const post = await sGetPostById(id);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    if (db) {
+      await db.execute('DELETE FROM `post_reactions` WHERE `postId` = ?', [id]);
+      await db.execute('DELETE FROM `post_comments`  WHERE `postId` = ?', [id]);
+      await db.execute('DELETE FROM `post_reports`   WHERE `postId` = ?', [id]);
+      try { await db.execute('DELETE FROM `post_saves` WHERE `postId` = ?', [id]); } catch {}
+      await db.execute('DELETE FROM `posts` WHERE `id` = ?', [id]);
+    }
+    // JSON dual-write (keeps file readers consistent in both modes)
+    writeJSON(POSTS_FILE, readJSON(POSTS_FILE).filter(x => x.id !== id));
+    writeJSON(POST_REACTIONS_FILE, readJSON(POST_REACTIONS_FILE).filter(x => x.postId !== id));
+    writeJSON(POST_COMMENTS_FILE, readJSON(POST_COMMENTS_FILE).filter(c => c.postId !== id));
+    writeJSON(POST_SAVES_FILE, readJSON(POST_SAVES_FILE).filter(s => s.postId !== id));
+    writeJSON(POST_REPORTS_FILE, readJSON(POST_REPORTS_FILE).filter(r => r.postId !== id));
+    [...(post.photos || []), post.video].filter(Boolean).forEach(u => {
+      try { fs.unlinkSync(path.join(__dirname, 'public', u)); } catch {}
+    });
+    RT.broadcast('post:deleted', { postId: id });
+    res.json({ success: true });
+  } catch (e) { console.error('Admin delete post error:', e.message); res.status(500).json({ error: 'Could not delete post.' }); }
+});
+
+// ─── GET /api/admin/comments ── all comments with author + post context ──
+app.get('/api/admin/comments', auth, requireAdmin, async (req, res) => {
+  try {
+    const { page, limit, offset } = adminPaging(req);
+    const search = String(req.query.search || '').trim();
+    if (db) {
+      const where = [];
+      const params = [];
+      if (search) { where.push('(c.text LIKE ? OR u.name LIKE ?)'); const s = `%${search}%`; params.push(s, s); }
+      const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+      const [[{ total }]] = await db.execute(
+        `SELECT COUNT(*) AS total FROM \`post_comments\` c LEFT JOIN \`users\` u ON u.id = c.userId ${whereSql}`, params);
+      const [rows] = await db.execute(`
+        SELECT c.id, c.postId, c.userId, c.text, c.createdAt,
+               u.name AS authorName, u.avatar AS authorAvatar,
+               p.caption AS postCaption, p.type AS postType
+        FROM \`post_comments\` c
+        LEFT JOIN \`users\` u ON u.id = c.userId
+        LEFT JOIN \`posts\` p ON p.id = c.postId
+        ${whereSql}
+        ORDER BY c.createdAt DESC LIMIT ${limit} OFFSET ${offset}`, params);
+      const comments = rows.map(r => ({
+        id: r.id, postId: r.postId, text: r.text || '',
+        authorName: r.authorName || 'NutriFell User', authorAvatar: r.authorAvatar || null,
+        postCaption: r.postCaption || '', postType: r.postType || 'text', createdAt: r.createdAt,
+      }));
+      return res.json({ comments, total: Number(total), page, limit, pages: Math.ceil(total / limit) });
+    }
+    // JSON fallback
+    const users = readJSON(USERS_FILE); const uById = Object.fromEntries(users.map(u => [u.id, u]));
+    const posts = readJSON(POSTS_FILE); const pById = Object.fromEntries(posts.map(p => [p.id, p]));
+    let all = readJSON(POST_COMMENTS_FILE).slice();
+    if (search) {
+      const s = search.toLowerCase();
+      all = all.filter(c => (c.text || '').toLowerCase().includes(s) || ((uById[c.userId] || {}).name || '').toLowerCase().includes(s));
+    }
+    all.sort((a, b) => String(b.at || b.createdAt || '').localeCompare(String(a.at || a.createdAt || '')));
+    const total = all.length;
+    const comments = all.slice(offset, offset + limit).map(c => {
+      const u = uById[c.userId] || {}; const p = pById[c.postId] || {};
+      return { id: c.id, postId: c.postId, text: c.text || '',
+        authorName: c.authorName || u.name || 'NutriFell User', authorAvatar: c.authorAvatar || u.avatar || null,
+        postCaption: p.caption || '', postType: p.type || 'text', createdAt: c.at || c.createdAt };
+    });
+    res.json({ comments, total, page, limit, pages: Math.ceil(total / limit) });
+  } catch (e) { console.error('Admin comments error:', e.message); res.status(500).json({ error: 'Could not load comments.' }); }
+});
+
+// ─── DELETE /api/admin/comments/:id ── removes the comment + any replies to it ──
+app.delete('/api/admin/comments/:id', auth, requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (db) {
+      await db.execute('DELETE FROM `post_comments` WHERE `id` = ? OR `parentId` = ?', [id, id]);
+    }
+    writeJSON(POST_COMMENTS_FILE, readJSON(POST_COMMENTS_FILE).filter(c => c.id !== id && c.parentId !== id));
+    res.json({ success: true });
+  } catch (e) { console.error('Admin delete comment error:', e.message); res.status(500).json({ error: 'Could not delete comment.' }); }
+});
+
+// ─── GET /api/admin/users ── all users with post count, searchable ──
+app.get('/api/admin/users', auth, requireAdmin, async (req, res) => {
+  try {
+    const { page, limit, offset } = adminPaging(req);
+    const search = String(req.query.search || '').trim();
+    if (db) {
+      const where = [];
+      const params = [];
+      if (search) { where.push('(u.name LIKE ? OR u.email LIKE ?)'); const s = `%${search}%`; params.push(s, s); }
+      const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+      const [[{ total }]] = await db.execute(`SELECT COUNT(*) AS total FROM \`users\` u ${whereSql}`, params);
+      const [rows] = await db.execute(`
+        SELECT u.id, u.name, u.email, u.avatar, u.createdAt, u.banned, u.isAdmin,
+               (SELECT COUNT(*) FROM \`posts\` p WHERE p.userId = u.id) AS postCount
+        FROM \`users\` u ${whereSql}
+        ORDER BY u.createdAt DESC LIMIT ${limit} OFFSET ${offset}`, params);
+      const usersOut = rows.map(r => ({
+        id: r.id, name: r.name || 'NutriFell User', email: r.email, avatar: r.avatar || null,
+        createdAt: r.createdAt, banned: !!r.banned, isAdmin: !!r.isAdmin, postCount: Number(r.postCount),
+      }));
+      return res.json({ users: usersOut, total: Number(total), page, limit, pages: Math.ceil(total / limit) });
+    }
+    // JSON fallback
+    const posts = readJSON(POSTS_FILE);
+    let all = readJSON(USERS_FILE).slice();
+    if (search) {
+      const s = search.toLowerCase();
+      all = all.filter(u => (u.name || '').toLowerCase().includes(s) || (u.email || '').toLowerCase().includes(s));
+    }
+    all.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    const total = all.length;
+    const usersOut = all.slice(offset, offset + limit).map(u => ({
+      id: u.id, name: u.name || 'NutriFell User', email: u.email, avatar: u.avatar || null,
+      createdAt: u.createdAt || null, banned: !!u.banned, isAdmin: !!u.isAdmin,
+      postCount: posts.filter(p => p.userId === u.id).length,
+    }));
+    res.json({ users: usersOut, total, page, limit, pages: Math.ceil(total / limit) });
+  } catch (e) { console.error('Admin users error:', e.message); res.status(500).json({ error: 'Could not load users.' }); }
+});
+
+// ─── PUT /api/admin/users/:id/ban ── set banned true/false ──
+app.put('/api/admin/users/:id/ban', auth, requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const banned = !!(req.body && req.body.banned);
+    if (id === req.userId) return res.status(400).json({ error: 'You cannot ban your own account.' });
+    const target = db ? await dbFindUserById(id) : readJSON(USERS_FILE).find(u => u.id === id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (target.isAdmin) return res.status(403).json({ error: 'Cannot ban an admin account.' });
+    if (db) await db.execute('UPDATE `users` SET `banned` = ? WHERE `id` = ?', [banned ? 1 : 0, id]);
+    const users = readJSON(USERS_FILE);
+    const idx = users.findIndex(u => u.id === id);
+    if (idx !== -1) { users[idx].banned = banned; writeJSON(USERS_FILE, users); }
+    res.json({ success: true, banned });
+  } catch (e) { console.error('Admin ban error:', e.message); res.status(500).json({ error: 'Could not update user.' }); }
+});
+
+// ─── GET /api/admin/reports ── reported posts with reporter + reason + preview ──
+app.get('/api/admin/reports', auth, requireAdmin, async (req, res) => {
+  try {
+    const { page, limit, offset } = adminPaging(req);
+    if (db) {
+      const [[{ total }]] = await db.execute('SELECT COUNT(*) AS total FROM `post_reports`');
+      const [rows] = await db.execute(`
+        SELECT rp.id, rp.postId, rp.userId, rp.reason, rp.createdAt,
+               ru.name AS reporterName, ru.email AS reporterEmail,
+               p.caption AS postCaption, p.type AS postType, p.userId AS postAuthorId,
+               pu.name AS postAuthorName
+        FROM \`post_reports\` rp
+        LEFT JOIN \`users\` ru ON ru.id = rp.userId
+        LEFT JOIN \`posts\` p  ON p.id  = rp.postId
+        LEFT JOIN \`users\` pu ON pu.id = p.userId
+        ORDER BY rp.createdAt DESC LIMIT ${limit} OFFSET ${offset}`);
+      const reports = rows.map(r => ({
+        id: r.id, postId: r.postId, reason: r.reason || 'Unspecified', createdAt: r.createdAt,
+        reporterName: r.reporterName || 'Unknown', reporterEmail: r.reporterEmail || '',
+        postCaption: r.postCaption, postType: r.postType, postAuthorName: r.postAuthorName,
+        postExists: r.postCaption !== null || r.postType !== null,
+      }));
+      return res.json({ reports, total: Number(total), page, limit, pages: Math.ceil(total / limit) });
+    }
+    // JSON fallback
+    const users = readJSON(USERS_FILE); const uById = Object.fromEntries(users.map(u => [u.id, u]));
+    const posts = readJSON(POSTS_FILE); const pById = Object.fromEntries(posts.map(p => [p.id, p]));
+    let all = readJSON(POST_REPORTS_FILE).slice();
+    all.sort((a, b) => String(b.at || b.createdAt || '').localeCompare(String(a.at || a.createdAt || '')));
+    const total = all.length;
+    const reports = all.slice(offset, offset + limit).map(r => {
+      const reporter = uById[r.userId] || {}; const p = pById[r.postId];
+      return { id: r.id, postId: r.postId, reason: r.reason || 'Unspecified', createdAt: r.at || r.createdAt,
+        reporterName: reporter.name || 'Unknown', reporterEmail: reporter.email || '',
+        postCaption: p ? p.caption : null, postType: p ? p.type : null,
+        postAuthorName: p ? (uById[p.userId] || {}).name : null, postExists: !!p };
+    });
+    res.json({ reports, total, page, limit, pages: Math.ceil(total / limit) });
+  } catch (e) { console.error('Admin reports error:', e.message); res.status(500).json({ error: 'Could not load reports.' }); }
+});
+
+// ─── DELETE /api/admin/reports/:id ── dismiss a single report ──
+app.delete('/api/admin/reports/:id', auth, requireAdmin, async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (db) await db.execute('DELETE FROM `post_reports` WHERE `id` = ?', [id]);
+    writeJSON(POST_REPORTS_FILE, readJSON(POST_REPORTS_FILE).filter(r => r.id !== id));
+    res.json({ success: true });
+  } catch (e) { console.error('Admin dismiss report error:', e.message); res.status(500).json({ error: 'Could not dismiss report.' }); }
+});
+
+// ─── GET /api/admin/stats ── dashboard metrics ──
+app.get('/api/admin/stats', auth, requireAdmin, async (req, res) => {
+  try {
+    if (db) {
+      const [[{ totalUsers }]] = await db.execute('SELECT COUNT(*) AS totalUsers FROM `users`');
+      const [[{ totalPosts }]] = await db.execute('SELECT COUNT(*) AS totalPosts FROM `posts`');
+      const [[{ totalComments }]] = await db.execute('SELECT COUNT(*) AS totalComments FROM `post_comments`');
+      const [[{ totalReports }]] = await db.execute('SELECT COUNT(*) AS totalReports FROM `post_reports`');
+      const [[{ newToday }]] = await db.execute('SELECT COUNT(*) AS newToday FROM `users` WHERE `createdAt` >= CURDATE()');
+      const [[{ newWeek }]] = await db.execute('SELECT COUNT(*) AS newWeek FROM `users` WHERE `createdAt` >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)');
+      const [recent] = await db.execute(`
+        SELECT p.id, p.type, p.caption, p.createdAt, u.name AS authorName
+        FROM \`posts\` p LEFT JOIN \`users\` u ON u.id = p.userId
+        ORDER BY p.createdAt DESC LIMIT 8`);
+      const [mostReported] = await db.execute(`
+        SELECT p.id, p.caption, p.type, u.name AS authorName, COUNT(rp.id) AS reportCount
+        FROM \`post_reports\` rp
+        LEFT JOIN \`posts\` p ON p.id = rp.postId
+        LEFT JOIN \`users\` u ON u.id = p.userId
+        GROUP BY rp.postId ORDER BY reportCount DESC LIMIT 5`);
+      return res.json({
+        totalUsers: Number(totalUsers), totalPosts: Number(totalPosts),
+        totalComments: Number(totalComments), totalReports: Number(totalReports),
+        newToday: Number(newToday), newWeek: Number(newWeek),
+        recentActivity: recent.map(r => ({ id: r.id, type: r.type, caption: r.caption || '', authorName: r.authorName || 'NutriFell User', createdAt: r.createdAt })),
+        mostReported: mostReported.map(r => ({ id: r.id, caption: r.caption || '', type: r.type, authorName: r.authorName || 'NutriFell User', reportCount: Number(r.reportCount) })),
+      });
+    }
+    // JSON fallback
+    const users = readJSON(USERS_FILE);
+    const posts = readJSON(POSTS_FILE);
+    const comments = readJSON(POST_COMMENTS_FILE);
+    const reports = readJSON(POST_REPORTS_FILE);
+    const uById = Object.fromEntries(users.map(u => [u.id, u]));
+    const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+    const weekAgo = Date.now() - 7 * 864e5;
+    const newToday = users.filter(u => u.createdAt && new Date(u.createdAt) >= startOfDay).length;
+    const newWeek = users.filter(u => u.createdAt && new Date(u.createdAt).getTime() >= weekAgo).length;
+    const counts = {};
+    reports.forEach(r => { counts[r.postId] = (counts[r.postId] || 0) + 1; });
+    const mostReported = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([postId, reportCount]) => {
+      const p = posts.find(x => x.id === postId) || {};
+      return { id: postId, caption: p.caption || '', type: p.type || 'text', authorName: (uById[p.userId] || {}).name || 'NutriFell User', reportCount };
+    });
+    const recentActivity = posts.slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 8)
+      .map(p => ({ id: p.id, type: p.type || 'text', caption: p.caption || '', authorName: (uById[p.userId] || {}).name || 'NutriFell User', createdAt: p.createdAt }));
+    res.json({ totalUsers: users.length, totalPosts: posts.length, totalComments: comments.length, totalReports: reports.length, newToday, newWeek, recentActivity, mostReported });
+  } catch (e) { console.error('Admin stats error:', e.message); res.status(500).json({ error: 'Could not load stats.' }); }
+});
 
 // ── Feed (paginated, scored, works logged-out) ──
 app.get('/api/feed', async (req, res) => {
