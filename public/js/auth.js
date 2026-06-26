@@ -392,7 +392,7 @@ function _buildSidebar(user) {
         <div class="nb-sidebar-head" id="nbSidebarHead"></div>
         <div class="nb-streak" id="nbStreak" hidden aria-live="polite"></div>
         <nav class="nb-sidebar-nav">
-          <a class="nb-nav-item" href="/">🏠 <span data-i18n="nav_home">Home</span></a>
+          <a class="nb-nav-item" href="/index.html">🏠 <span data-i18n="nav_home">Home</span></a>
           <a class="nb-nav-item" href="/feed.html">📱 <span data-i18n="nav_feed">Social Feed</span></a>
           <a class="nb-nav-item" href="/#gallery">🥗 <span data-i18n="nav_database">Food Database</span></a>
           <a class="nb-nav-item" href="/fridge.html">🧊 <span data-i18n="nav_fridge">My Fridge</span></a>
@@ -414,11 +414,13 @@ function _buildSidebar(user) {
     });
 
     const path = location.pathname;
+    const isHome = p => p === '/' || p === '/index.html';
     overlay.querySelectorAll('.nb-nav-item[href]').forEach(item => {
-      const href = item.getAttribute('href').split('#')[0];
-      if ((href === '/' && path === '/') || (href !== '/' && path === href)) {
-        item.classList.add('active');
-      }
+      const raw = item.getAttribute('href');
+      // In-page anchors (e.g. /#gallery) aren't standalone pages — don't mark active.
+      if (raw.includes('#')) return;
+      const match = isHome(raw) ? isHome(path) : path === raw;
+      if (match) item.classList.add('active');
     });
   }
 
