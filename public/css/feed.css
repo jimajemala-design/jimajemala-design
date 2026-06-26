@@ -64,9 +64,14 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ── Top bar ─────────────────────────────────────────────────────────── */
 .feed-top {
-  height: var(--top-h);
-  display: flex; align-items: center; gap: 12px;
-  padding: 0 16px;
+  min-height: var(--top-h);
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 16px;
+  flex-wrap: wrap; /* stories drop to second row on non-mobile */
+}
+/* Tablet/desktop: story tray becomes its own full-width row */
+@media (min-width: 641px) {
+  .feed-top .story-tray { flex-basis: 100%; padding: 2px 0 8px; }
 }
 .feed-logo { font-weight: 700; font-size: 18px; letter-spacing: -0.02em; white-space: nowrap; }
 .feed-logo span { color: var(--green); }
@@ -240,6 +245,19 @@ button { font-family: inherit; cursor: pointer; }
 
 /* caption + hashtags */
 .post-body { padding: 10px 14px 4px; }
+/* Text-only post body: caption is the hero content */
+.post-body-text { padding: 16px; }
+.post-caption-text {
+  margin: 0; line-height: 1.6; white-space: pre-wrap;
+  word-break: break-word; overflow-wrap: anywhere; color: var(--text);
+}
+/* Tip button (outline style, matches follow button) */
+.tip-btn {
+  background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-2);
+  font-size: 12px; padding: 4px 12px; border-radius: 20px; font-weight: 500;
+  transition: border-color .15s, color .15s;
+}
+.tip-btn:hover { border-color: rgba(255,255,255,0.4); color: var(--text); }
 .post-caption { font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
 .post-caption.clamped {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
@@ -259,7 +277,8 @@ button { font-family: inherit; cursor: pointer; }
 /* action bar */
 .post-actions {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 2px;
+  padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.10); margin-top: 2px;
+  background: rgba(0,0,0,0.10);
 }
 .act {
   display: inline-flex; align-items: center; gap: 6px;
@@ -539,6 +558,9 @@ button { font-family: inherit; cursor: pointer; }
 @media (max-width: 640px) {
   /* hide search bar from top nav — use Explore tab instead */
   .feed-search { display: none; }
+
+  /* story tray sits inline in the logo row on mobile */
+  .feed-top .story-tray { flex: 1; min-width: 0; padding: 0; gap: 6px; }
 
   /* full-bleed feed: drop side padding so cards span the screen */
   .feed-shell { padding: 4px 0 calc(var(--bottom-h) + 28px); gap: 0; max-width: 100%; }

@@ -64,9 +64,7 @@ const Feed = (() => {
   // ── media renderers ──────────────────────────────────────────────────
   function mediaHTML(p) {
     if (p.type === 'text') {
-      const captionLen = (p.caption || '').length;
-      const textFontSize = captionLen < 150 ? '20px' : '16px';
-      return `<div class="post-media text-only"><div class="post-text-body" style="font-size:${textFontSize}">${renderCaption(p.caption)}</div></div>`;
+      return ''; // caption rendered directly in post-body-text; no media wrapper
     }
     if (p.type === 'recipe' && p.recipe) {
       const r = p.recipe;
@@ -115,9 +113,9 @@ const Feed = (() => {
     const reactEmoji = p.myReaction || '🤍';
     const foodtags = (p.foodTags || []).length
       ? `<div class="post-foodtags">${p.foodTags.map(t => `<span class="foodtag">${esc(typeof t === 'string' ? t : (t.name || ''))}</span>`).join('')}</div>` : '';
-    const captionBlock = (p.type !== 'text' && p.caption)
-      ? `<div class="post-body"><div class="post-caption clamped">${renderCaption(p.caption)}</div><button class="post-read-more" data-act="readmore" hidden>Read more</button>${foodtags}</div>`
-      : (p.type === 'text' ? `<div class="post-body">${foodtags}</div>` : '');
+    const captionBlock = p.type === 'text'
+      ? `<div class="post-body post-body-text"><div class="post-caption-text" style="font-size:${(p.caption||'').length < 100 ? '18px' : '15px'}">${renderCaption(p.caption)}</div>${foodtags}</div>`
+      : (p.caption ? `<div class="post-body"><div class="post-caption clamped">${renderCaption(p.caption)}</div><button class="post-read-more" data-act="readmore" hidden>Read more</button>${foodtags}</div>` : (foodtags ? `<div class="post-body">${foodtags}</div>` : ''));
     const extraCls = p.type === 'text' ? ' text-only' : '';
     return `<article class="post${extraCls}" data-id="${esc(p.id)}" data-type="${esc(p.type)}" data-user="${esc(p.userId)}">
       <header class="post-head">
