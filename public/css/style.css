@@ -2484,3 +2484,22 @@ html, body { max-width: 100%; overflow-x: hidden; }
   accent-color: var(--green); cursor: pointer; border-radius: 4px;
 }
 .form-checkbox.error { outline: 2px solid var(--red, #f87171); }
+
+/* ── Minimal one-line footer ──────────────────────────────────────────── */
+.nf-footer-mini {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px;
+  font-size: 12px;
+  color: var(--text-3);
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.nf-footer-mini a {
+  color: var(--text-3);
+  text-decoration: none;
+}
+.nf-footer-mini a:hover { color: var(--green); }
+.footer-divider { opacity: 0.3; }
