@@ -16,25 +16,29 @@
 </head>
 <body class="feed-body">
 
-  <!-- ── Top bar ─────────────────────────────────────────────────────── -->
-  <header class="feed-top">
-    <a class="feed-logo" href="/feed.html">Nutri<span>Fell</span></a>
-    <form class="feed-search" id="searchForm" role="search">
-      <span aria-hidden="true" style="color:var(--text-3);display:grid"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg></span>
-      <input type="search" id="searchInput" placeholder="Search people, #hashtags…" aria-label="Search" />
-    </form>
-    <div class="feed-top-actions">
-      <button class="icon-btn" id="topBell" data-notif-bell aria-label="Notifications">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-        <span class="badge-dot" id="bellBadge" data-notif-badge hidden>0</span>
-      </button>
-      <button class="icon-btn" id="topDM" data-dm-bell aria-label="Messages">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12 7.6L3 21l1.9-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg>
-        <span class="badge-dot" data-dm-badge hidden>0</span>
-      </button>
-      <a class="feed-avatar-btn" id="topAvatar" href="/login.html" aria-label="My profile">?</a>
-    </div>
-  </header>
+  <!-- ── Top bar + stories (collapsible) ───────────────────────────── -->
+  <div class="feed-header" id="feedHeader">
+    <header class="feed-top">
+      <a class="feed-logo" href="/feed.html">Nutri<span>Fell</span></a>
+      <form class="feed-search" id="searchForm" role="search">
+        <span aria-hidden="true" style="color:var(--text-3);display:grid"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg></span>
+        <input type="search" id="searchInput" placeholder="Search people, #hashtags…" aria-label="Search" />
+      </form>
+      <div class="feed-top-actions">
+        <button class="icon-btn" id="topBell" data-notif-bell aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="badge-dot" id="bellBadge" data-notif-badge hidden>0</span>
+        </button>
+        <button class="icon-btn" id="topDM" data-dm-bell aria-label="Messages">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12 7.6L3 21l1.9-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg>
+          <span class="badge-dot" data-dm-badge hidden>0</span>
+        </button>
+        <a class="feed-avatar-btn" id="topAvatar" href="/login.html" aria-label="My profile">?</a>
+      </div>
+    </header>
+    <!-- Stories tray (Phase 4B) — inside collapsible header -->
+    <div class="story-tray" id="storyTray" aria-label="Stories" hidden></div>
+  </div>
 
   <!-- ── Shell ───────────────────────────────────────────────────────── -->
   <div class="feed-shell">
@@ -57,8 +61,6 @@
 
     <!-- Feed -->
     <main class="feed-main">
-      <!-- Stories tray (Phase 4B) -->
-      <div class="story-tray" id="storyTray" aria-label="Stories" hidden></div>
       <div class="feed-main-head">
         <h1 class="feed-title sr-only-title">Feed</h1>
         <div class="feed-ranking" role="tablist" aria-label="Feed ranking">

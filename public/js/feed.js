@@ -64,7 +64,9 @@ const Feed = (() => {
   // ── media renderers ──────────────────────────────────────────────────
   function mediaHTML(p) {
     if (p.type === 'text') {
-      return `<div class="post-media text-only"><div class="post-text-body">${renderCaption(p.caption)}</div></div>`;
+      const captionLen = (p.caption || '').length;
+      const textFontSize = captionLen < 150 ? '20px' : '16px';
+      return `<div class="post-media text-only"><div class="post-text-body" style="font-size:${textFontSize}">${renderCaption(p.caption)}</div></div>`;
     }
     if (p.type === 'recipe' && p.recipe) {
       const r = p.recipe;
@@ -116,7 +118,8 @@ const Feed = (() => {
     const captionBlock = (p.type !== 'text' && p.caption)
       ? `<div class="post-body"><div class="post-caption clamped">${renderCaption(p.caption)}</div><button class="post-read-more" data-act="readmore" hidden>Read more</button>${foodtags}</div>`
       : (p.type === 'text' ? `<div class="post-body">${foodtags}</div>` : '');
-    return `<article class="post" data-id="${esc(p.id)}" data-type="${esc(p.type)}" data-user="${esc(p.userId)}">
+    const extraCls = p.type === 'text' ? ' text-only' : '';
+    return `<article class="post${extraCls}" data-id="${esc(p.id)}" data-type="${esc(p.type)}" data-user="${esc(p.userId)}">
       <header class="post-head">
         <a href="/profile-social.html?id=${esc(p.userId)}">${avatarHTML(p.authorAvatar, p.authorName, 'post-avatar')}</a>
         <div class="post-id">
@@ -1104,6 +1107,28 @@ const Feed = (() => {
 
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeCreate(); closePop(); } });
     window.addEventListener('scroll', closePop, { passive: true });
+
+    // ── Collapsible header on scroll ────────────────────────────────────
+    const feedHeaderEl = document.getElementById('feedHeader');
+    const feedTabsEl = document.querySelector('.feed-main-head');
+
+    // Keep --feed-header-h in sync so tabs always stick just below the header
+    if (feedHeaderEl) {
+      const updateHeaderH = () => {
+        document.documentElement.style.setProperty('--feed-header-h', feedHeaderEl.offsetHeight + 'px');
+      };
+      updateHeaderH();
+      if ('ResizeObserver' in window) new ResizeObserver(updateHeaderH).observe(feedHeaderEl);
+    }
+
+    let lastScrollY = 0;
+    window.addEventListener('scroll', () => {
+      const current = window.scrollY;
+      const goingDown = current > lastScrollY && current > 100;
+      feedHeaderEl?.classList.toggle('header-hidden', goingDown);
+      feedTabsEl?.classList.toggle('tabs-raised', goingDown);
+      lastScrollY = current;
+    }, { passive: true });
 
     loadSuggested();
     loadMore();
