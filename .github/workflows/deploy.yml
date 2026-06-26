@@ -1,0 +1,36 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            APP_DIR=$(pm2 describe 0 2>/dev/null | grep -i "cwd" | awk '{print $NF}')
+            if [ -z "$APP_DIR" ] || [ ! -f "$APP_DIR/server.js" ]; then
+              for dir in ~/domains/*/public_html ~/public_html ~/htdocs ~; do
+                if [ -f "$dir/server.js" ]; then APP_DIR="$dir"; break; fi
+              done
+            fi
+            echo ">>> App dir: $APP_DIR"
+            cd "$APP_DIR"
+            git pull origin main
+            npm install --production
+            pm2 restart all || pm2 start server.js --name nutrifell
+            sleep 4
+            pm2 logs --lines 40 --nostream
+            echo ">>> Done!"
