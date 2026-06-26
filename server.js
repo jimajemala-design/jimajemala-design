@@ -363,6 +363,7 @@ async function dbUpdateUser(id, user) {
       password: process.env.DB_PASS || '',
       database: process.env.DB_NAME,
       port: Number(process.env.DB_PORT) || 3306,
+      family: 4,
       waitForConnections: true,
       connectionLimit: 10,
       charset: 'utf8mb4',
