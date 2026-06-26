@@ -300,8 +300,8 @@
 }
 
 /* search + add */
-.fridge-search { display: flex; gap: 10px; margin-bottom: 14px; position: relative; }
-.fridge-search .form-input { flex: 1; }
+.fridge-search { display: flex; gap: 10px; margin-bottom: 14px; position: relative; max-width: 100%; }
+.fridge-search .form-input { flex: 1; min-width: 0; }
 .search-results {
   position: absolute; top: 100%; left: 0; right: 70px; z-index: 20;
   margin-top: 6px;
@@ -386,7 +386,7 @@
   margin-bottom: 20px;
 }
 .plan-target {
-  text-align: center; padding: 12px 8px;
+  text-align: center; padding: 12px 8px; min-width: 0;
   background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle);
   border-radius: var(--r-md);
 }
@@ -809,9 +809,8 @@
   .log-form { flex-direction: column; }
   .log-macros-row { grid-template-columns: 1fr 1fr; }
 
-  /* Quick-add chips: horizontal scroll */
-  .quick-add { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
-  .quick-add::-webkit-scrollbar { height: 0; }
+  /* Quick-add chips: wrap onto multiple rows so nothing runs off-screen */
+  .quick-add { flex-wrap: wrap; max-width: 100%; }
   .quick-chip { flex-shrink: 0; padding: 10px 14px; min-height: 44px; font-size: 13px; }
 
   /* Search autocomplete: full width so it doesn't get clipped by Add button */
