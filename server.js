@@ -20,6 +20,10 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const app = express();
 const PORT = process.env.PORT || 3000;
+// Hostinger (and most PaaS hosts) put the app behind a reverse proxy that sets
+// X-Forwarded-For. Trust the first proxy hop so express-rate-limit can read the
+// real client IP instead of throwing a ValidationError. `1` = trust one hop.
+app.set('trust proxy', 1);
 app.set('etag', 'strong'); // strong ETags on dynamic responses for conditional GETs
 
 // ─── Security, compression & resilience middleware ───────────────────────
