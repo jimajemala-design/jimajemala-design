@@ -26,24 +26,27 @@ jobs:
             echo ">>> Deploying to: $APP_DIR"
             cd "$APP_DIR"
             git pull origin main
+            echo ">>> Installing dependencies..."
+            $NODE $NPM install --omit=dev
+            echo ">>> Running admin grant directly..."
             $NODE -e "
               const mysql = require('mysql2/promise');
               require('dotenv').config();
               (async () => {
-                const db = await mysql.createConnection({
-                  host: process.env.DB_HOST,
-                  user: process.env.DB_USER,
-                  password: process.env.DB_PASSWORD,
-                  database: process.env.DB_NAME
-                });
-                await db.execute(\"UPDATE users SET role='admin' WHERE email='jimajemala@gmail.com'\");
-                const [rows] = await db.execute(\"SELECT email, role FROM users WHERE email='jimajemala@gmail.com'\");
-                console.log('Admin grant result:', JSON.stringify(rows));
-                await db.end();
+                try {
+                  const db = await mysql.createConnection({
+                    host: process.env.DB_HOST,
+                    user: process.env.DB_USER,
+                    password: process.env.DB_PASS,
+                    database: process.env.DB_NAME
+                  });
+                  await db.execute(\"UPDATE users SET role='admin' WHERE email='jimajemala@gmail.com'\");
+                  const [rows] = await db.execute(\"SELECT email, role FROM users WHERE email='jimajemala@gmail.com'\");
+                  console.log('Result:', JSON.stringify(rows));
+                  await db.end();
+                } catch(e) { console.error('DB error:', e.message); }
               })();
             "
-            echo ">>> Installing dependencies..."
-            $NODE /opt/alt/alt-nodejs20/root/usr/lib/node_modules/npm/bin/npm-cli.js install --production
             echo ">>> Restarting app..."
             touch ~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html/restart.txt
             echo ">>> Deploy complete!"
