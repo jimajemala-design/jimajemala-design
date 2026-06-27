@@ -62,23 +62,18 @@ const Feed = (() => {
   }
 
   // ── media renderers ──────────────────────────────────────────────────
-  function mediaHTML(p) {
-    if (p.type === 'text') {
-      return ''; // caption rendered directly in post-body-text; no media wrapper
-    }
-    if (p.type === 'recipe' && p.recipe) {
-      const r = p.recipe;
-      const cover = r.cover
-        ? `<img class="post-recipe-cover" src="${esc(r.cover)}" alt="${esc(r.name)}" loading="lazy">`
-        : `<div class="post-recipe-cover">🍽️</div>`;
-      return `<a class="post-recipe" href="/recipe-detail.html?id=${esc(r.id)}">
-        ${cover}
-        <div class="post-recipe-info">
-          <h4>${esc(r.name)}</h4>
-          <div class="post-recipe-tags"><span>${esc(r.category || 'Recipe')}</span>
-          ${r.calories != null ? `<span class="post-recipe-kcal">${r.calories} kcal/serving</span>` : ''}</div>
-        </div></a>`;
-    }
+  // A post is a MEDIA card when it has an image/video/recipe header, otherwise
+  // a TEXT card. Recipes always use the media layout (cover or placeholder).
+  function hasMedia(p) {
+    if (p.type === 'video') return !!p.video;
+    if (p.type === 'recipe') return true;
+    return (p.photos || []).length > 0;
+  }
+
+  // Inner media element placed inside the 210px .nf-media header. Keeps the
+  // data-media / data-carousel / .reel / .carousel-dot / .heart-burst hooks the
+  // rest of feed.js binds to (double-tap like, carousel, video autoplay).
+  function mediaInner(p) {
     if (p.type === 'video' && p.video) {
       return `<div class="reel" data-media>
         <video src="${esc(p.video)}" muted loop playsinline preload="metadata"></video>
@@ -88,56 +83,81 @@ const Feed = (() => {
         <div class="heart-burst">❤️</div>
       </div>`;
     }
-    // photo (single or carousel)
+    if (p.type === 'recipe') {
+      const cover = (p.recipe && p.recipe.cover) || (p.photos || [])[0] || '';
+      return cover
+        ? `<div class="nf-media-inner" data-media><img class="post-photo" src="${esc(cover)}" alt="${esc((p.recipe && p.recipe.name) || '')}" loading="lazy"><div class="heart-burst">❤️</div></div>`
+        : `<div class="nf-media-inner nf-media-ph" data-media><span>🍽️</span><div class="heart-burst">❤️</div></div>`;
+    }
     const photos = p.photos || [];
     if (photos.length <= 1) {
-      const src = photos[0] || '';
-      return `<div class="post-media" data-media>
-        <img class="post-photo" src="${esc(src)}" alt="${esc(p.caption).slice(0, 80)}" loading="lazy">
-        <div class="heart-burst">❤️</div></div>`;
+      return `<div class="nf-media-inner" data-media><img class="post-photo" src="${esc(photos[0] || '')}" alt="${esc(p.caption).slice(0, 80)}" loading="lazy"><div class="heart-burst">❤️</div></div>`;
     }
     const slides = photos.map(u => `<div class="carousel-slide"><img src="${esc(u)}" alt="" loading="lazy"></div>`).join('');
     const dots = photos.map((_, i) => `<span class="carousel-dot${i === 0 ? ' active' : ''}"></span>`).join('');
-    return `<div class="post-media carousel" data-media data-carousel>
+    return `<div class="carousel" data-media data-carousel>
       <div class="carousel-track">${slides}</div>
       <div class="carousel-count">1/${photos.length}</div>
       <div class="carousel-dots">${dots}</div>
       <div class="heart-burst">❤️</div></div>`;
   }
 
+  // Overlay pill text, e.g. "RECIPE · 320 KCAL" / "REEL · 1.2k VIEWS" / "PHOTO".
+  // (Cook time isn't in the post payload, so we show the strongest detail we have.)
+  function overlayPill(p) {
+    const type = ({ recipe: 'RECIPE', video: 'REEL', photo: 'PHOTO' })[p.type] || '';
+    let detail = '';
+    if (p.type === 'recipe' && p.recipe) {
+      detail = p.recipe.calories != null ? `${p.recipe.calories} KCAL`
+             : (p.recipe.category ? String(p.recipe.category).toUpperCase() : '');
+    } else if (p.type === 'video' && p.views) {
+      detail = `${nFmt(p.views)} VIEWS`;
+    }
+    const label = detail ? `${type} · ${detail}` : type;
+    return label ? `<span class="nf-pill">${esc(label)}</span>` : '';
+  }
+
   // ── post card ────────────────────────────────────────────────────────
   function postHTML(p) {
-    const my = me();
     const showFollow = authed() && !p.isOwn && p.userId;
-    const followCls = p.isFollowingAuthor ? 'follow-btn following' : 'follow-btn';
     const reactEmoji = p.myReaction || '🤍';
-    const foodtags = (p.foodTags || []).length
-      ? `<div class="post-foodtags">${p.foodTags.map(t => `<span class="foodtag">${esc(typeof t === 'string' ? t : (t.name || ''))}</span>`).join('')}</div>` : '';
-    const captionBlock = p.type === 'text'
-      ? `<div class="post-body post-body-text"><div class="post-caption-text" style="font-size:${(p.caption||'').length < 100 ? '18px' : '15px'}">${renderCaption(p.caption)}</div>${foodtags}</div>`
-      : (p.caption ? `<div class="post-body"><div class="post-caption clamped">${renderCaption(p.caption)}</div><button class="post-read-more" data-act="readmore" hidden>Read more</button>${foodtags}</div>` : (foodtags ? `<div class="post-body">${foodtags}</div>` : ''));
-    const extraCls = p.type === 'text' ? ' text-only' : '';
-    return `<article class="post${extraCls}" data-id="${esc(p.id)}" data-type="${esc(p.type)}" data-user="${esc(p.userId)}">
-      <header class="post-head">
-        <a href="/profile-social.html?id=${esc(p.userId)}">${avatarHTML(p.authorAvatar, p.authorName, 'post-avatar')}</a>
-        <div class="post-id">
-          <div class="post-name"><b>${esc(p.authorName)}</b></div>
-          <div class="post-meta"><span>${esc(p.authorUsername || '')}</span><span class="dot">·</span><span>${timeAgo(p.createdAt)}</span>
-            <span class="post-type-badge">${TYPE_BADGE[p.type] || ''}</span></div>
-        </div>
-        ${showFollow ? `<button class="${followCls}" data-act="follow">${p.isFollowingAuthor ? 'Following' : 'Follow'}</button>` : ''}
-        <button class="post-menu-btn" data-act="menu" aria-label="Post options">${I.more}</button>
-      </header>
-      ${mediaHTML(p)}
-      ${captionBlock}
-      ${p.totalReactions ? `<div class="react-summary"><span class="em">${topReactEmojis(p)}</span><span>${nFmt(p.totalReactions)}</span></div>` : ''}
-      <div class="post-actions">
-        <button class="act act-react ${p.myReaction ? 'liked' : ''}" data-act="react" aria-label="React">
-          <span class="react-emoji">${reactEmoji}</span><span data-react-count>${p.totalReactions ? nFmt(p.totalReactions) : ''}</span>
-        </button>
-        <button class="act" data-act="comment" aria-label="Comments">${I.comment}<span data-comment-count>${p.commentCount ? nFmt(p.commentCount) : ''}</span></button>
-        <button class="act" data-act="share" aria-label="Share">${I.share}</button>
-        <button class="act spacer ${p.saved ? 'saved' : ''}" data-act="save" aria-label="Save">${p.saved ? I.bookmarkFill : I.bookmark}</button>
+    const likedCls = p.myReaction ? ' liked' : '';
+    const idAttrs = `data-id="${esc(p.id)}" data-type="${esc(p.type)}" data-user="${esc(p.userId)}"`;
+    const avatar = avatarHTML(p.authorAvatar, p.authorName, 'nf-av');
+    const authorMeta = `<a class="nf-author" href="/profile-social.html?id=${esc(p.userId)}">${avatar}<span class="nf-author-meta"><span class="nf-name">${esc(p.authorName)}</span><span class="nf-time">${timeAgo(p.createdAt)}</span></span></a>`;
+    const followPill = showFollow
+      ? `<button class="nf-follow${p.isFollowingAuthor ? ' following' : ''}" data-act="follow">${p.isFollowingAuthor ? 'Following' : 'Follow'}</button>` : '';
+    const menuBtn = `<button class="post-menu-btn" data-act="menu" aria-label="Post options">${I.more}</button>`;
+    // Action row — keeps the .act-react / data-react-count / data-comment-count
+    // hooks that updateReactionUI() and the socket handlers read & write.
+    const reactBtn = `<button class="act act-react${likedCls}" data-act="react" aria-label="Like"><span class="react-emoji">${reactEmoji}</span><span class="nf-count" data-react-count>${p.totalReactions ? nFmt(p.totalReactions) : ''}</span></button>`;
+    const commentBtn = `<button class="act" data-act="comment" aria-label="Comments">${I.comment}<span class="nf-count" data-comment-count>${p.commentCount ? nFmt(p.commentCount) : ''}</span></button>`;
+    const shareBtn = `<button class="act" data-act="share" aria-label="Share">${I.share}</button>`;
+    const saveInline = `<button class="act act-save${p.saved ? ' saved' : ''}" data-act="save" aria-label="Save">${p.saved ? I.bookmarkFill : I.bookmark}</button>`;
+
+    if (!hasMedia(p)) {
+      // ── TEXT CARD — wraps content tightly, height:auto (see feed.css) ──
+      return `<article class="post text-only nf-card nf-text-card" ${idAttrs}>
+        <div class="nf-author-row">${authorMeta}<span class="nf-spacer"></span>${followPill}${menuBtn}</div>
+        <div class="nf-text-body">${renderCaption(p.caption)}</div>
+        <div class="post-actions nf-actions">${reactBtn}${commentBtn}<span class="nf-spacer"></span>${shareBtn}${saveInline}</div>
+      </article>`;
+    }
+
+    // ── MEDIA CARD — 210px header + overlays, then body ──
+    const title = p.type === 'recipe' && p.recipe ? esc(p.recipe.name) : (p.caption ? renderCaption(p.caption) : '');
+    const sub = p.type === 'recipe' ? (p.caption ? renderCaption(p.caption) : '') : esc(p.location || '');
+    return `<article class="post nf-card nf-media-card" ${idAttrs}>
+      <div class="nf-media">
+        ${mediaInner(p)}
+        ${overlayPill(p)}
+        <button class="nf-bookmark${p.saved ? ' saved' : ''}" data-act="save" aria-label="Save">${p.saved ? I.bookmarkFill : I.bookmark}</button>
+      </div>
+      <div class="nf-body">
+        <div class="nf-author-row">${authorMeta}<span class="nf-spacer"></span>${followPill}${menuBtn}</div>
+        ${title ? `<div class="nf-title">${title}</div>` : ''}
+        ${sub ? `<div class="nf-sub">${sub}</div>` : ''}
+        <div class="post-actions nf-actions">${reactBtn}${commentBtn}<span class="nf-spacer"></span>${shareBtn}</div>
       </div>
     </article>`;
   }
@@ -1062,9 +1082,8 @@ const Feed = (() => {
       resetFeed();
     }));
 
-    // filters — the Reels chip is a destination (immersive viewer), not a grid filter.
+    // pill tabs — All / Recipes / Reels / Tips all filter the feed in place.
     document.querySelectorAll('.feed-filters .chip').forEach(c => c.addEventListener('click', () => {
-      if (c.dataset.filter === 'video') { location.href = '/reels.html'; return; }
       document.querySelectorAll('.feed-filters .chip').forEach(x => x.classList.remove('active'));
       c.classList.add('active');
       state.filter = c.dataset.filter || '';
