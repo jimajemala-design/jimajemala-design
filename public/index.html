@@ -498,5 +498,32 @@
       });
     }
   </script>
+
+  <script>
+    // Language switcher belongs ONLY in the hamburger menu on the landing page.
+    // i18n.js floats its switcher top-right by default; once auth.js has built
+    // the sidebar, move that switcher inside it so it's no longer on the page.
+    (function () {
+      function dockLangSwitcher() {
+        var wrap = document.querySelector('.lang-switcher-wrap');
+        var nav = document.querySelector('#nbSidebar .nb-sidebar-nav');
+        if (!wrap || !nav) return false;
+        if (nav.contains(wrap)) return true;            // already docked
+        var slot = document.createElement('div');
+        slot.className = 'nb-sidebar-lang';
+        wrap.style.position = 'relative';                // was fixed; anchor dropdown here
+        wrap.style.top = 'auto';
+        wrap.style.right = 'auto';
+        slot.appendChild(wrap);
+        nav.appendChild(slot);
+        return true;
+      }
+      document.addEventListener('DOMContentLoaded', function () {
+        // auth.js builds the sidebar on DOMContentLoaded too; retry next frame
+        // in case our handler runs first.
+        if (!dockLangSwitcher()) requestAnimationFrame(dockLangSwitcher);
+      });
+    })();
+  </script>
 </body>
 </html>
