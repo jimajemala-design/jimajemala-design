@@ -6960,7 +6960,7 @@ if (SocketServer) {
     });
   });
 
-  httpServer.listen(PORT, () => console.log(`NutriFell running at http://localhost:${PORT} (real-time on)`));
+  httpServer.listen(PORT, '0.0.0.0', () => console.log(`NutriFell running at http://localhost:${PORT} (real-time on)`));
 } else {
-  app.listen(PORT, () => console.log(`NutriFell running at http://localhost:${PORT} (real-time off)`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`NutriFell running at http://localhost:${PORT} (real-time off)`));
 }
