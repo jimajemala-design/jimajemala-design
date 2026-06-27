@@ -734,33 +734,8 @@ body.feed-body { background: var(--bg); }
 .nf-text-card .nf-text-body { font-size: 15px; line-height: 1.5; color: #E4E7E4; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
 .nf-text-card .nf-text-body .hashtag, .nf-text-card .nf-text-body .mention { color: var(--accent); font-weight: 600; }
 
-/* ── Floating pill bottom nav ── */
-.nf-bottomnav {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 200;
-  display: flex; justify-content: center;
-  padding: 0 16px calc(14px + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to top, var(--bg) 55%, transparent);
-  pointer-events: none;
-}
-.nf-bottomnav-pill {
-  pointer-events: auto;
-  display: flex; align-items: center; gap: 8px;
-  background: var(--surface-alt); border: 1px solid var(--border-strong);
-  border-radius: 22px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.45);
-}
-.nf-nav-item { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; color: var(--text-4); }
-.nf-nav-item svg { width: 23px; height: 23px; }
-.nf-nav-item.active { color: var(--accent); }
-.nf-fab {
-  width: 50px; height: 44px; border-radius: 14px; display: grid; place-items: center; flex: none;
-  background: var(--accent-grad); color: var(--accent-on); border: none; cursor: pointer;
-  box-shadow: 0 6px 18px rgba(70,217,138,.4);
-}
-.nf-fab svg { width: 24px; height: 24px; }
-.nf-nav-item .bn-badge { position: absolute; transform: translate(12px,-14px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: var(--accent-on); font-size: 10px; font-weight: 700; display: grid; place-items: center; }
-
-/* Desktop: keep the existing left rail, hide the floating mobile nav */
+/* Floating pill bottom nav styles now live in the shared /js/bottomnav.js
+   component (it injects its own <style>), so it's identical on every page. */
 @media (min-width: 1024px) {
-  .nf-bottomnav { display: none; }
   .feed-list { padding-bottom: 40px; }
 }

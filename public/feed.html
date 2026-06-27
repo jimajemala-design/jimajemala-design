@@ -82,16 +82,8 @@
     </aside>
   </div>
 
-  <!-- ── Floating pill bottom nav (mobile) ───────────────────────────── -->
-  <nav class="nf-bottomnav" aria-label="Primary">
-    <div class="nf-bottomnav-pill">
-      <a class="nf-nav-item active" href="/feed.html" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a>
-      <a class="nf-nav-item" href="/search.html" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg></a>
-      <button class="nf-fab" data-open-create aria-label="Create post"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-      <a class="nf-nav-item" href="/messages.html" aria-label="Messages" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12 7.6L3 21l1.9-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg><span class="bn-badge" data-dm-badge hidden>0</span></a>
-      <a class="nf-nav-item" id="bnProfile" href="/profile-view.html" aria-label="Profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></a>
-    </div>
-  </nav>
+  <!-- Floating pill bottom nav — injected by /js/bottomnav.js (shared component) -->
+
 
   <!-- ── Comment sheet ───────────────────────────────────────────────── -->
   <div class="sheet-overlay" id="sheetOverlay"></div>
@@ -154,6 +146,7 @@
 
   <script src="/js/i18n.js"></script>
   <script src="/js/auth.js"></script>
+  <script src="/js/bottomnav.js"></script>
   <script src="/js/notifications.js"></script>
   <script src="/js/stories.js"></script>
   <script src="/js/feed.js"></script>
