@@ -100,12 +100,18 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 10px; font-weight: 700; display: grid; place-items: center;
   border: 2px solid var(--bg);
 }
+/* Language toggle docked in the navbar: override i18n.js's default fixed,
+   top-right placement so the switcher sits in-flow beside the profile icon. */
+.feed-lang { display: flex; align-items: center; }
+.feed-lang .lang-switcher-wrap { position: relative; top: auto; right: auto; z-index: 60; }
+.feed-lang .lang-switcher { padding: 5px 9px; font-size: 12px; }
+.feed-lang .lang-switcher .lang-flag { font-size: 13px; }
 .feed-avatar-btn {
-  /* Trimmed 12% (38→33px) so the circle sits closer to the logo's cap height
-     and the top bar no longer stretches vertically around it. */
-  width: 33px; height: 33px; border-radius: 50%; border: 1px solid var(--line-2);
+  /* Trimmed a further 12% (33→29px) to sit flush with the logo's text height
+     so the top bar has no vertical stretch around the circle. */
+  width: 29px; height: 29px; border-radius: 50%; border: 1px solid var(--line-2);
   background: linear-gradient(135deg, var(--green), #16a34a); color: #04130a;
-  font-weight: 700; font-size: 13px; display: grid; place-items: center;
+  font-weight: 700; font-size: 12px; display: grid; place-items: center;
 }
 
 /* ── App shell layout ────────────────────────────────────────────────── */
@@ -161,10 +167,9 @@ button { font-family: inherit; cursor: pointer; }
 /* Text-only cards get a slightly lighter surface and bigger text */
 .post.text-only { background: rgba(255,255,255,0.06); }
 .post.text-only .post-text-body { line-height: 1.5; padding: 20px 16px; color: var(--text); }
-/* Text-only cards wrap tightly: drop the extra bottom padding and the dark
-   action-bar fill/gap so there's no black gradient gap between the tip text
-   and the interaction bar. */
-.post.text-only .post-body-text { padding-bottom: 4px; }
+/* Text-only cards wrap tightly: the card height stays dynamic and the action
+   bar sits exactly 16px below the tip text — no dark fill, no empty black gap. */
+.post.text-only .post-body-text { padding-bottom: 16px; }
 .post.text-only .post-actions { margin-top: 0; background: transparent; }
 .post-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px 8px; }
 .post-avatar {
@@ -177,6 +182,8 @@ button { font-family: inherit; cursor: pointer; }
 .post-name { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; min-width: 0; }
 .post-name b { font-weight: 600; overflow-wrap: anywhere; word-break: break-word; min-width: 0; }
 .post-meta { font-size: 11px; color: var(--text-3); display: flex; gap: 5px; align-items: center; }
+/* 4px breathing room on each side of the · between handle and timestamp */
+.post-meta .dot { padding: 0 4px; }
 .post-type-badge {
   font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
   background: var(--glass-2); border: 1px solid var(--line); color: var(--text-2);
@@ -284,7 +291,7 @@ button { font-family: inherit; cursor: pointer; }
 /* action bar */
 .post-actions {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.10); margin-top: 2px;
+  padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 2px;
   background: rgba(0,0,0,0.10);
 }
 .act {

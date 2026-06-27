@@ -122,7 +122,7 @@ const Feed = (() => {
         <a href="/profile-social.html?id=${esc(p.userId)}">${avatarHTML(p.authorAvatar, p.authorName, 'post-avatar')}</a>
         <div class="post-id">
           <div class="post-name"><b>${esc(p.authorName)}</b></div>
-          <div class="post-meta"><span>${esc(p.authorUsername || '')}</span><span>·</span><span>${timeAgo(p.createdAt)}</span>
+          <div class="post-meta"><span>${esc(p.authorUsername || '')}</span><span class="dot">·</span><span>${timeAgo(p.createdAt)}</span>
             <span class="post-type-badge">${TYPE_BADGE[p.type] || ''}</span></div>
         </div>
         ${showFollow ? `<button class="${followCls}" data-act="follow">${p.isFollowingAuthor ? 'Following' : 'Follow'}</button>` : ''}
