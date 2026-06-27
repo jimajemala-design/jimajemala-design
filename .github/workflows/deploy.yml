@@ -20,12 +20,8 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           password: ${{ secrets.SSH_PASSWORD }}
           script: |
-            APP_DIR=$(pm2 describe 0 2>/dev/null | grep -i "cwd" | awk '{print $NF}')
-            if [ -z "$APP_DIR" ] || [ ! -f "$APP_DIR/server.js" ]; then
-              for dir in ~/domains/*/public_html ~/public_html ~/htdocs ~; do
-                if [ -f "$dir/server.js" ]; then APP_DIR="$dir"; break; fi
-              done
-            fi
+            export PATH=$PATH:~/.nvm/versions/node/$(ls ~/.nvm/versions/node | tail -1)/bin:/usr/local/bin
+            APP_DIR=$(find ~ -name "server.js" -not -path "*/node_modules/*" 2>/dev/null | head -1 | xargs dirname)
             echo ">>> App dir: $APP_DIR"
             cd "$APP_DIR"
             git pull origin main
