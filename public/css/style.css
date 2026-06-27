@@ -1428,7 +1428,7 @@ body {
 }
 .nb-hamburger:hover { background: rgba(255,255,255,0.08); border-color: var(--border-mid); }
 .nb-hamburger span {
-  display: block; height: 2px; border-radius: 1px;
+  display: block; width: 100%; height: 2px; border-radius: 1px;
   background: var(--text-2);
   transition: transform 0.3s ease, opacity 0.2s ease;
 }
@@ -2231,9 +2231,15 @@ html, body { max-width: 100%; overflow-x: hidden; }
 
   /* Touch targets — every interactive control reaches ~44px. */
   .nb-nav-item, .filter-btn, .rcp-tab, .faq-q { min-height: 44px; }
-  .nb-hamburger, .ip-close, .nb-avatar-btn, .nb-toast-x, .nf-toast-x {
+  .ip-close, .nb-avatar-btn, .nb-toast-x, .nf-toast-x {
     min-width: 44px; min-height: 44px;
     display: inline-flex; align-items: center; justify-content: center;
+  }
+  /* Hamburger must KEEP its vertical (column) layout so the 3 lines stay
+     visible — only grow the hit target. Do not switch it to inline-flex/row. */
+  .nb-hamburger {
+    min-width: 44px; min-height: 44px; width: 44px; height: 44px;
+    display: flex; flex-direction: column; align-items: stretch; justify-content: center;
   }
 
   /* Water progress ring: smaller so it never overflows the card. */
