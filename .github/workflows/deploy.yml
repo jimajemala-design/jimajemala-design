@@ -32,7 +32,7 @@ jobs:
             echo ">>> Finding .env..."
             ENV_PATH=$(find ~/domains -name ".env" -not -path "*/node_modules/*" 2>/dev/null | head -3)
             echo ">>> .env locations: $ENV_PATH"
-            REAL_ENV=$(find ~/domains -name ".env" -not -path "*/node_modules/*" -not -path "*/.builds/*" 2>/dev/null | head -1)
+            REAL_ENV=~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html/.builds/config/.env
             echo ">>> Using .env: $REAL_ENV"
             $NODE -e "
               const mysql = require('mysql2/promise');
