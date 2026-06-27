@@ -53,5 +53,10 @@ jobs:
               })();
             "
             echo ">>> Restarting app..."
-            touch ~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html/restart.txt
+            # Kill and restart the node process
+            pkill -f "node.*server.js" || true
+            sleep 2
+            cd "$APP_DIR"
+            nohup $NODE server.js > /dev/null 2>&1 &
+            echo ">>> App restarted with PID: $!"
             echo ">>> Deploy complete!"
