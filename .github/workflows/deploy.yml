@@ -21,11 +21,10 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           script: |
             SITE_DIR=~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html
+            echo ">>> PATH: $PATH"
+            echo ">>> node: $(which node 2>/dev/null)"
+            echo ">>> npm: $(which npm 2>/dev/null)"
             echo ">>> Deploying to: $SITE_DIR"
             cd "$SITE_DIR"
             git pull origin main
-            echo ">>> Installing dependencies..."
-            npm install --production 2>/dev/null || npx --yes npm install --production
-            echo ">>> Restarting app via Hostinger..."
-            touch restart.txt
             echo ">>> Done!"
