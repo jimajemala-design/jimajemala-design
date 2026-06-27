@@ -556,20 +556,14 @@
     // Ask the server who we are (authoritative), configure tabs for the role,
     // then open the right starting tab.
     (async function init() {
-      let meSrv = null;
       try {
-        meSrv = await Auth.api('/api/admin/me');
-      } catch (e) { /* fall through to the cached-user fallback below */ }
-      if (meSrv && meSrv.role) {
+        const meSrv = await Auth.api('/api/admin/me');
         myRole = meSrv.role || 'user';
         myId = meSrv.id || '';
         document.getElementById('whoami').textContent = (meSrv.name || meSrv.email || '') + ' · ' + myRole;
-      } else {
-        // /api/admin/me failed or returned no role → trust the locally cached user.
-        const cached = JSON.parse(localStorage.getItem('nb_user') || '{}');
-        myRole = cached.role || 'user';
-        myId = cached.id || '';
-        document.getElementById('whoami').textContent = (cached.name || cached.email || '') + ' · ' + myRole;
+      } catch (e) {
+        // 401 already bounced to login inside Auth.api; anything else → no access.
+        location.href = '/feed.html'; return;
       }
       // Plain users have no business here.
       if (myRole !== 'admin' && myRole !== 'moderator') { location.href = '/feed.html'; return; }
