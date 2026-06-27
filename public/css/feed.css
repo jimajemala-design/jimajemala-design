@@ -167,8 +167,11 @@ button { font-family: inherit; cursor: pointer; }
 /* Text-only cards get a slightly lighter surface and bigger text */
 .post.text-only { background: rgba(255,255,255,0.06); }
 .post.text-only .post-text-body { line-height: 1.5; padding: 20px 16px; color: var(--text); }
-/* Text-only cards wrap tightly: the card height stays dynamic and the action
-   bar sits exactly 16px below the tip text — no dark fill, no empty black gap. */
+/* Text-only cards wrap tightly: mediaHTML() renders no media element for text
+   posts, so nothing forces a fixed height. Make that explicit and defensive —
+   the card sizes to its content (no min-height, no aspect-ratio) and the action
+   bar sits exactly 16px below the tip text, with no dark fill or empty gap. */
+.post.text-only, .post.text-only .post-body-text { height: auto; min-height: 0; aspect-ratio: auto; }
 .post.text-only .post-body-text { padding-bottom: 16px; }
 .post.text-only .post-actions { margin-top: 0; background: transparent; }
 .post-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px 8px; }
