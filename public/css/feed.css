@@ -101,9 +101,11 @@ button { font-family: inherit; cursor: pointer; }
   border: 2px solid var(--bg);
 }
 .feed-avatar-btn {
-  width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line-2);
+  /* Trimmed 12% (38→33px) so the circle sits closer to the logo's cap height
+     and the top bar no longer stretches vertically around it. */
+  width: 33px; height: 33px; border-radius: 50%; border: 1px solid var(--line-2);
   background: linear-gradient(135deg, var(--green), #16a34a); color: #04130a;
-  font-weight: 700; font-size: 15px; display: grid; place-items: center;
+  font-weight: 700; font-size: 13px; display: grid; place-items: center;
 }
 
 /* ── App shell layout ────────────────────────────────────────────────── */
@@ -159,6 +161,11 @@ button { font-family: inherit; cursor: pointer; }
 /* Text-only cards get a slightly lighter surface and bigger text */
 .post.text-only { background: rgba(255,255,255,0.06); }
 .post.text-only .post-text-body { line-height: 1.5; padding: 20px 16px; color: var(--text); }
+/* Text-only cards wrap tightly: drop the extra bottom padding and the dark
+   action-bar fill/gap so there's no black gradient gap between the tip text
+   and the interaction bar. */
+.post.text-only .post-body-text { padding-bottom: 4px; }
+.post.text-only .post-actions { margin-top: 0; background: transparent; }
 .post-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px 8px; }
 .post-avatar {
   width: 36px; height: 36px; border-radius: 50%; flex: none;
