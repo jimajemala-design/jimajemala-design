@@ -154,6 +154,40 @@ try {
   }
 } catch (e) { /* SDK not installed or no key — fall back to built-in assistant */ }
 
+// ─── AI auto-moderation ──────────────────────────────────────────────────
+// Run user-generated text through Gemini before it is persisted. Returns
+// { safe, reason }. FAILS OPEN: if the key/SDK/model is unavailable or the
+// call errors out, the content is allowed through — moderation is best-effort
+// and must never take posting/commenting down. Override the model (kept fast
+// on purpose) via GEMINI_MOD_MODEL.
+async function moderateContent(content) {
+  const text = String(content || '').trim();
+  if (!text) return { safe: true };   // nothing textual to check (e.g. photo-only post)
+  if (!genAI) return { safe: true };  // no AI configured → allow
+  try {
+    const model = genAI.getGenerativeModel({
+      model: process.env.GEMINI_MOD_MODEL || 'gemini-2.0-flash',
+    });
+    const prompt = 'You are a content moderator for a nutrition and fitness social app. '
+      + 'Analyze this content and respond with ONLY a JSON object: '
+      + '{"safe": true/false, "reason": "brief reason if unsafe"}. '
+      + 'Content to analyze: ' + text;
+    const result = await model.generateContent(prompt);
+    const raw = (result.response.text() || '').trim();
+    // Gemini often wraps JSON in ```json fences — pull out the first {...} block.
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return { safe: true };  // unparseable verdict → allow
+    const verdict = JSON.parse(match[0]);
+    return {
+      safe: verdict.safe !== false,
+      reason: verdict.reason || 'Content violates community guidelines',
+    };
+  } catch (e) {
+    console.error('Moderation error (allowing content):', e.message);
+    return { safe: true };  // fail open
+  }
+}
+
 // ─── Stripe (subscription payments) ──────────────────────────────────────
 let stripe = null;
 try {
@@ -5674,6 +5708,9 @@ app.post('/api/posts', auth, (req, res) => {
       const b = req.body || {};
       const type = POST_TYPES.includes(b.type) ? b.type : 'text';
       const caption = String(b.caption || '').trim().slice(0, 500);
+      // AI auto-moderation: vet the caption before doing any media work or saving.
+      const mod = await moderateContent(caption);
+      if (!mod.safe) return res.status(400).json({ error: 'Content violates community guidelines', reason: mod.reason });
       const { photos, video: rawVideo } = await savePostMedia(req.files);
       // Phase 5: a reel can supply a pre-transcoded video (from /api/upload/video)
       // instead of a raw multipart upload. Only accept paths inside /uploads/videos.
@@ -5855,6 +5892,9 @@ app.post('/api/posts/:id/comments', auth, async (req, res) => {
   try {
     const text = req.body && String(req.body.text || '').trim();
     if (!text) return res.status(400).json({ error: 'Comment cannot be empty' });
+    // AI auto-moderation: vet the comment before saving.
+    const mod = await moderateContent(text);
+    if (!mod.safe) return res.status(400).json({ error: 'Content violates community guidelines', reason: mod.reason });
     const post = await sGetPostById(req.params.id);
     if (!post) return res.status(404).json({ error: 'Post not found' });
     const user = db ? await dbFindUserById(req.userId) : readJSON(USERS_FILE).find(u => u.id === req.userId);
@@ -5875,6 +5915,9 @@ app.post('/api/posts/:id/comments/:cid/reply', auth, async (req, res) => {
   try {
     const text = req.body && String(req.body.text || '').trim();
     if (!text) return res.status(400).json({ error: 'Reply cannot be empty' });
+    // AI auto-moderation: vet the reply before saving.
+    const mod = await moderateContent(text);
+    if (!mod.safe) return res.status(400).json({ error: 'Content violates community guidelines', reason: mod.reason });
     const user = db ? await dbFindUserById(req.userId) : readJSON(USERS_FILE).find(u => u.id === req.userId);
     const parent = await sGetCommentById(req.params.cid);
     if (!parent) return res.status(404).json({ error: 'Comment not found' });
