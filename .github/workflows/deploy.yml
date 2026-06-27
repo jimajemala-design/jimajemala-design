@@ -20,12 +20,14 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           password: ${{ secrets.SSH_PASSWORD }}
           script: |
-            echo ">>> Finding node..."
-            find / -name "node" -type f 2>/dev/null | grep -v proc | head -5
-            echo ">>> Finding npm..."
-            find / -name "npm" -type f 2>/dev/null | grep -v proc | head -5
-            echo ">>> Finding git repos..."
-            find ~/domains -name ".git" -type d 2>/dev/null | head -5
-            echo ">>> Finding server.js..."
-            find ~/domains -name "server.js" 2>/dev/null | grep -v node_modules | head -5
-            echo ">>> Done!"
+            export NODE=/opt/alt/alt-nodejs20/root/usr/bin/node
+            export NPM=/opt/alt/alt-nodejs20/root/usr/lib/node_modules/npm/bin/npm
+            APP_DIR=~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html/.builds/last-source
+            echo ">>> Deploying to: $APP_DIR"
+            cd "$APP_DIR"
+            git pull origin main
+            echo ">>> Installing dependencies..."
+            $NODE $NPM install --production
+            echo ">>> Restarting app..."
+            touch ~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html/restart.txt
+            echo ">>> Deploy complete!"
