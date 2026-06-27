@@ -21,13 +21,13 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           script: |
             export NODE=/opt/alt/alt-nodejs20/root/usr/bin/node
-            export NPM=/opt/alt/alt-nodejs20/root/usr/lib/node_modules/npm/bin/npm
+            export NPM=/opt/alt/alt-nodejs20/root/usr/lib/node_modules/npm/bin/npm-cli.js
             APP_DIR=~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html/.builds/last-source
             echo ">>> Deploying to: $APP_DIR"
             cd "$APP_DIR"
             git pull origin main
             echo ">>> Installing dependencies..."
-            $NODE $NPM install --production
+            $NODE /opt/alt/alt-nodejs20/root/usr/lib/node_modules/npm/bin/npm-cli.js install --production
             echo ">>> Restarting app..."
             touch ~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html/restart.txt
             echo ">>> Deploy complete!"
