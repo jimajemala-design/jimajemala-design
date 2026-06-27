@@ -20,11 +20,12 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           password: ${{ secrets.SSH_PASSWORD }}
           script: |
-            SITE_DIR=~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html
-            echo ">>> PATH: $PATH"
-            echo ">>> node: $(which node 2>/dev/null)"
-            echo ">>> npm: $(which npm 2>/dev/null)"
-            echo ">>> Deploying to: $SITE_DIR"
-            cd "$SITE_DIR"
-            git pull origin main
+            echo ">>> Finding node..."
+            find / -name "node" -type f 2>/dev/null | grep -v proc | head -5
+            echo ">>> Finding npm..."
+            find / -name "npm" -type f 2>/dev/null | grep -v proc | head -5
+            echo ">>> Finding git repos..."
+            find ~/domains -name ".git" -type d 2>/dev/null | head -5
+            echo ">>> Finding server.js..."
+            find ~/domains -name "server.js" 2>/dev/null | grep -v node_modules | head -5
             echo ">>> Done!"
