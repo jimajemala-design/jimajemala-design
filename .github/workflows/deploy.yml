@@ -53,5 +53,6 @@ jobs:
               })();
             "
             echo ">>> Restarting app..."
+            mkdir -p ~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html/tmp
             touch ~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html/tmp/restart.txt
             echo ">>> Deploy complete!"
