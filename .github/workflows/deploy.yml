@@ -20,17 +20,12 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           password: ${{ secrets.SSH_PASSWORD }}
           script: |
-            export PATH=$PATH:/usr/local/bin:/usr/bin:~/.local/bin
-            NODE=$(which node || find /usr -name "node" 2>/dev/null | head -1)
-            NPM=$(which npm || find /usr -name "npm" 2>/dev/null | head -1)
-            PM2=$(which pm2 || find /usr/local/bin ~/.local/bin -name "pm2" 2>/dev/null | head -1)
-            echo ">>> node: $NODE | npm: $NPM | pm2: $PM2"
-            APP_DIR=$(find ~/domains -name "server.js" -not -path "*/.builds/*" -not -path "*/node_modules/*" 2>/dev/null | head -1 | xargs dirname)
-            echo ">>> App dir: $APP_DIR"
-            cd "$APP_DIR"
+            SITE_DIR=~/domains/lightslategrey-spoonbill-532459.hostingersite.com/public_html
+            echo ">>> Deploying to: $SITE_DIR"
+            cd "$SITE_DIR"
             git pull origin main
-            $NPM install --production
-            $PM2 restart all || $PM2 start server.js --name nutrifell
-            sleep 4
-            $PM2 logs --lines 40 --nostream
+            echo ">>> Installing dependencies..."
+            npm install --production 2>/dev/null || npx --yes npm install --production
+            echo ">>> Restarting app via Hostinger..."
+            touch restart.txt
             echo ">>> Done!"
