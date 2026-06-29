@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Meal Builder · NutriFell</title>
+  <meta name="description" content="Combine foods, set serving sizes, and see cumulative nutrition with an honest AI verdict on your meal." />
+  <meta name="theme-color" content="#090A0A" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/meal-builder.css" />
+  <link rel="manifest" href="/manifest.json" />
+</head>
+<body class="mb-body">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="mb-header">
+    <button class="mb-back" id="mbBack" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div>
+      <h1 class="mb-title">Meal Builder</h1>
+      <p class="mb-title-sub">Combine foods · see cumulative nutrition</p>
+    </div>
+    <span class="mb-premium-badge free" id="mbPlanBadge">Free</span>
+  </header>
+
+  <!-- ── Main ───────────────────────────────────────────────────────────── -->
+  <main class="mb-main">
+    <!-- Search -->
+    <div class="mb-search">
+      <svg class="mb-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+      <input class="mb-search-input" id="foodSearch" type="text" placeholder="Search 74 foods…" autocomplete="off" />
+      <div class="mb-search-results" id="searchResults" role="listbox"></div>
+    </div>
+
+    <!-- Selected foods -->
+    <div id="mbEmpty" class="mb-empty">
+      <span class="em">🍽️</span>
+      Search and add foods to start building your meal.
+    </div>
+    <div class="mb-selected" id="selectedList"></div>
+  </main>
+
+  <!-- ── Sticky totals bar ──────────────────────────────────────────────── -->
+  <div class="mb-totals" id="totalsBar">
+    <div class="mb-totals-inner">
+      <div class="mb-total-cal"><b id="tCal">0</b><span>total kcal</span></div>
+      <div class="mb-total-chips">
+        <span class="mb-chip p">P <span id="tP">0</span>g</span>
+        <span class="mb-chip c">C <span id="tC">0</span>g</span>
+        <span class="mb-chip f">F <span id="tF">0</span>g</span>
+        <span class="mb-chip fb">Fiber <span id="tFb">0</span>g</span>
+      </div>
+      <button class="mb-analyze" id="analyzeBtn" disabled>Analyze Meal</button>
+    </div>
+  </div>
+
+  <!-- ── Results modal ──────────────────────────────────────────────────── -->
+  <div class="mb-overlay" id="resultOverlay"></div>
+  <section class="mb-modal" id="resultModal" role="dialog" aria-modal="true" aria-label="Meal analysis">
+    <div class="mb-modal-head">
+      <h2>Meal Analysis</h2>
+      <button class="mb-modal-x" id="resultClose" aria-label="Close">✕</button>
+    </div>
+    <div class="mb-modal-body" id="resultBody"></div>
+  </section>
+
+  <!-- Floating bottom nav injected by bottomnav.js -->
+
+  <script src="/js/i18n.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/bottomnav.js"></script>
+  <script src="/js/meal-builder.js?v=1"></script>
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}</script>
+</body>
+</html>

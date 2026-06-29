@@ -3321,6 +3321,100 @@ app.post('/api/analyze-food', auth, async (req, res) => {
   }
 });
 
+// ─── MEAL BUILDER ──────────────────────────────────────────────────────────
+// Combine multiple foods (each with a gram weight) into one meal and return
+// cumulative macros, per-food contributions, de-duplicated benefits/drawbacks,
+// and (premium only) a short Gemini verdict. Free users are capped at 2 foods;
+// the AI verdict is a premium value-add.
+const MEAL_FREE_FOOD_LIMIT = 2;
+
+app.post('/api/meal-builder/analyze', auth, async (req, res) => {
+  const premium = isPremium(req.user);
+  const raw = (req.body && Array.isArray(req.body.foods)) ? req.body.foods : null;
+  if (!raw || raw.length === 0) {
+    return res.status(400).json({ error: 'Add at least one food to analyze.' });
+  }
+  if (raw.length > 50) {
+    return res.status(400).json({ error: 'Too many foods in one meal (max 50).' });
+  }
+  // Server-side gate: free accounts are limited to 2 foods per meal.
+  if (!premium && raw.length > MEAL_FREE_FOOD_LIMIT) {
+    return res.status(403).json({
+      error: `Free plan is limited to ${MEAL_FREE_FOOD_LIMIT} foods per meal. Upgrade for unlimited foods and an AI verdict.`,
+      code: 'FREE_LIMIT',
+    });
+  }
+
+  const round1 = (n) => Math.round(n * 10) / 10;
+  const items = [];
+  const benefitSet = new Map();   // lowercased → original (dedupe, keep first casing)
+  const drawbackSet = new Map();
+  const totals = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+
+  for (const entry of raw) {
+    const food = foods.find(f => f.id === (entry && entry.foodId));
+    if (!food) continue;                       // unknown id → skip
+    let grams = Number(entry.grams);
+    if (!Number.isFinite(grams) || grams <= 0) grams = 100;
+    grams = Math.min(grams, 5000);             // sane upper bound
+    const factor = grams / 100;
+    const n = food.nutrition || {};
+    const contribution = {
+      calories: Math.round((food.calories || 0) * factor),
+      protein: round1((n.protein || 0) * factor),
+      carbs: round1((n.carbs || 0) * factor),
+      fat: round1((n.fat || 0) * factor),
+      fiber: round1((n.fiber || 0) * factor),
+    };
+    totals.calories += contribution.calories;
+    totals.protein += contribution.protein;
+    totals.carbs += contribution.carbs;
+    totals.fat += contribution.fat;
+    totals.fiber += contribution.fiber;
+    (food.benefits || []).forEach(b => { const k = String(b).toLowerCase(); if (!benefitSet.has(k)) benefitSet.set(k, b); });
+    (food.drawbacks || []).forEach(d => { const k = String(d).toLowerCase(); if (!drawbackSet.has(k)) drawbackSet.set(k, d); });
+    items.push({ foodId: food.id, name: food.name, emoji: food.emoji || '🍽️', color: food.color || '#46D98A', grams, contribution });
+  }
+
+  if (!items.length) {
+    return res.status(400).json({ error: 'None of those foods were recognized.' });
+  }
+
+  const out = {
+    totalCalories: Math.round(totals.calories),
+    totalProtein: round1(totals.protein),
+    totalCarbs: round1(totals.carbs),
+    totalFat: round1(totals.fat),
+    totalFiber: round1(totals.fiber),
+    foods: items,
+    aggregatedBenefits: [...benefitSet.values()].slice(0, 6),
+    aggregatedDrawbacks: [...drawbackSet.values()].slice(0, 6),
+    geminiVerdict: null,
+    premium,
+  };
+
+  // AI verdict — premium only. Best-effort: any failure leaves geminiVerdict
+  // null with a flag so the client can show a graceful fallback.
+  if (premium && genAI) {
+    try {
+      const mealLine = items.map(i => `${i.name} ${i.grams}g`).join(', ');
+      const prompt = 'You are a nutritionist. Analyze this meal combination and give a 2-sentence verdict on its '
+        + 'nutritional balance, what it\'s good for, and what\'s missing. '
+        + `Meal: ${mealLine}. `
+        + `Totals: ${out.totalCalories} kcal, ${out.totalProtein}g protein, ${out.totalCarbs}g carbs, `
+        + `${out.totalFat}g fat, ${out.totalFiber}g fiber. Respond with plain text only, no markdown.`;
+      const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.5-flash' });
+      const result = await model.generateContent(prompt);
+      out.geminiVerdict = (result.response.text() || '').trim() || null;
+    } catch (err) {
+      console.error('meal-builder verdict error:', err.message);
+      out.verdictError = true;     // client shows a friendly fallback
+    }
+  }
+
+  res.json(out);
+});
+
 // ─── AI CHAT (NutriAI) ─────────────────────────────────────────────────────
 
 // Match a fridge ingredient back to the food DB to recover real per-100g nutrition.
