@@ -216,13 +216,17 @@ html, body { margin: 0; }
 .mb-tabs {
   display: flex; gap: 8px; max-width: 920px; margin: 0 auto 18px; padding: 0 16px;
   font-family: 'Manrope', system-ui, sans-serif;
+  /* Scroll horizontally if the tab row ever outgrows the viewport. */
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
+.mb-tabs::-webkit-scrollbar { display: none; }
 .mb-tab {
-  flex: 1; padding: 12px; border-radius: 14px; cursor: pointer; font-weight: 700; font-size: 14px;
-  font-family: inherit; background: var(--mb-surface); color: var(--mb-text-3);
+  flex: 1 0 auto; white-space: nowrap; padding: 12px 18px; border-radius: 14px; cursor: pointer;
+  font-weight: 600; font-size: 14px; font-family: inherit;
+  background: #141816; color: var(--mb-text-3);                 /* inactive: surface-alt + text-3 */
   border: 1px solid var(--mb-border); transition: background .15s, color .15s, border-color .15s;
 }
-.mb-tab.active { background: rgba(70,217,138,0.12); color: var(--mb-accent); border-color: rgba(70,217,138,0.35); }
+.mb-tab.active { background: #fff; color: #090A0A; font-weight: 800; border-color: #fff; } /* active: white bg, dark text, bold */
 
 .mb-embed {
   max-width: 620px; margin: 0 auto; padding: 0 16px;
