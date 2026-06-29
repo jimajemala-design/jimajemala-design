@@ -5,6 +5,8 @@
    Depends on the shared Auth / Toast helpers from auth.js. */
 'use strict';
 
+console.log('snap init');
+
 const Snap = (() => {
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -29,7 +31,11 @@ const Snap = (() => {
   // away from the feed: it just opens the photo picker. Auth + premium are
   // enforced server-side and any gate is surfaced inside the results sheet.
   function start() {
-    if (!window.Auth || !Auth.isAuthed()) {
+    // NOTE: auth.js declares `const Auth` (a lexical global, NOT window.Auth),
+    // so test the bare binding via typeof — `window.Auth` is always undefined
+    // and previously made this guard return early for everyone, so the button
+    // appeared to "do nothing".
+    if (typeof Auth === 'undefined' || !Auth.isAuthed()) {
       toast('Log in to use Snap & Analyze.', 'info', 3000);
       return;
     }
@@ -230,8 +236,9 @@ const Snap = (() => {
       toast('Shared to the feed! 🎉', 'success');
       btn.textContent = '✓ Shared';
       closeSheet();
-      // If the feed module is on this page, refresh it so the new post shows.
-      if (window.Feed && typeof Feed.init === 'function' && document.getElementById('feedList')) {
+      // If the feed module is on this page, nudge its "new posts" banner so the
+      // shared post shows. `Feed` is also a lexical const (not window.Feed).
+      if (typeof Feed !== 'undefined' && document.getElementById('feedList')) {
         const banner = document.getElementById('feedNewBanner');
         if (banner) banner.click();
       }
