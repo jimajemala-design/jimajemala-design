@@ -3326,7 +3326,89 @@ app.post('/api/analyze-food', auth, async (req, res) => {
 // cumulative macros, per-food contributions, de-duplicated benefits/drawbacks,
 // and (premium only) a short Gemini verdict. Free users are capped at 2 foods;
 // the AI verdict is a premium value-add.
+//
+// Foods aren't limited to the 74-item DB: a free-text name that isn't in the
+// DB is estimated per-100g by Gemini and cached in-memory so the same food is
+// never re-queried.
 const MEAL_FREE_FOOD_LIMIT = 2;
+const aiFoodCache = new Map();   // normalized name → estimated food (per 100g)
+const normName = (s) => String(s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+const titleCase = (s) => String(s).trim().replace(/\b\w/g, c => c.toUpperCase()).slice(0, 80);
+
+// Fuzzy-match a free-text name against the 74-food DB (exact, then substring).
+function matchFoodByName(name) {
+  const n = normName(name);
+  if (!n) return null;
+  return foods.find(f => f.name.toLowerCase() === n)
+      || foods.find(f => f.name.toLowerCase().includes(n) || n.includes(f.name.toLowerCase()))
+      || null;
+}
+
+// Estimate per-100g nutrition for ANY food via Gemini, with an in-memory cache.
+// Returns a food-shaped object (no benefits/drawbacks — AI gives macros only)
+// or null if AI is unavailable / the response can't be parsed.
+async function estimateFoodNutrition(name) {
+  const key = normName(name);
+  if (!key) return null;
+  if (aiFoodCache.has(key)) return aiFoodCache.get(key);
+  if (!genAI) return null;
+  const prompt = 'You are a nutritionist database. Return ONLY a JSON object with nutrition per 100g for: '
+    + name + '. Format: {calories: number, protein: number, carbs: number, fat: number, fiber: number, '
+    + 'sodium: number}. Use standard USDA values. No markdown, no explanation.';
+  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.5-flash' });
+  const result = await model.generateContent(prompt);
+  const txt = (result.response.text() || '').trim();
+  const m = txt.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  let j; try { j = JSON.parse(m[0]); } catch { return null; }
+  const num = (v) => { const x = Number(v); return Number.isFinite(x) && x >= 0 ? x : 0; };
+  const food = {
+    id: null, name: titleCase(name), emoji: '🍽️', color: '#46D98A',
+    calories: Math.round(num(j.calories)),
+    nutrition: { protein: num(j.protein), carbs: num(j.carbs), fat: num(j.fat), fiber: num(j.fiber), sodium: num(j.sodium) },
+    benefits: [], drawbacks: [], source: 'ai',
+  };
+  aiFoodCache.set(key, food);
+  return food;
+}
+
+// Resolve a meal entry ({foodId} or {foodName}) to a food object — DB first,
+// then a Gemini estimate for free-text foods.
+async function resolveMealFood(entry) {
+  if (!entry) return null;
+  if (entry.foodId) {
+    const f = foods.find(x => x.id === entry.foodId);
+    if (f) return { ...f, source: 'db' };
+  }
+  const name = entry.foodName || entry.name;
+  if (name && String(name).trim()) {
+    const db = matchFoodByName(name);
+    if (db) return { ...db, source: 'db' };
+    return await estimateFoodNutrition(name);   // null if AI unavailable/failed
+  }
+  return null;
+}
+
+// Resolve a single food's nutrition for the live builder UI (DB or AI estimate).
+app.post('/api/meal-builder/lookup', auth, async (req, res) => {
+  const name = req.body && req.body.name;
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'A food name is required.' });
+  }
+  const db = matchFoodByName(name);
+  if (db) {
+    return res.json({ source: 'db', food: { id: db.id, name: db.name, emoji: db.emoji || '🍽️', color: db.color || '#46D98A', calories: db.calories, nutrition: db.nutrition } });
+  }
+  if (!genAI) return res.status(503).json({ error: 'AI food lookup is not available right now.', code: 'AI_UNAVAILABLE' });
+  try {
+    const food = await estimateFoodNutrition(name);
+    if (!food) return res.status(502).json({ error: `Could not estimate nutrition for “${name}”. Try a more specific name.` });
+    return res.json({ source: 'ai', food: { id: null, name: food.name, emoji: food.emoji, color: food.color, calories: food.calories, nutrition: food.nutrition } });
+  } catch (err) {
+    console.error('meal-builder lookup error:', err.message);
+    return res.status(502).json({ error: 'Food lookup failed. Please try again.' });
+  }
+});
 
 app.post('/api/meal-builder/analyze', auth, async (req, res) => {
   const premium = isPremium(req.user);
@@ -3352,11 +3434,12 @@ app.post('/api/meal-builder/analyze', auth, async (req, res) => {
   const totals = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
 
   for (const entry of raw) {
-    const food = foods.find(f => f.id === (entry && entry.foodId));
-    if (!food) continue;                       // unknown id → skip
-    let grams = Number(entry.grams);
+    let grams = Number(entry && entry.grams);
     if (!Number.isFinite(grams) || grams <= 0) grams = 100;
     grams = Math.min(grams, 5000);             // sane upper bound
+    let food = null;
+    try { food = await resolveMealFood(entry); } catch (e) { food = null; }
+    if (!food) continue;                       // unknown id / AI couldn't resolve → skip
     const factor = grams / 100;
     const n = food.nutrition || {};
     const contribution = {
@@ -3373,11 +3456,11 @@ app.post('/api/meal-builder/analyze', auth, async (req, res) => {
     totals.fiber += contribution.fiber;
     (food.benefits || []).forEach(b => { const k = String(b).toLowerCase(); if (!benefitSet.has(k)) benefitSet.set(k, b); });
     (food.drawbacks || []).forEach(d => { const k = String(d).toLowerCase(); if (!drawbackSet.has(k)) drawbackSet.set(k, d); });
-    items.push({ foodId: food.id, name: food.name, emoji: food.emoji || '🍽️', color: food.color || '#46D98A', grams, contribution });
+    items.push({ foodId: food.id || null, name: food.name, emoji: food.emoji || '🍽️', color: food.color || '#46D98A', grams, source: food.source || 'db', contribution });
   }
 
   if (!items.length) {
-    return res.status(400).json({ error: 'None of those foods were recognized.' });
+    return res.status(400).json({ error: 'None of those foods could be analyzed. Try different names.' });
   }
 
   const out = {

@@ -32,40 +32,40 @@
     <!-- Search -->
     <div class="mb-search">
       <svg class="mb-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
-      <input class="mb-search-input" id="foodSearch" type="text" placeholder="Search 74 foods…" autocomplete="off" />
-      <div class="mb-search-results" id="searchResults" role="listbox"></div>
+      <input class="mb-search-input" id="mbFoodSearch" type="text" placeholder="Search foods, or type anything (e.g. Big Mac)…" autocomplete="off" />
+      <div class="mb-search-results" id="mbSearchResults" role="listbox"></div>
     </div>
 
     <!-- Selected foods -->
     <div id="mbEmpty" class="mb-empty">
       <span class="em">🍽️</span>
-      Search and add foods to start building your meal.
+      Search the database or type any food — we'll estimate the nutrition.
     </div>
-    <div class="mb-selected" id="selectedList"></div>
+    <div class="mb-selected" id="mbSelectedList"></div>
   </main>
 
   <!-- ── Sticky totals bar ──────────────────────────────────────────────── -->
-  <div class="mb-totals" id="totalsBar">
+  <div class="mb-totals" id="mbTotalsBar">
     <div class="mb-totals-inner">
-      <div class="mb-total-cal"><b id="tCal">0</b><span>total kcal</span></div>
+      <div class="mb-total-cal"><b id="mbTCal">0</b><span>total kcal</span></div>
       <div class="mb-total-chips">
-        <span class="mb-chip p">P <span id="tP">0</span>g</span>
-        <span class="mb-chip c">C <span id="tC">0</span>g</span>
-        <span class="mb-chip f">F <span id="tF">0</span>g</span>
-        <span class="mb-chip fb">Fiber <span id="tFb">0</span>g</span>
+        <span class="mb-chip p">P <span id="mbTP">0</span>g</span>
+        <span class="mb-chip c">C <span id="mbTC">0</span>g</span>
+        <span class="mb-chip f">F <span id="mbTF">0</span>g</span>
+        <span class="mb-chip fb">Fiber <span id="mbTFb">0</span>g</span>
       </div>
-      <button class="mb-analyze" id="analyzeBtn" disabled>Analyze Meal</button>
+      <button class="mb-analyze" id="mbAnalyzeBtn" disabled>Analyze Meal</button>
     </div>
   </div>
 
   <!-- ── Results modal ──────────────────────────────────────────────────── -->
-  <div class="mb-overlay" id="resultOverlay"></div>
-  <section class="mb-modal" id="resultModal" role="dialog" aria-modal="true" aria-label="Meal analysis">
+  <div class="mb-overlay" id="mbResultOverlay"></div>
+  <section class="mb-modal" id="mbResultModal" role="dialog" aria-modal="true" aria-label="Meal analysis">
     <div class="mb-modal-head">
       <h2>Meal Analysis</h2>
-      <button class="mb-modal-x" id="resultClose" aria-label="Close">✕</button>
+      <button class="mb-modal-x" id="mbResultClose" aria-label="Close">✕</button>
     </div>
-    <div class="mb-modal-body" id="resultBody"></div>
+    <div class="mb-modal-body" id="mbResultBody"></div>
   </section>
 
   <!-- Floating bottom nav injected by bottomnav.js -->

@@ -7,9 +7,10 @@
   <meta name="description" content="Track today's calories and macros, stock your virtual fridge, and let NutriAI build meal plans around your goals." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="stylesheet" href="/css/auth.css" />
+  <link rel="stylesheet" href="/css/meal-builder.css" />
 
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#22c55e">
@@ -48,6 +49,15 @@
       <div class="tip-text"><b>Tip of the day</b> <span id="tipText"></span></div>
       <button class="tip-close" id="tipClose" aria-label="Dismiss tip for today">✕</button>
     </div>
+
+    <!-- View tabs: existing Fridge & Planner vs. the new Meal Builder -->
+    <div class="mb-tabs" role="tablist" aria-label="Switch view">
+      <button class="mb-tab active" id="tabFridge" role="tab" aria-selected="true">🧊 Fridge &amp; Planner</button>
+      <button class="mb-tab" id="tabBuilder" role="tab" aria-selected="false">🍽️ Meal Builder</button>
+    </div>
+
+    <!-- ════ VIEW 1: Fridge & Planner (existing) ════ -->
+    <div id="fridgeView">
 
     <!-- TODAY TRACKER -->
     <section class="tracker-section" aria-label="Today's calorie tracker">
@@ -131,6 +141,57 @@
         </div>
       </section>
     </div>
+
+    </div><!-- /#fridgeView -->
+
+    <!-- ════ VIEW 2: Meal Builder ════ -->
+    <div id="mealBuilderView" class="mb-embed" hidden>
+      <div class="mb-embed-head">
+        <div>
+          <h2 class="mb-embed-title">🍽️ Meal Builder</h2>
+          <p class="mb-embed-sub">Combine any foods — even ones not in our database — and see cumulative nutrition.</p>
+        </div>
+        <span class="mb-premium-badge free" id="mbPlanBadge">Free</span>
+      </div>
+
+      <button class="mb-fridge-btn" id="buildFromFridge">＋ Build Meal from Fridge</button>
+
+      <div class="mb-search">
+        <svg class="mb-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+        <input class="mb-search-input" id="mbFoodSearch" type="text" placeholder="Search foods, or type anything (e.g. Big Mac)…" autocomplete="off" />
+        <div class="mb-search-results" id="mbSearchResults" role="listbox"></div>
+      </div>
+
+      <div id="mbEmpty" class="mb-empty">
+        <span class="em">🍽️</span>
+        Search the database or type any food — we'll estimate the nutrition.
+      </div>
+      <div class="mb-selected" id="mbSelectedList"></div>
+
+      <!-- Sticky cumulative totals -->
+      <div class="mb-totals" id="mbTotalsBar">
+        <div class="mb-totals-inner">
+          <div class="mb-total-cal"><b id="mbTCal">0</b><span>total kcal</span></div>
+          <div class="mb-total-chips">
+            <span class="mb-chip p">P <span id="mbTP">0</span>g</span>
+            <span class="mb-chip c">C <span id="mbTC">0</span>g</span>
+            <span class="mb-chip f">F <span id="mbTF">0</span>g</span>
+            <span class="mb-chip fb">Fiber <span id="mbTFb">0</span>g</span>
+          </div>
+          <button class="mb-analyze" id="mbAnalyzeBtn" disabled>Analyze Meal</button>
+        </div>
+      </div>
+    </div><!-- /#mealBuilderView -->
+
+    <!-- Meal Builder results modal (shared overlay; kept outside the views) -->
+    <div class="mb-overlay" id="mbResultOverlay"></div>
+    <section class="mb-modal" id="mbResultModal" role="dialog" aria-modal="true" aria-label="Meal analysis">
+      <div class="mb-modal-head">
+        <h2>Meal Analysis</h2>
+        <button class="mb-modal-x" id="mbResultClose" aria-label="Close">✕</button>
+      </div>
+      <div class="mb-modal-body" id="mbResultBody"></div>
+    </section>
   </main>
 
   <!-- AI CHAT -->
@@ -164,8 +225,49 @@
   <script src="/js/i18n.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/fridge.js"></script>
+  <script src="/js/meal-builder.js?v=2"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/socket-client.js"></script>
+  <script>
+    // Tab switching (Fridge & Planner ⇄ Meal Builder) + Build-from-Fridge.
+    (function () {
+      var tabFridge = document.getElementById('tabFridge');
+      var tabBuilder = document.getElementById('tabBuilder');
+      var fridgeView = document.getElementById('fridgeView');
+      var builderView = document.getElementById('mealBuilderView');
+      if (!tabFridge || !tabBuilder) return;
+
+      function show(which) {
+        var builder = which === 'builder';
+        fridgeView.hidden = builder;
+        builderView.hidden = !builder;
+        tabFridge.classList.toggle('active', !builder);
+        tabBuilder.classList.toggle('active', builder);
+        tabFridge.setAttribute('aria-selected', String(!builder));
+        tabBuilder.setAttribute('aria-selected', String(builder));
+      }
+      tabFridge.addEventListener('click', function () { show('fridge'); });
+      tabBuilder.addEventListener('click', function () { show('builder'); });
+      // Deep link: /fridge.html#meal-builder opens the builder directly.
+      if (location.hash === '#meal-builder') show('builder');
+
+      // Build Meal from Fridge: pull the user's fridge items into the builder.
+      var btn = document.getElementById('buildFromFridge');
+      if (btn) btn.addEventListener('click', async function () {
+        if (!(typeof Auth !== 'undefined' && Auth.isAuthed())) { toast('Log in to build from your fridge.', 'info', 3000); return; }
+        var label = btn.textContent; btn.disabled = true; btn.textContent = 'Loading fridge…';
+        try {
+          var items = await Auth.api('/api/fridge');
+          show('builder');
+          if (window.MealBuilder && MealBuilder.prefillFromFridge) await MealBuilder.prefillFromFridge(items || []);
+        } catch (err) {
+          toast((err && err.message) || 'Could not load your fridge.', 'error');
+        } finally {
+          btn.disabled = false; btn.textContent = label;
+        }
+      });
+    })();
+  </script>
   <script>
     // Tip of the Day — 30 honest nutrition tips, rotates daily, dismissible.
     (function () {
