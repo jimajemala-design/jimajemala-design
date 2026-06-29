@@ -3284,7 +3284,7 @@ app.post('/api/analyze-food', auth, async (req, res) => {
   }
   try {
     const model = visionGenAI.getGenerativeModel({
-      model: process.env.GEMINI_VISION_MODEL || 'gemini-2.0-flash',
+      model: process.env.GEMINI_VISION_MODEL || 'gemini-1.5-flash',
     });
     const result = await model.generateContent([
       SNAP_PROMPT,
