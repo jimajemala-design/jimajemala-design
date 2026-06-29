@@ -149,14 +149,19 @@ app.use((req, res, next) => {
   jsonSmall(req, res, next);
 });
 
-// Google Gemini — primary AI provider for the nutrition chat assistant
+// Google Gemini — primary AI provider for the nutrition chat assistant.
+// `genAI` uses the shared GEMINI_API_KEY; `visionGenAI` powers Snap & Analyze
+// and prefers a dedicated GEMINI_VISION_KEY when set, falling back to the
+// shared key. This lets the image feature run on its own quota/project.
 let genAI = null;
+let visionGenAI = null;
 try {
   const { GoogleGenerativeAI } = require('@google/generative-ai');
+  const valid = (k) => k && k !== 'your_key_here' && k.length > 12;
   const key = process.env.GEMINI_API_KEY;
-  if (key && key !== 'your_key_here' && key.length > 12) {
-    genAI = new GoogleGenerativeAI(key);
-  }
+  if (valid(key)) genAI = new GoogleGenerativeAI(key);
+  const visionKey = process.env.GEMINI_VISION_KEY || process.env.GEMINI_API_KEY;
+  if (valid(visionKey)) visionGenAI = new GoogleGenerativeAI(visionKey);
 } catch (e) { /* SDK not installed or no key — fall back to built-in assistant */ }
 
 // ─── AI auto-moderation ──────────────────────────────────────────────────
@@ -3256,7 +3261,7 @@ app.post('/api/analyze-food', auth, async (req, res) => {
       code: 'PREMIUM_REQUIRED',
     });
   }
-  if (!genAI) {
+  if (!visionGenAI) {
     return res.status(503).json({ error: 'AI analysis is not configured right now. Please try again later.', code: 'AI_UNAVAILABLE' });
   }
   const { image } = req.body || {};
@@ -3278,7 +3283,7 @@ app.post('/api/analyze-food', auth, async (req, res) => {
     return res.status(413).json({ error: 'Image is too large. Please use a photo under 8MB.' });
   }
   try {
-    const model = genAI.getGenerativeModel({
+    const model = visionGenAI.getGenerativeModel({
       model: process.env.GEMINI_VISION_MODEL || 'gemini-2.0-flash',
     });
     const result = await model.generateContent([
