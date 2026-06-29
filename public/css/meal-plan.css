@@ -1,0 +1,132 @@
+/* meal-plan.css — AI Weekly Meal Plan page. NutriFell design tokens;
+   style.css is also linked for the shared Toast. */
+:root {
+  --mp-bg: #090A0A;
+  --mp-surface: #121614;
+  --mp-surface-2: #161b18;
+  --mp-border: rgba(255, 255, 255, 0.06);
+  --mp-border-2: rgba(255, 255, 255, 0.10);
+  --mp-accent: #46D98A;
+  --mp-accent-on: #06140d;
+  --mp-text: #F2F4F2;
+  --mp-text-2: #C7CCC8;
+  --mp-text-3: #9aa09b;
+  --mp-protein: #60a5fa;
+  --mp-carbs: #f5b30b;
+  --mp-fat: #f472b6;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+.mp-body {
+  background: var(--mp-bg); color: var(--mp-text);
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  min-height: 100dvh; padding-bottom: 130px; -webkit-font-smoothing: antialiased;
+}
+.mp-wrap { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+
+/* ── header ── */
+.mp-header {
+  position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 12px;
+  padding: 16px 18px calc(16px + env(safe-area-inset-top, 0));
+  background: linear-gradient(to bottom, var(--mp-bg) 72%, rgba(9, 10, 10, 0));
+}
+.mp-back { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px;
+  border: 1px solid var(--mp-border); background: var(--mp-surface); color: var(--mp-text); cursor: pointer; }
+.mp-back svg { width: 20px; height: 20px; }
+.mp-title { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.mp-title-sub { margin: 2px 0 0; font-size: 12px; color: var(--mp-text-3); }
+.mp-badge { margin-left: auto; font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 999px;
+  background: rgba(70, 217, 138, 0.15); color: var(--mp-accent); border: 1px solid rgba(70, 217, 138, 0.3); }
+.mp-badge.free { background: rgba(255,255,255,0.06); color: var(--mp-text-3); border-color: var(--mp-border); }
+
+/* ── setup form ── */
+.mp-card { background: var(--mp-surface); border: 1px solid var(--mp-border); border-radius: 24px; padding: 20px; }
+.mp-field { margin-bottom: 16px; }
+.mp-field label { display: block; font-size: 13px; font-weight: 700; color: var(--mp-text-2); margin-bottom: 7px; }
+.mp-field .hint { color: var(--mp-text-3); font-weight: 400; }
+.mp-input, .mp-select {
+  width: 100%; height: 48px; padding: 0 14px; border-radius: 14px; background: var(--mp-bg);
+  border: 1px solid var(--mp-border); color: var(--mp-text); font-size: 15px; font-family: inherit; outline: none;
+}
+.mp-input:focus, .mp-select:focus { border-color: var(--mp-border-2); }
+.mp-row { display: flex; gap: 12px; }
+.mp-row > * { flex: 1; }
+
+.mp-goals { display: flex; gap: 8px; }
+.mp-goal { flex: 1; padding: 12px 8px; border-radius: 14px; cursor: pointer; text-align: center; font-weight: 700;
+  font-size: 13px; font-family: inherit; background: var(--mp-bg); color: var(--mp-text-3); border: 1px solid var(--mp-border); }
+.mp-goal.active { background: rgba(70,217,138,0.12); color: var(--mp-accent); border-color: rgba(70,217,138,0.35); }
+
+.mp-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.mp-chip { padding: 9px 14px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 13px; font-family: inherit;
+  background: var(--mp-bg); color: var(--mp-text-3); border: 1px solid var(--mp-border); }
+.mp-chip.active { background: rgba(70,217,138,0.12); color: var(--mp-accent); border-color: rgba(70,217,138,0.35); }
+
+.mp-generate {
+  width: 100%; margin-top: 6px; padding: 15px; border-radius: 16px; border: none; cursor: pointer;
+  background: var(--mp-accent); color: var(--mp-accent-on); font-weight: 800; font-size: 16px; font-family: inherit;
+}
+.mp-generate:disabled { opacity: 0.5; cursor: default; }
+
+/* ── locked (free) ── */
+.mp-locked { text-align: center; padding: 40px 22px; }
+.mp-locked .em { font-size: 46px; display: block; margin-bottom: 12px; }
+.mp-locked h2 { margin: 0 0 8px; font-size: 22px; }
+.mp-locked p { color: var(--mp-text-3); margin: 0 auto 18px; max-width: 360px; line-height: 1.5; }
+.mp-locked a { display: inline-block; padding: 13px 26px; border-radius: 14px; background: var(--mp-accent);
+  color: var(--mp-accent-on); font-weight: 800; text-decoration: none; }
+
+/* ── loading ── */
+.mp-loading { text-align: center; padding: 70px 20px; }
+.mp-spinner { width: 52px; height: 52px; border-radius: 50%; border: 4px solid rgba(70,217,138,0.18);
+  border-top-color: var(--mp-accent); animation: mpSpin .8s linear infinite; margin: 0 auto 20px; }
+@keyframes mpSpin { to { transform: rotate(360deg); } }
+.mp-loading h2 { margin: 0 0 6px; font-size: 20px; }
+.mp-loading p { color: var(--mp-text-3); margin: 0; }
+.mp-loading-bar { width: 200px; height: 6px; border-radius: 999px; background: var(--mp-surface-2); margin: 20px auto 0; overflow: hidden; }
+.mp-loading-bar span { display: block; height: 100%; width: 40%; border-radius: 999px; background: var(--mp-accent); animation: mpSlide 1.3s ease-in-out infinite; }
+@keyframes mpSlide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+
+/* ── results ── */
+.mp-day-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 12px; -webkit-overflow-scrolling: touch; }
+.mp-day-tab { flex: none; padding: 9px 14px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 13px;
+  font-family: inherit; background: var(--mp-surface); color: var(--mp-text-3); border: 1px solid var(--mp-border); white-space: nowrap; }
+.mp-day-tab.active { background: rgba(70,217,138,0.14); color: var(--mp-accent); border-color: rgba(70,217,138,0.35); }
+
+.mp-meals { display: flex; flex-direction: column; gap: 12px; }
+.mp-meal { background: var(--mp-surface); border: 1px solid var(--mp-border); border-radius: 24px; padding: 16px; }
+.mp-meal-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.mp-meal-type { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--mp-accent);
+  background: rgba(70,217,138,0.12); padding: 4px 9px; border-radius: 999px; flex: none; }
+.mp-meal-name { font-weight: 700; font-size: 16px; }
+.mp-meal-prep { margin-left: auto; font-size: 12px; color: var(--mp-text-3); white-space: nowrap; }
+.mp-meal-foods { font-size: 13px; color: var(--mp-text-2); line-height: 1.5; margin: 6px 0 12px; }
+.mp-meal-macros { display: flex; flex-wrap: wrap; gap: 7px; }
+.mp-macro { font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px; background: var(--mp-surface-2); }
+.mp-macro.cal { color: var(--mp-accent); }
+.mp-macro.p { color: var(--mp-protein); }
+.mp-macro.c { color: var(--mp-carbs); }
+.mp-macro.f { color: var(--mp-fat); }
+
+.mp-day-total { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding: 14px 18px;
+  border-radius: 18px; background: var(--mp-surface-2); border: 1px solid var(--mp-border); }
+.mp-day-total b { font-size: 18px; }
+.mp-day-total .lbl { font-size: 12px; color: var(--mp-text-3); }
+
+.mp-notes { margin-top: 18px; background: var(--mp-surface); border-left: 3px solid var(--mp-accent);
+  border-radius: 14px; padding: 16px 18px; font-size: 14px; line-height: 1.55; color: var(--mp-text-2); }
+.mp-notes h4 { margin: 0 0 6px; color: var(--mp-text); }
+
+.mp-result-actions { display: flex; gap: 10px; margin-top: 18px; }
+.mp-btn { flex: 1; padding: 13px; border-radius: 14px; font-weight: 700; font-size: 14px; font-family: inherit; cursor: pointer; border: none; }
+.mp-btn-primary { background: var(--mp-accent); color: var(--mp-accent-on); }
+.mp-btn-ghost { background: var(--mp-surface-2); color: var(--mp-text-2); border: 1px solid var(--mp-border); }
+
+/* ── print (Export PDF) ── */
+@media print {
+  .mp-header, .mp-day-tabs, .mp-result-actions, .nf-bottomnav, #nfToasts { display: none !important; }
+  .mp-body { background: #fff; color: #000; padding: 0; }
+  .mp-day { display: block !important; page-break-after: always; }
+  .mp-meal, .mp-card, .mp-day-total, .mp-notes { border: 1px solid #ccc !important; background: #fff !important; color: #000 !important; }
+  .mp-meal-type, .mp-macro { color: #000 !important; background: #eee !important; }
+}

@@ -62,6 +62,7 @@
         <a class="side-item" href="/water.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s7 8 7 13a7 7 0 0 1-14 0c0-5 7-13 7-13z"/></svg> Water</a>
         <button type="button" class="side-item side-snap" data-open-snap><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Snap &amp; Analyze</button>
         <a class="side-item side-mealbuilder" href="/meal-builder.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h0a2 2 0 0 0 2-2V2M5 11v11M11 2v20M11 8a3 3 0 0 0 3 3h0M19 2c-1.5 0-3 2-3 5s1.5 4 3 4v11"/></svg> Meal Builder</a>
+        <a class="side-item side-mealplan" href="/meal-plan.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Meal Plan</a>
         <button class="side-item side-create" data-open-create><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Create Post</button>
         <a class="side-item" id="adminNavLink" href="/admin.html" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Admin</a>
       </nav>
@@ -116,10 +117,15 @@
           <button class="type-opt" data-type="text"><span class="em">💬</span><b>Tip</b></button>
         </div>
 
-        <!-- Meal Builder launcher (navigates away from the post composer) -->
-        <a href="/meal-builder.html" class="mb-launch" style="display:flex;align-items:center;gap:12px;margin:4px 0 14px;padding:14px 16px;border-radius:16px;background:rgba(70,217,138,0.1);border:1px solid rgba(70,217,138,0.3);text-decoration:none;color:var(--text)">
+        <!-- Quick launchers to the nutrition tools (navigate away from composer) -->
+        <a href="/meal-builder.html" class="mb-launch" style="display:flex;align-items:center;gap:12px;margin:4px 0 10px;padding:14px 16px;border-radius:16px;background:rgba(70,217,138,0.1);border:1px solid rgba(70,217,138,0.3);text-decoration:none;color:var(--text)">
           <span style="font-size:24px">🍽️</span>
-          <span style="flex:1"><b style="display:block">Meal Builder</b><small style="color:var(--text-3)">Combine foods &amp; see cumulative nutrition</small></span>
+          <span style="flex:1"><b style="display:block">Build Meal</b><small style="color:var(--text-3)">Combine foods &amp; see cumulative nutrition</small></span>
+          <span style="color:var(--green);font-weight:800">→</span>
+        </a>
+        <a href="/meal-plan.html" class="mb-launch" style="display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:14px 16px;border-radius:16px;background:rgba(70,217,138,0.1);border:1px solid rgba(70,217,138,0.3);text-decoration:none;color:var(--text)">
+          <span style="font-size:24px">📅</span>
+          <span style="flex:1"><b style="display:block">Weekly Plan</b><small style="color:var(--text-3)">AI 7-day meal plan around your targets</small></span>
           <span style="color:var(--green);font-weight:800">→</span>
         </a>
 

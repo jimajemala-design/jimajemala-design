@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>AI Weekly Meal Plan · NutriFell</title>
+  <meta name="description" content="Generate a personalized 7-day meal plan around your calorie and protein targets with NutriAI." />
+  <meta name="theme-color" content="#090A0A" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/meal-plan.css" />
+  <link rel="manifest" href="/manifest.json" />
+</head>
+<body class="mp-body">
+
+  <header class="mp-header">
+    <button class="mp-back" id="mpBack" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div>
+      <h1 class="mp-title">Weekly Meal Plan</h1>
+      <p class="mp-title-sub">AI-built around your targets</p>
+    </div>
+    <span class="mp-badge free" id="mpBadge">Free</span>
+  </header>
+
+  <main class="mp-wrap">
+
+    <!-- ── Setup form ── -->
+    <section id="mpSetup" class="mp-card">
+      <div class="mp-row">
+        <div class="mp-field">
+          <label for="mpCalories">Daily calories <span class="hint">(kcal)</span></label>
+          <input class="mp-input" id="mpCalories" type="number" min="800" max="6000" value="2000" />
+        </div>
+        <div class="mp-field">
+          <label for="mpProtein">Protein target <span class="hint">(g)</span></label>
+          <input class="mp-input" id="mpProtein" type="number" min="20" max="400" value="140" />
+        </div>
+      </div>
+
+      <div class="mp-field">
+        <label>Goal</label>
+        <div class="mp-goals" id="mpGoals">
+          <button type="button" class="mp-goal" data-goal="gain_muscle">💪 Gain Muscle</button>
+          <button type="button" class="mp-goal active" data-goal="maintain">⚖️ Maintain</button>
+          <button type="button" class="mp-goal" data-goal="lose_weight">🔥 Lose Weight</button>
+        </div>
+      </div>
+
+      <div class="mp-field">
+        <label>Allergies <span class="hint">(tap any that apply)</span></label>
+        <div class="mp-chips" id="mpAllergies">
+          <button type="button" class="mp-chip" data-allergy="Gluten">Gluten</button>
+          <button type="button" class="mp-chip" data-allergy="Dairy">Dairy</button>
+          <button type="button" class="mp-chip" data-allergy="Nuts">Nuts</button>
+          <button type="button" class="mp-chip" data-allergy="Fish">Fish</button>
+          <button type="button" class="mp-chip" data-allergy="Eggs">Eggs</button>
+          <button type="button" class="mp-chip" data-allergy="Soy">Soy</button>
+        </div>
+      </div>
+
+      <div class="mp-field">
+        <label for="mpPrefs">Preferences <span class="hint">(comma separated)</span></label>
+        <input class="mp-input" id="mpPrefs" type="text" placeholder="high protein, no spicy food" />
+      </div>
+
+      <button class="mp-generate" id="mpGenerate">Generate My Week</button>
+    </section>
+
+    <!-- ── Locked (free users) ── -->
+    <section id="mpLocked" class="mp-card mp-locked" hidden>
+      <span class="em">✨</span>
+      <h2>Unlock AI Weekly Meal Plans</h2>
+      <p>Premium members get a personalized 7-day plan built around their calorie and protein targets, allergies, and tastes.</p>
+      <a href="/pricing.html">Upgrade to Premium</a>
+    </section>
+
+    <!-- ── Loading ── -->
+    <section id="mpLoading" class="mp-loading" hidden>
+      <div class="mp-spinner"></div>
+      <h2>NutriAI is crafting your perfect week…</h2>
+      <p>Balancing macros across breakfast, lunch, dinner and snacks.</p>
+      <div class="mp-loading-bar"><span></span></div>
+    </section>
+
+    <!-- ── Results ── -->
+    <section id="mpResults" hidden>
+      <div class="mp-day-tabs" id="mpDayTabs"></div>
+      <div id="mpDayContent"></div>
+      <div class="mp-notes" id="mpNotes" hidden></div>
+      <div class="mp-result-actions">
+        <button class="mp-btn mp-btn-primary" id="mpRegenerate">↻ Regenerate</button>
+        <button class="mp-btn mp-btn-ghost" id="mpExport">⬇ Export PDF</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Floating bottom nav injected by bottomnav.js -->
+  <script src="/js/i18n.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/bottomnav.js"></script>
+  <script src="/js/meal-plan.js?v=1"></script>
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}</script>
+</body>
+</html>

@@ -3530,6 +3530,98 @@ app.post('/api/meal-builder/analyze', auth, async (req, res) => {
   res.json(out);
 });
 
+// ─── AI WEEKLY MEAL PLAN (premium) ──────────────────────────────────────────
+// Generate a multi-day meal plan with Gemini, anchored to the NutriFell food
+// DB where possible. Premium only; free users get a 403 upgrade prompt.
+const MEAL_PLAN_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+const MEAL_PLAN_GOALS = ['gain_muscle', 'lose_weight', 'maintain'];
+
+app.post('/api/meal-plan/generate', auth, async (req, res) => {
+  if (!isPremium(req.user)) {
+    return res.status(403).json({
+      error: 'The AI Weekly Meal Plan is a premium feature. Upgrade to unlock personalized weekly plans.',
+      code: 'PREMIUM_REQUIRED',
+    });
+  }
+  if (!genAI) {
+    return res.status(503).json({ error: 'AI meal planning is not configured right now. Please try again later.', code: 'AI_UNAVAILABLE' });
+  }
+
+  const b = req.body || {};
+  const calories = Math.max(800, Math.min(6000, Math.round(Number(b.calories) || 2000)));
+  const protein = Math.max(20, Math.min(400, Math.round(Number(b.protein) || 120)));
+  const goal = MEAL_PLAN_GOALS.includes(String(b.goal)) ? String(b.goal) : 'maintain';
+  const toList = (v) => Array.isArray(v)
+    ? v.map(s => String(s).trim()).filter(Boolean).slice(0, 12)
+    : (v ? String(v).split(',').map(s => s.trim()).filter(Boolean).slice(0, 12) : []);
+  const allergies = toList(b.allergies);
+  const preferences = toList(b.preferences);
+  const daysCount = Math.max(1, Math.min(7, Math.round(Number(b.daysCount) || 7)));
+
+  const foodNames = foods.map(f => f.name).join(', ');
+  const prompt = `You are a professional nutritionist. Create a ${daysCount}-day meal plan for someone with these goals: `
+    + `daily calories: ${calories}kcal, protein target: ${protein}g, goal: ${goal}, `
+    + `allergies: ${allergies.length ? allergies.join(', ') : 'none'}, `
+    + `preferences: ${preferences.length ? preferences.join(', ') : 'none'}.\n\n`
+    + `Use these available foods where possible: ${foodNames}. You can also suggest other common whole foods not in the list.\n\n`
+    + `Respond ONLY with a JSON object (no markdown):\n`
+    + `{"days":[{"day":"Monday","meals":[{"type":"Breakfast","name":"meal name",`
+    + `"foods":[{"name":"food","grams":150}],"calories":0,"protein":0,"carbs":0,"fat":0,"prepTime":"10 min"}],`
+    + `"totalCalories":0,"totalProtein":0}],"weeklyNotes":"one paragraph summary"}`;
+
+  try {
+    const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MEALPLAN_MODEL || 'gemini-2.5-flash' });
+    // Light 503 retry (overloaded → wait 2s, up to 2 retries); 429 → bail.
+    let result = null, lastErr = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try { result = await model.generateContent(prompt); break; }
+      catch (err) {
+        lastErr = err;
+        const m = String(err && err.message || '').match(/\[(\d{3})\b/);
+        const st = m ? Number(m[1]) : 0;
+        if (st === 429) return res.status(429).json({ error: 'The AI is over its rate limit right now. Please try again in a minute.', code: 'RATE_LIMITED' });
+        if (st === 503 && attempt < 3) { await new Promise(r => setTimeout(r, 2000)); continue; }
+        throw err;
+      }
+    }
+    const raw = (result.response.text() || '').trim();
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return res.status(502).json({ error: 'Could not generate a plan. Please try again.' });
+    let plan;
+    try { plan = JSON.parse(match[0]); }
+    catch { return res.status(502).json({ error: 'Could not read the generated plan. Please try again.' }); }
+
+    // Normalize + clamp so the UI can trust the shape.
+    const num = (v) => { const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : 0; };
+    const days = (Array.isArray(plan.days) ? plan.days : []).slice(0, 7).map(d => {
+      const meals = (Array.isArray(d.meals) ? d.meals : []).slice(0, 8).map(m => ({
+        type: MEAL_PLAN_TYPES.includes(m.type) ? m.type : String(m.type || 'Meal').slice(0, 20),
+        name: String(m.name || 'Meal').slice(0, 120),
+        foods: (Array.isArray(m.foods) ? m.foods : []).slice(0, 20)
+          .map(f => ({ name: String(f.name || '').slice(0, 80), grams: Math.round(num(f.grams)) }))
+          .filter(f => f.name),
+        calories: Math.round(num(m.calories)),
+        protein: +num(m.protein).toFixed(1),
+        carbs: +num(m.carbs).toFixed(1),
+        fat: +num(m.fat).toFixed(1),
+        prepTime: String(m.prepTime || '').slice(0, 20),
+      }));
+      return {
+        day: String(d.day || 'Day').slice(0, 20),
+        meals,
+        totalCalories: Math.round(num(d.totalCalories) || meals.reduce((s, x) => s + x.calories, 0)),
+        totalProtein: +(num(d.totalProtein) || meals.reduce((s, x) => s + x.protein, 0)).toFixed(1),
+      };
+    });
+    if (!days.length) return res.status(502).json({ error: 'The generated plan came back empty. Please try again.' });
+
+    res.json({ days, weeklyNotes: String(plan.weeklyNotes || '').slice(0, 1500), goal, targets: { calories, protein } });
+  } catch (err) {
+    console.error('meal-plan error:', err.message);
+    res.status(502).json({ error: 'AI meal planning failed. Please try again in a moment.' });
+  }
+});
+
 // ─── AI CHAT (NutriAI) ─────────────────────────────────────────────────────
 
 // Match a fridge ingredient back to the food DB to recover real per-100g nutrition.
