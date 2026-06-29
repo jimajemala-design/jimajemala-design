@@ -3755,27 +3755,42 @@ function matchFood(name) {
 // top AND bottom (combats lost-in-middle); fridge gets real macros (high signal);
 // the full catalog is demoted to reference (signal-to-noise); guardrails block
 // invented numbers (anti-hallucination).
-function buildSystemPrompt(user, fridge, cal) {
-  // Profile with explicit missing-field detection so the model asks instead of guessing.
-  const fields = [
-    ['name', user && user.name], ['age', user && user.age], ['gender', user && user.gender],
-    ['height_cm', user && user.height], ['current_weight_kg', user && user.weight],
-    ['target_weight_kg', user && user.targetWeight], ['activity', user && user.activityLevel],
-    ['goal', user && user.goal], ['timeline_weeks', user && user.timeline],
-  ];
-  const filled = v => v !== undefined && v !== null && v !== '';
-  const known = fields.filter(([, v]) => filled(v));
-  const missing = fields.filter(([, v]) => !filled(v)).map(([k]) => k);
-  const profileLines = known.length ? known.map(([k, v]) => `  - ${k}: ${v}`).join('\n') : '  - (no profile saved yet)';
+// Personalised daily targets for the chat assistant, using the standard
+// formulas: Mifflin-St Jeor BMR → TDEE (activity multiplier) → goal calorie
+// adjustment, plus a per-kg protein target. Returns null if the profile lacks
+// the basics needed to compute anything.
+function personalTargets(user) {
+  if (!user) return null;
+  const weight = Number(user.weight), height = Number(user.height), age = Number(user.age);
+  if (!weight || !height || !age) return null;
+  const gender = user.gender === 'female' ? 'female' : 'male';
+  const bmr = 10 * weight + 6.25 * height - 5 * age + (gender === 'female' ? -161 : 5);
+  const mult = ACTIVITY[user.activityLevel] || 1.55;          // sedentary 1.2 … extreme 1.9
+  const tdee = bmr * mult;
+  const goal = user.goal || 'maintain';
+  let calorieTarget = tdee;
+  if (goal === 'gain_muscle') calorieTarget = tdee + 300;
+  else if (goal === 'lose_weight') calorieTarget = tdee - 500;
+  const perKg = goal === 'gain_muscle' ? 2.2 : goal === 'lose_weight' ? 2.0 : 1.6;
+  return {
+    bmr: Math.round(bmr), tdee: Math.round(tdee),
+    calorieTarget: Math.max(1200, Math.round(calorieTarget)),
+    proteinTarget: Math.round(weight * perKg), proteinPerKg: perKg, goal,
+  };
+}
 
-  // Highest-signal block: personalised targets, including the rich planning data.
-  const targetBlock = cal ? [
-    `  - daily_calorie_target: ${cal.target} kcal`,
-    `  - macros: ${cal.protein}g protein / ${cal.carbs}g carbs / ${cal.fats}g fat`,
-    `  - tdee: ${cal.tdee} kcal · direction: ${cal.direction} (${cal.dailyAdjust >= 0 ? '+' : ''}${cal.dailyAdjust} kcal/day vs TDEE)`,
-    cal.goalKg ? `  - goal: ${cal.direction} ${cal.goalKg}kg over ~${cal.effWeeks} weeks (~${Math.abs(cal.weeklyChange)}kg/week)` : null,
-    cal.completionDate ? `  - projected_completion: ${cal.completionDate}` : null,
-  ].filter(Boolean).join('\n') : '  - not calculated yet (profile incomplete)';
+function buildSystemPrompt(user, fridge, cal) {
+  const val = (v, suffix) => (v !== undefined && v !== null && v !== '' ? `${v}${suffix || ''}` : '(not set)');
+  const pt = personalTargets(user);
+  const firstName = (user && user.name) ? String(user.name).split(' ')[0] : null;
+
+  // Plain comma list of fridge items for the headline "you already know" block.
+  const fridgeNames = fridge.length ? fridge.map(i => i.quantity ? `${i.name} (${i.quantity})` : i.name).join(', ') : '(empty)';
+
+  // The exact targets line — computed from their profile, so NutriAI never has
+  // to ask. Falls back gracefully when the profile is too sparse to compute.
+  const calorieLine = pt ? `${pt.calorieTarget}kcal` : '(complete profile to calculate)';
+  const proteinLine = pt ? `${pt.proteinTarget}g (${pt.proteinPerKg}g/kg)` : '(complete profile to calculate)';
 
   // Fridge with REAL per-100g nutrition recovered from the DB (what the user can cook now).
   const fridgeBlock = fridge.length ? fridge.map(i => {
@@ -3790,30 +3805,35 @@ function buildSystemPrompt(user, fridge, cal) {
     .map(f => `${f.name} (${f.calories}kcal P${f.nutrition.protein}/C${f.nutrition.carbs}/F${f.nutrition.fat})`)
     .join(', ');
 
-  const targetRecap = cal
-    ? `${cal.target} kcal/day (${cal.protein}g P / ${cal.carbs}g C / ${cal.fats}g F)`
-    : "the user's targets once their profile is complete";
+  // Optional goal/timeline context from the richer engine (doesn't restate calories).
+  const goalContext = cal && cal.goalKg
+    ? `\n  - plan: ${cal.direction} ${cal.goalKg}kg over ~${cal.effWeeks} weeks (~${Math.abs(cal.weeklyChange)}kg/week)${cal.completionDate ? `, projected ${cal.completionDate}` : ''}`
+    : '';
 
-  return `You are NutriAI, the nutrition education assistant inside NutriFell — an educational platform for healthy adults aged 18 and over.
-Give specific, accurate, encouraging guidance grounded ONLY in the data below.
+  return `You are NutriAI, the personal nutrition assistant for NutriFell. You already know this user:
+  - Name: ${val(user && user.name)}
+  - Age: ${val(user && user.age)}
+  - Weight: ${val(user && user.weight, 'kg')}
+  - Height: ${val(user && user.height, 'cm')}
+  - Goal: ${val(user && user.goal)} (gain_muscle/lose_weight/maintain)
+  - Activity level: ${val(user && user.activityLevel)}
+  - Gender: ${val(user && user.gender)}
+  - Daily calorie target: ${calorieLine}
+  - Protein target: ${proteinLine}
+  - Current fridge items: ${fridgeNames}${goalContext}
+
+NEVER ask the user for information you already have above. Use their profile to personalize every response. Address them by name${firstName ? ` (${firstName})` : ''} occasionally. Give specific advice based on their exact stats. Only if a field literally shows "(not set)" AND you truly need it may you ask for that one field — never re-ask for anything already provided.
 
 CRITICAL SAFETY RULES (non-negotiable):
 1. You are an EDUCATIONAL nutrition assistant ONLY. Never provide clinical or medical advice.
-2. Use ONLY the numbers provided here. NEVER invent or estimate calories, macros, or nutrient values you were not given. If a food's data is not below, say you don't have verified data for it.
-3. If a profile field you need is missing, ask the user for it instead of guessing. Currently missing: ${missing.length ? missing.join(', ') : 'none'}.
-4. Suggest meals FRIDGE-FIRST. You may add 1-2 catalog items to complete a meal, but label them "to buy".
-5. Attach calories and macros (and gram portions) to every meal you suggest, and keep the day within the calorie target.
-6. If the user mentions ANY medical condition, disease, medication, eating disorder, pregnancy, or surgery: immediately recommend they consult a doctor or registered dietitian. Do not provide tailored advice for medical conditions.
-7. Never recommend stopping or changing medications. Never suggest specific treatments for medical conditions.
-8. If the user seems distressed about food, eating, or body image, respond with empathy and recommend professional support.
-9. Always add a brief disclaimer when discussing medical topics: remind the user this is educational information, not medical advice.
-10. Be concise and practical: short paragraphs or tight bullet lists.
-
-USER PROFILE:
-${profileLines}
-
-DAILY TARGETS (base every recommendation on these):
-${targetBlock}
+2. Use ONLY the numbers provided here for foods. NEVER invent or estimate calories or macros for a food whose data is not below — say you don't have verified data for it.
+3. Suggest meals FRIDGE-FIRST. You may add 1-2 catalog items to complete a meal, but label them "to buy".
+4. Attach calories and macros (and gram portions) to every meal you suggest, and keep the day within their calorie target above.
+5. If the user mentions ANY medical condition, disease, medication, eating disorder, pregnancy, or surgery: immediately recommend they consult a doctor or registered dietitian. Do not provide tailored advice for medical conditions.
+6. Never recommend stopping or changing medications. Never suggest specific treatments for medical conditions.
+7. If the user seems distressed about food, eating, or body image, respond with empathy and recommend professional support.
+8. Add a brief "educational, not medical advice" disclaimer when discussing medical topics.
+9. Be concise and practical: short paragraphs or tight bullet lists.
 
 FRIDGE (cook with these first; macros are per 100g):
 ${fridgeBlock}
@@ -3821,7 +3841,7 @@ ${fridgeBlock}
 FOOD CATALOG (reference only, per 100g — use when the fridge lacks something):
 ${catalog}
 
-REMEMBER: keep advice within ${targetRecap}. Use real numbers from above, go fridge-first, attach macros to meals, and stay encouraging.`;
+REMEMBER: you already know their stats and targets — personalize, never re-ask, go fridge-first, attach real macros to meals, and stay encouraging.`;
 }
 
 // Smart rule-based assistant used when no Gemini API key is configured (or the API errors)
@@ -3881,7 +3901,11 @@ app.post('/api/ai/chat', auth, async (req, res) => {
   const { message, history } = req.body || {};
   if (!message || !String(message).trim()) return res.status(400).json({ error: 'Message is required' });
 
-  const user = readJSON(USERS_FILE).find(u => u.id === req.userId);
+  // Use the authoritative profile the auth middleware already loaded (from
+  // MySQL when configured). Re-reading USERS_FILE here returned a stale/empty
+  // record on DB deployments, so NutriAI saw a blank profile and re-asked for
+  // age/weight/goal the user had already set. Fall back to JSON just in case.
+  const user = req.user || readJSON(USERS_FILE).find(u => u.id === req.userId);
   const fridge = await sGetFridge(req.userId); // MySQL (JSON fallback)
   const cal = calcCalories(user);
 
