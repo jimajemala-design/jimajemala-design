@@ -383,6 +383,13 @@
     $('chatSend').addEventListener('click', sendChat);
     $('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
     $('chatSuggest').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { $('chatInput').value = b.textContent; sendChat(); }));
+    // Delegated: "Add to Meal Plan" on any meal-plan-looking AI reply.
+    $('chatBody').addEventListener('click', e => {
+      const btn = e.target.closest('[data-mealplan-idx]');
+      if (!btn) return;
+      const msg = chatHistory[Number(btn.dataset.mealplanIdx)];
+      if (msg && msg.content) saveChatMealPlan(msg.content, btn);
+    });
     if (!chatHistory.length) {
       const name = (Auth.user() && Auth.user().name) ? Auth.user().name.split(' ')[0] : 'there';
       chatHistory.push({ role: 'assistant', content: `👋 Hi ${name}! I'm NutriAI, your nutrition education assistant.\n\n⚠️ Important: I provide general nutrition education based on AI knowledge only. I am NOT a medical professional and cannot provide clinical advice. If you have any health conditions, please consult a doctor or registered dietitian.\n\nHow can I help you learn about nutrition today?`, time: now() });
@@ -390,6 +397,15 @@
     renderChat();
   }
   function now() { return new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }); }
+  // Heuristic: does an AI reply read like a multi-meal / weekly meal plan?
+  // Requires either an explicit plan/day keyword alongside a meal, or several
+  // meal mentions — so a casual "what's a good breakfast?" doesn't trigger it.
+  function looksLikeMealPlan(text) {
+    const t = String(text || '').toLowerCase();
+    const mealHits = (t.match(/\b(breakfast|lunch|dinner|snack)\b/g) || []).length;
+    const planWords = /\b(meal plan|weekly plan|day\s*[1-7]|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/.test(t);
+    return (planWords && mealHits >= 1) || mealHits >= 3;
+  }
   function fmt(text) {
     return String(text)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -399,15 +415,38 @@
   }
   function renderChat() {
     const body = $('chatBody');
-    body.innerHTML = chatHistory.map(m => `
+    body.innerHTML = chatHistory.map((m, i) => {
+      // Offer to save AI replies that look like a meal plan as a Weekly Plan.
+      const cta = (m.role === 'assistant' && looksLikeMealPlan(m.content))
+        ? `<div class="chat-mealplan-cta" data-trigger="meal_plan_save">
+             <span class="cmp-text">📅 Save this as your Weekly Meal Plan?</span>
+             <button class="cmp-btn" type="button" data-mealplan-idx="${i}">Add to Meal Plan</button>
+           </div>`
+        : '';
+      return `
       <div class="chat-msg ${m.role === 'user' ? 'user' : 'ai'}">
         ${m.role === 'user' ? '' : '<div class="chat-avatar">🌿</div>'}
         <div>
           <div class="chat-bubble">${fmt(m.content)}</div>
+          ${cta}
           <div class="chat-time">${m.time || ''}</div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     body.scrollTop = body.scrollHeight;
+  }
+  // Send an AI reply's text to the importer, then open the saved plan.
+  async function saveChatMealPlan(chatText, btn) {
+    if (!(typeof Auth !== 'undefined' && Auth.isAuthed())) { toast('Log in to save a meal plan.', 'info', 3000); return; }
+    const label = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      await Auth.api('/api/meal-plan/from-chat', { method: 'POST', body: JSON.stringify({ chatText }) });
+      toast('Meal plan saved! Opening your planner…', 'success', 2500);
+      setTimeout(() => { location.href = '/meal-plan.html?saved=1'; }, 700);
+    } catch (err) {
+      btn.disabled = false; btn.textContent = label;
+      toast((err && err.message) || 'Could not save this meal plan.', 'error');
+    }
   }
   async function sendChat() {
     if (chatBusy) return;

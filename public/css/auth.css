@@ -994,3 +994,25 @@
   padding: 10px 12px;
 }
 .dev-code-hint strong { color: var(--gold); font-family: var(--font-mono); letter-spacing: 2px; }
+
+/* ── NutriAI chat → "Save as Weekly Meal Plan" suggestion banner ─────────── */
+.chat-mealplan-cta {
+  margin: 8px 0 2px;
+  background: rgba(70, 217, 138, 0.08);
+  border: 1px solid rgba(70, 217, 138, 0.3);
+  border-radius: 16px;
+  padding: 12px 16px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+}
+.chat-mealplan-cta .cmp-text {
+  flex: 1; min-width: 140px; font-size: 13px; font-weight: 600; color: var(--text-1);
+}
+.chat-mealplan-cta .cmp-btn {
+  padding: 8px 16px; border-radius: 12px; cursor: pointer; white-space: nowrap;
+  font-family: inherit; font-weight: 800; font-size: 13px;
+  color: #46D98A; background: rgba(70, 217, 138, 0.12);
+  border: 1px solid rgba(70, 217, 138, 0.45);
+  transition: background .15s, transform .15s;
+}
+.chat-mealplan-cta .cmp-btn:hover { background: rgba(70, 217, 138, 0.2); transform: translateY(-1px); }
+.chat-mealplan-cta .cmp-btn:disabled { opacity: .6; cursor: default; transform: none; }

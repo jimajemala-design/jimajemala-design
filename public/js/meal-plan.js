@@ -131,6 +131,31 @@
     show('mpLocked', true);
   }
 
+  // Load a previously-saved structured plan (e.g. imported from the NutriAI
+  // chat via /meal-plan.html?saved=1). Viewing your own saved plan isn't
+  // premium-gated; if nothing is saved we fall back to the normal entry point.
+  async function loadSavedPlan() {
+    show('mpSetup', false); show('mpLocked', false); show('mpResults', false);
+    show('mpLoading', true);
+    try {
+      const data = await Auth.api('/api/meal-plan/saved');
+      if (data && data.days && data.days.length) {
+        state.plan = data; state.activeDay = 0;
+        show('mpLoading', false);
+        renderResults();
+        if (/[?&]saved=1/.test(location.search)) {
+          toast('Your meal plan from NutriAI is saved! 🎉', 'success', 3500);
+          history.replaceState(null, '', location.pathname);
+        }
+        return;
+      }
+    } catch { /* fall through to the normal entry point */ }
+    show('mpLoading', false);
+    if (!isPremium()) { showLocked(); return; }
+    preloadProfile();
+    show('mpSetup', true);
+  }
+
   // ── init ─────────────────────────────────────────────────────────────────
   function init() {
     if (!$('mpSetup')) return;
@@ -143,13 +168,18 @@
       return;
     }
     if (isPremium()) { if (badge) { badge.textContent = 'Premium'; badge.classList.remove('free'); } }
-    else { if (badge) badge.textContent = 'Free'; showLocked(); }
+    else if (badge) badge.textContent = 'Free';
 
     wireSetup();
     $('mpRegenerate')?.addEventListener('click', generate);
     $('mpExport')?.addEventListener('click', () => window.print());
 
-    if (isPremium()) preloadProfile();
+    // A plan imported from the NutriAI chat arrives with ?saved=1 — show it
+    // directly (even for free users viewing their own saved plan).
+    if (/[?&]saved=1/.test(location.search)) { loadSavedPlan(); return; }
+
+    if (!isPremium()) { showLocked(); return; }
+    preloadProfile();
   }
 
   document.addEventListener('DOMContentLoaded', init);

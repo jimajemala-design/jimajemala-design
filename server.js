@@ -297,6 +297,9 @@ const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const FRIDGES_FILE = path.join(DATA_DIR, 'fridges.json');
 const MEALPLANS_FILE = path.join(DATA_DIR, 'mealplans.json');
+// Structured weekly plans (the meal-plan.html shape) — kept separate from the
+// fridge-generated plans above so the two don't clobber each other's row.
+const WEEKLY_MEALPLANS_FILE = path.join(DATA_DIR, 'weekly_mealplans.json');
 const LOGS_FILE = path.join(DATA_DIR, 'logs.json');
 const WATER_FILE = path.join(DATA_DIR, 'water.json');
 const SMOKING_FILE = path.join(DATA_DIR, 'smoking.json');
@@ -336,7 +339,7 @@ for (const d of [UPLOADS_DIR, POSTS_UPLOAD_DIR, REELS_UPLOAD_DIR, STORIES_UPLOAD
   VIDEOS_UPLOAD_DIR, VIDEO_THUMBS_DIR, VIDEO_TMP_DIR]) {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 }
-for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE, LOGS_FILE, WATER_FILE,
+for (const f of [USERS_FILE, FRIDGES_FILE, MEALPLANS_FILE, WEEKLY_MEALPLANS_FILE, LOGS_FILE, WATER_FILE,
   SMOKING_FILE, RECIPES_FILE, COMMENTS_FILE, REACTIONS_FILE, BOOKMARKS_FILE, REPORTS_FILE,
   WAITLIST_FILE, POSTS_FILE, FOLLOWS_FILE, POST_REACTIONS_FILE, POST_COMMENTS_FILE,
   POST_SAVES_FILE, POST_REPORTS_FILE, NOTIFICATIONS_FILE, HASHTAG_FOLLOWS_FILE,
@@ -1146,6 +1149,21 @@ function ensureAdminsInJSON() {
         } catch { /* skip duplicates */ }
       }
     }
+
+    // Structured weekly meal plans (meal-plan.html shape), e.g. imported from
+    // the NutriAI chat. One row per user; distinct from `meal_plans` above.
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`weekly_meal_plans\` (
+        \`id\`          VARCHAR(36) PRIMARY KEY,
+        \`userId\`      VARCHAR(36) NOT NULL UNIQUE,
+        \`plan\`        JSON        NOT NULL,
+        \`weeklyNotes\` TEXT,
+        \`source\`      VARCHAR(40) DEFAULT 'chat',
+        \`createdAt\`   DATETIME    DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\`   DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX \`idx_wmp_userId\` (\`userId\`)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS \`meal_logs\` (
@@ -3636,6 +3654,92 @@ app.post('/api/meal-plan/generate', auth, async (req, res) => {
   }
 });
 
+// Normalize a raw Gemini meal-plan object into the strict shape meal-plan.html
+// trusts: clamped non-negative numbers, capped string/array lengths.
+function normalizeWeeklyPlan(plan) {
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : 0; };
+  const days = (Array.isArray(plan && plan.days) ? plan.days : []).slice(0, 7).map(d => {
+    const meals = (Array.isArray(d.meals) ? d.meals : []).slice(0, 8).map(m => ({
+      type: MEAL_PLAN_TYPES.includes(m.type) ? m.type : String(m.type || 'Meal').slice(0, 20),
+      name: String(m.name || 'Meal').slice(0, 120),
+      foods: (Array.isArray(m.foods) ? m.foods : []).slice(0, 20)
+        .map(f => ({ name: String(f.name || '').slice(0, 80), grams: Math.round(num(f.grams)) }))
+        .filter(f => f.name),
+      calories: Math.round(num(m.calories)),
+      protein: +num(m.protein).toFixed(1),
+      carbs: +num(m.carbs).toFixed(1),
+      fat: +num(m.fat).toFixed(1),
+      prepTime: String(m.prepTime || '').slice(0, 20),
+    }));
+    return {
+      day: String(d.day || 'Day').slice(0, 20),
+      meals,
+      totalCalories: Math.round(num(d.totalCalories) || meals.reduce((s, x) => s + x.calories, 0)),
+      totalProtein: +(num(d.totalProtein) || meals.reduce((s, x) => s + x.protein, 0)).toFixed(1),
+    };
+  });
+  return { days, weeklyNotes: String((plan && plan.weeklyNotes) || '').slice(0, 1500) };
+}
+
+// Convert a free-text meal plan (e.g. one NutriAI wrote in the chat) into the
+// structured weekly-plan JSON meal-plan.html uses, and persist it for the user.
+app.post('/api/meal-plan/from-chat', auth, async (req, res) => {
+  const chatText = String((req.body && req.body.chatText) || '').trim();
+  if (!chatText) return res.status(400).json({ error: 'No meal plan text provided.' });
+  if (chatText.length > 12000) return res.status(413).json({ error: 'That message is too long to import.' });
+  if (!genAI) {
+    return res.status(503).json({ error: 'AI meal planning is not configured right now. Please try again later.', code: 'AI_UNAVAILABLE' });
+  }
+
+  const prompt = `Convert this meal plan text into a structured JSON object with this exact format: `
+    + `{ days: [{ day: 'Monday', meals: [{ type: 'Breakfast', name: 'meal name', foods: [{name: 'food', grams: 150}], `
+    + `calories: number, protein: number, carbs: number, fat: number, prepTime: '10 min' }], `
+    + `totalCalories: number, totalProtein: number }], weeklyNotes: 'summary' }. `
+    + `Respond ONLY with the JSON object (no markdown). Estimate any missing nutrition numbers reasonably. `
+    + `Meal plan text: ${chatText}`;
+
+  try {
+    const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MEALPLAN_MODEL || 'gemini-2.5-flash' });
+    // Light 503 retry (overloaded → wait 2s, up to 2 retries); 429 → bail.
+    let result = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try { result = await model.generateContent(prompt); break; }
+      catch (err) {
+        const m = String(err && err.message || '').match(/\[(\d{3})\b/);
+        const st = m ? Number(m[1]) : 0;
+        if (st === 429) return res.status(429).json({ error: 'The AI is over its rate limit right now. Please try again in a minute.', code: 'RATE_LIMITED' });
+        if (st === 503 && attempt < 3) { await new Promise(r => setTimeout(r, 2000)); continue; }
+        throw err;
+      }
+    }
+    const raw = (result.response.text() || '').trim();
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return res.status(502).json({ error: 'Could not read a meal plan from that message. Please try again.' });
+    let parsed;
+    try { parsed = JSON.parse(match[0]); }
+    catch { return res.status(502).json({ error: 'Could not read a meal plan from that message. Please try again.' }); }
+
+    const plan = normalizeWeeklyPlan(parsed);
+    if (!plan.days.length) return res.status(502).json({ error: "That message didn't contain a meal plan we could import." });
+
+    await sUpsertWeeklyMealPlan({ userId: req.userId, plan, weeklyNotes: plan.weeklyNotes, source: 'chat' });
+    res.json({ success: true, days: plan.days, weeklyNotes: plan.weeklyNotes });
+  } catch (err) {
+    console.error('meal-plan from-chat error:', err.message);
+    res.status(502).json({ error: 'Could not import this meal plan. Please try again in a moment.' });
+  }
+});
+
+// The user's saved structured weekly plan (e.g. imported from the chat) — read
+// by meal-plan.html?saved=1. Returns null when there is nothing saved.
+app.get('/api/meal-plan/saved', auth, async (req, res) => {
+  const rec = await sGetWeeklyMealPlan(req.userId);
+  if (!rec || !rec.plan || !Array.isArray(rec.plan.days) || !rec.plan.days.length) {
+    return res.json(null);
+  }
+  res.json({ days: rec.plan.days, weeklyNotes: rec.plan.weeklyNotes || rec.weeklyNotes || '', source: rec.source, updatedAt: rec.updatedAt });
+});
+
 // ─── AI CHAT (NutriAI) ─────────────────────────────────────────────────────
 
 // Match a fridge ingredient back to the food DB to recover real per-100g nutrition.
@@ -5366,6 +5470,29 @@ async function sUpsertMealPlan(rec) {
   const out = { userId: rec.userId, plan: rec.plan, saved: !!rec.saved, offset: rec.offset || 0, updatedAt: new Date().toISOString() };
   if (idx === -1) all.push(out); else all[idx] = out;
   writeJSON(MEALPLANS_FILE, all);
+}
+
+// ── Structured weekly meal plans (meal-plan.html shape; chat-imported) ──────
+async function sGetWeeklyMealPlan(userId) {
+  if (!db) return readJSON(WEEKLY_MEALPLANS_FILE).find(p => p.userId === userId) || null;
+  const [rows] = await db.execute('SELECT * FROM `weekly_meal_plans` WHERE `userId`=?', [userId]);
+  if (!rows[0]) return null;
+  let plan = rows[0].plan;
+  if (typeof plan === 'string') { try { plan = JSON.parse(plan); } catch { plan = {}; } }
+  return { userId: rows[0].userId, plan, weeklyNotes: rows[0].weeklyNotes || '', source: rows[0].source || 'chat', updatedAt: rows[0].updatedAt };
+}
+async function sUpsertWeeklyMealPlan(rec) {
+  if (db) {
+    await db.execute(
+      'INSERT INTO `weekly_meal_plans` (`id`,`userId`,`plan`,`weeklyNotes`,`source`,`updatedAt`) VALUES (?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE `plan`=VALUES(`plan`), `weeklyNotes`=VALUES(`weeklyNotes`), `source`=VALUES(`source`), `updatedAt`=NOW()',
+      [uuidv4(), rec.userId, JSON.stringify(rec.plan || {}), rec.weeklyNotes || '', rec.source || 'chat']
+    );
+  }
+  const all = readJSON(WEEKLY_MEALPLANS_FILE);
+  const idx = all.findIndex(p => p.userId === rec.userId);
+  const out = { userId: rec.userId, plan: rec.plan, weeklyNotes: rec.weeklyNotes || '', source: rec.source || 'chat', updatedAt: new Date().toISOString() };
+  if (idx === -1) all.push(out); else all[idx] = out;
+  writeJSON(WEEKLY_MEALPLANS_FILE, all);
 }
 
 // Meal logs (column `mealName` maps to `name`; `loggedAt` to `createdAt`).
