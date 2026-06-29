@@ -3282,14 +3282,46 @@ app.post('/api/analyze-food', auth, async (req, res) => {
   if (data.length > 11 * 1024 * 1024) {
     return res.status(413).json({ error: 'Image is too large. Please use a photo under 8MB.' });
   }
-  try {
-    const model = visionGenAI.getGenerativeModel({
-      model: process.env.GEMINI_VISION_MODEL || 'gemini-1.5-flash',
+  // Gemini call with retry + model fallback:
+  //  • 503 (overloaded)  → wait 2s and retry the SAME model up to 2 more times
+  //  • after the primary model exhausts its 503 retries → fall back to gemini-1.5-flash
+  //  • 429 (rate limited) → friendly error immediately, no retry, no fallback
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const statusOf = (err) => {
+    const m = String((err && err.message) || '').match(/\[(\d{3})\b/);   // e.g. "[503 Service Unavailable]"
+    return m ? Number(m[1]) : ((err && err.status) || 0);
+  };
+  const PRIMARY_MODEL = process.env.GEMINI_VISION_MODEL || 'gemini-2.5-flash';
+  const FALLBACK_MODEL = 'gemini-1.5-flash';
+  const modelChain = PRIMARY_MODEL === FALLBACK_MODEL ? [PRIMARY_MODEL] : [PRIMARY_MODEL, FALLBACK_MODEL];
+
+  let result = null, lastErr = null, rateLimited = false;
+  for (const modelName of modelChain) {
+    for (let attempt = 1; attempt <= 3; attempt++) {   // 1 initial + up to 2 retries
+      try {
+        const model = visionGenAI.getGenerativeModel({ model: modelName });
+        result = await model.generateContent([SNAP_PROMPT, { inlineData: { data, mimeType } }]);
+        break;
+      } catch (err) {
+        lastErr = err;
+        const status = statusOf(err);
+        if (status === 429) { rateLimited = true; break; }                   // rate limited → bail now
+        if (status === 503 && attempt < 3) { await sleep(2000); continue; }  // overloaded → retry same model
+        break;   // other error, or 503 retries exhausted → move to the fallback model
+      }
+    }
+    if (result || rateLimited) break;
+  }
+
+  if (rateLimited) {
+    return res.status(429).json({
+      error: 'The AI is over its rate limit right now. Please try again in a minute.',
+      code: 'RATE_LIMITED',
     });
-    const result = await model.generateContent([
-      SNAP_PROMPT,
-      { inlineData: { data, mimeType } },
-    ]);
+  }
+
+  try {
+    if (!result) throw lastErr || new Error('No response from AI');
     const raw = (result.response.text() || '').trim();
     // Gemini sometimes wraps JSON in ```json fences — pull the first {...} block.
     const match = raw.match(/\{[\s\S]*\}/);
