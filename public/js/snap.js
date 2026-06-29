@@ -13,13 +13,6 @@ const Snap = (() => {
   let current = null;
   let currentImage = null;
 
-  const isPremiumUser = () => {
-    const u = (window.Auth && Auth.user()) || {};
-    const plan = String(u.plan || '').toLowerCase();
-    const role = u.role || (u.isAdmin ? 'admin' : 'user');
-    return ['premium', 'pro', 'elite'].includes(plan) || role === 'admin';
-  };
-
   // ── sheet open/close ───────────────────────────────────────────────────
   function openSheet() {
     document.getElementById('snapOverlay').classList.add('open');
@@ -32,16 +25,12 @@ const Snap = (() => {
     document.body.style.overflow = '';
   }
 
-  // Entry point wired to every [data-open-snap] control.
+  // Entry point wired to every [data-open-snap] control. This NEVER navigates
+  // away from the feed: it just opens the photo picker. Auth + premium are
+  // enforced server-side and any gate is surfaced inside the results sheet.
   function start() {
     if (!window.Auth || !Auth.isAuthed()) {
-      toast('Log in to use Snap & Analyze.', 'info', 2500);
-      setTimeout(() => location.href = '/login.html', 700);
-      return;
-    }
-    if (!isPremiumUser()) {
-      toast('Snap & Analyze is a premium feature. Redirecting to plans…', 'warning', 2800);
-      setTimeout(() => location.href = '/pricing.html', 900);
+      toast('Log in to use Snap & Analyze.', 'info', 3000);
       return;
     }
     document.getElementById('snapInput').click();
@@ -93,7 +82,10 @@ const Snap = (() => {
       current = analysis;
       renderResult(analysis);
     } catch (err) {
-      renderError(err.message || 'Could not analyze that photo.');
+      const msg = err.message || 'Could not analyze that photo.';
+      // Premium gate (server 403) → in-sheet upsell, NOT a redirect.
+      if (/premium/i.test(msg)) renderUpsell(msg);
+      else renderError(msg);
     }
   }
 
@@ -116,6 +108,15 @@ const Snap = (() => {
     document.querySelector('.snap-retry').addEventListener('click', () => {
       closeSheet(); start();
     });
+  }
+  // Premium-required state — a user-initiated link to plans (no auto-redirect).
+  function renderUpsell(msg) {
+    document.getElementById('snapBody').innerHTML = `
+      <div class="snap-error">
+        <span class="snap-error-ico">✨</span>
+        <p>${esc(msg)}</p>
+        <a class="btn-post" href="/pricing.html" style="text-decoration:none;text-align:center">See plans</a>
+      </div>`;
   }
 
   function scoreClass(s) { return s >= 7 ? 'good' : s >= 4 ? 'mid' : 'bad'; }
