@@ -2509,3 +2509,22 @@ html, body { max-width: 100%; overflow-x: hidden; }
 }
 .nf-footer-mini a:hover { color: var(--green); }
 .footer-divider { opacity: 0.3; }
+
+/* ── Trigger 4 · Medical Hook banner (food detail · free users) ──────────── */
+.nf-medical-hook {
+  margin: 18px 0 4px; padding: 18px 18px 16px; border-radius: 18px;
+  background: rgba(70, 217, 138, 0.06); border: 1px solid rgba(70, 217, 138, 0.3);
+}
+.nf-medical-hook .nf-mh-title {
+  font-family: var(--font-body); font-weight: 800; font-size: 15px; color: var(--text-1); margin-bottom: 6px;
+}
+.nf-medical-hook .nf-mh-body {
+  font-size: 13px; line-height: 1.55; color: var(--text-2); margin: 0 0 14px;
+}
+.nf-medical-hook .nf-mh-btn {
+  display: inline-block; padding: 11px 20px; border-radius: 12px; text-decoration: none;
+  background: linear-gradient(135deg, #46D98A, #28b06d); color: #06140d;
+  font-weight: 800; font-size: 13.5px; box-shadow: 0 8px 22px rgba(70, 217, 138, 0.25);
+  transition: transform 0.16s ease, filter 0.16s ease;
+}
+.nf-medical-hook .nf-mh-btn:hover { transform: translateY(-1px); filter: brightness(1.06); }

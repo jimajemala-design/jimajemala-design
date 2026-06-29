@@ -155,6 +155,23 @@
     } catch { /* not logged in or status unavailable — ignore */ }
   }
 
+  // ── Attribution: which upgrade wall sent the user here ─────────────────
+  // The four monetization walls link to /pricing.html?trigger=<key>; capture
+  // it so a conversion can be credited to the wall that fired. Stored in
+  // localStorage (last-touch) and exposed on the page for analytics/banners.
+  function captureTrigger() {
+    const trigger = new URLSearchParams(location.search).get('trigger');
+    if (!trigger) return;
+    const KNOWN = ['progress_wall', 'social_lock', 'ai_tease', 'medical_hook'];
+    if (!KNOWN.includes(trigger)) return;
+    try {
+      localStorage.setItem('nf_upgrade_trigger', trigger);
+      localStorage.setItem('nf_upgrade_trigger_at', String(Date.now()));
+    } catch { /* storage unavailable — ignore */ }
+    document.body.setAttribute('data-upgrade-trigger', trigger); // analytics hook
+  }
+
   applyBilling();
   markCurrentPlan();
+  captureTrigger();
 })();

@@ -3214,6 +3214,20 @@ app.get('/api/logs', auth, async (req, res) => {
 app.post('/api/logs', auth, async (req, res) => {
   const { name, calories, protein, carbs, fat, date } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Meal name is required' });
+  // ── Upgrade Wall #1: PROGRESS WALL ───────────────────────────────────────
+  // Free users keep ~7 days of history (~21 meals). Past that, gate further
+  // logging behind Premium. Admins/premium accounts always pass (isPremium).
+  if (!isPremium(req.user)) {
+    const logsCount = (await sGetMealLogs(req.userId)).length;
+    if (logsCount > 21) {
+      return res.status(403).json({
+        error: 'UPGRADE_REQUIRED',
+        code: 'PROGRESS_WALL',
+        message: 'Upgrade to Premium to keep your full nutrition history',
+        logsCount,
+      });
+    }
+  }
   const entry = {
     id: uuidv4(),
     userId: req.userId,
@@ -4626,6 +4640,14 @@ async function sInsertPost(post) {
   const all = readJSON(POSTS_FILE);
   all.unshift(post);
   writeJSON(POSTS_FILE, all);
+}
+// Count how many posts a user has authored (for the SOCIAL_LOCK upgrade wall).
+async function sCountPostsByUser(userId) {
+  if (db) {
+    const [rows] = await db.execute('SELECT COUNT(*) AS c FROM `posts` WHERE `userId`=?', [userId]);
+    return Number(rows[0] && rows[0].c) || 0;
+  }
+  return readJSON(POSTS_FILE).filter(p => p.userId === userId).length;
 }
 
 // ─── Phase 2b: Reactions & Comments helpers (MySQL with JSON dual-write) ─────
@@ -6108,6 +6130,20 @@ app.post('/api/posts', auth, (req, res) => {
   postUpload.array('media', 10)(req, res, async (uErr) => {
     if (uErr) return res.status(400).json({ error: uErr.message });
     try {
+      // ── Upgrade Wall #2: SOCIAL LOCK ─────────────────────────────────────
+      // Free members may share up to 3 posts; the 4th is gated behind Premium.
+      // Admins/premium accounts always pass (isPremium).
+      if (!isPremium(req.user)) {
+        const postsCount = await sCountPostsByUser(req.userId);
+        if (postsCount >= 3) {
+          return res.status(403).json({
+            error: 'UPGRADE_REQUIRED',
+            code: 'SOCIAL_LOCK',
+            message: 'Upgrade to keep sharing with the community',
+            postsCount,
+          });
+        }
+      }
       const b = req.body || {};
       const type = POST_TYPES.includes(b.type) ? b.type : 'text';
       const caption = String(b.caption || '').trim().slice(0, 500);

@@ -927,6 +927,11 @@ const Feed = (() => {
     try {
       const res = await fetch('/api/posts', { method: 'POST', headers: { Authorization: 'Bearer ' + Auth.token() }, body: fd });
       const data = await res.json().catch(() => null);
+      // Trigger 2 — Social Lock: free members capped at 3 posts.
+      if (res.status === 403 && data && data.code === 'SOCIAL_LOCK') {
+        UpgradeWall.social();
+        return;
+      }
       if (!res.ok) throw new Error((data && data.error) || 'Could not publish your post.');
       toast('Posted! 🎉', 'success');
       closeCreate();

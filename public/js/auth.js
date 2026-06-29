@@ -63,7 +63,16 @@ const Auth = {
           await Auth._backoff(attempt); continue;
         }
         const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error((data && data.error) || 'Request failed');
+        if (!res.ok) {
+          // Attach the parsed body + status so callers can branch on app-level
+          // codes (e.g. the UPGRADE_REQUIRED monetization walls) — the message
+          // stays human-readable for callers that only show `err.message`.
+          const err = new Error((data && (data.message || data.error)) || 'Request failed');
+          err.status = res.status;
+          err.body = data || null;
+          err.code = (data && data.code) || null;
+          throw err;
+        }
         return data;
       } catch (err) {
         // Only network/fetch failures are retryable; thrown app errors are not.
@@ -123,6 +132,122 @@ function toast(message, type = 'success', ms) {
   return Toast.show(message, type, ms);
 }
 window.Toast = Toast;
+
+// ── Upgrade Wall (monetization modals) ────────────────────────────────────
+// Shared premium-upsell modal powering the four conversion triggers
+// (progress_wall, social_lock, ai_tease, medical_hook). Self-contained: it
+// injects its own scoped CSS using NutriFell's design tokens (#090A0A bg,
+// #46D98A accent, Manrope, 24px radius) so it renders identically on every
+// page regardless of which stylesheet happens to be loaded. The CTA links to
+// /pricing.html?trigger=<key> so conversions can be attributed to the wall
+// that fired, and each modal carries a data-trigger attribute for analytics.
+const UpgradeWall = {
+  // Premium accounts and admins are NEVER shown an upgrade wall.
+  isExempt() {
+    const u = (typeof Auth !== 'undefined' && Auth.user()) || {};
+    const plan = String(u.plan || '').toLowerCase();
+    const role = u.role || (u.isAdmin ? 'admin' : 'user');
+    return ['premium', 'pro', 'elite'].includes(plan) || role === 'admin';
+  },
+  _injectCSS() {
+    if (document.getElementById('nfUpgradeWallCSS')) return;
+    const s = document.createElement('style');
+    s.id = 'nfUpgradeWallCSS';
+    s.textContent = `
+      .nf-uw-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;
+        background:rgba(4,6,5,0.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;transition:opacity .22s ease;
+        font-family:'Manrope','Segoe UI',system-ui,Helvetica,Arial,sans-serif;}
+      .nf-uw-overlay.in{opacity:1;}
+      .nf-uw-modal{position:relative;width:100%;max-width:420px;background:#090A0A;border:1px solid rgba(70,217,138,0.22);
+        border-radius:24px;padding:34px 28px 26px;box-shadow:0 30px 80px rgba(0,0,0,.6);color:#f8fafc;text-align:center;
+        transform:translateY(14px) scale(.97);transition:transform .24s cubic-bezier(.2,.9,.3,1.2);}
+      .nf-uw-overlay.in .nf-uw-modal{transform:translateY(0) scale(1);}
+      .nf-uw-x{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;
+        background:rgba(255,255,255,.06);color:#94a3b8;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;transition:.15s;}
+      .nf-uw-x:hover{background:rgba(255,255,255,.12);color:#f8fafc;}
+      .nf-uw-emoji{font-size:42px;line-height:1;margin-bottom:14px;}
+      .nf-uw-title{font-size:21px;font-weight:800;letter-spacing:-.02em;margin:0 0 10px;color:#f8fafc;}
+      .nf-uw-body{font-size:14.5px;line-height:1.55;color:#94a3b8;margin:0 0 22px;}
+      .nf-uw-cta{display:block;width:100%;padding:14px 18px;border:none;border-radius:14px;cursor:pointer;box-sizing:border-box;
+        background:linear-gradient(135deg,#46D98A,#28b06d);color:#06140d;font-weight:800;font-size:15px;font-family:inherit;
+        text-decoration:none;box-shadow:0 10px 26px rgba(70,217,138,.28);transition:.18s;}
+      .nf-uw-cta:hover{filter:brightness(1.06);transform:translateY(-1px);}
+      .nf-uw-secondary{display:block;width:100%;margin-top:12px;padding:8px;border:none;background:none;cursor:pointer;
+        color:#475569;font-size:13.5px;font-family:inherit;transition:.15s;}
+      .nf-uw-secondary:hover{color:#94a3b8;}`;
+    document.head.appendChild(s);
+  },
+  // opts: { trigger, emoji, title, body, cta, secondary }
+  show(opts = {}) {
+    if (UpgradeWall.isExempt()) return null;                // never wall premium/admin
+    const trigger = opts.trigger || 'generic';
+    if (document.querySelector(`.nf-uw-overlay[data-trigger="${trigger}"]`)) return null; // de-dupe
+    UpgradeWall._injectCSS();
+    const overlay = document.createElement('div');
+    overlay.className = 'nf-uw-overlay';
+    overlay.setAttribute('data-trigger', trigger);          // analytics hook
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.innerHTML =
+      `<div class="nf-uw-modal" role="document">
+        <button class="nf-uw-x" aria-label="Close">✕</button>
+        <div class="nf-uw-emoji" aria-hidden="true">${opts.emoji || '💎'}</div>
+        <h3 class="nf-uw-title"></h3>
+        <p class="nf-uw-body"></p>
+        <a class="nf-uw-cta" data-trigger="${trigger}"></a>
+        <button class="nf-uw-secondary"></button>
+      </div>`;
+    overlay.querySelector('.nf-uw-title').textContent = opts.title || 'Upgrade to Premium';
+    overlay.querySelector('.nf-uw-body').textContent = opts.body || '';
+    const cta = overlay.querySelector('.nf-uw-cta');
+    cta.textContent = opts.cta || 'Upgrade Now';
+    cta.href = `/pricing.html?trigger=${encodeURIComponent(trigger)}`;
+    const sec = overlay.querySelector('.nf-uw-secondary');
+    sec.textContent = opts.secondary || 'Maybe later';
+
+    const close = () => {
+      overlay.classList.remove('in');
+      overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+      setTimeout(() => overlay.remove(), 400);              // safety net
+      document.removeEventListener('keydown', onKey);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    overlay.querySelector('.nf-uw-x').addEventListener('click', close);
+    sec.addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', onKey);
+
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('in'));
+    return { close };
+  },
+
+  // ── Convenience wrappers for the specific conversion triggers ────────────
+  // Trigger 1 — Progress Wall (meal logging history cap).
+  progress(logsCount) {
+    const count = Number(logsCount) || 0;
+    return UpgradeWall.show({
+      trigger: 'progress_wall',
+      emoji: '🎉',
+      title: `You've logged ${count} meals! 🎉`,
+      body: 'Upgrade to Premium to unlock your full nutrition history, trends, and insights.',
+      cta: 'Upgrade Now',
+      secondary: 'Maybe later',
+    });
+  },
+  // Trigger 2 — Social Lock (free post limit reached).
+  social() {
+    return UpgradeWall.show({
+      trigger: 'social_lock',
+      emoji: '🔒',
+      title: "You've reached the free post limit",
+      body: 'Free members can share 3 posts. Upgrade to Premium for unlimited sharing.',
+      cta: 'Upgrade to Keep Posting',
+      secondary: 'Maybe later',
+    });
+  },
+};
+window.UpgradeWall = UpgradeWall;
 
 // ── Offline / online detection ───────────────────────────────────────────
 const NetStatus = {

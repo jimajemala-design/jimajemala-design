@@ -229,6 +229,11 @@ const Snap = (() => {
       toast(`Logged ${current.calories} kcal to today 🎉`, 'success');
       btn.textContent = '✓ Logged';
     } catch (err) {
+      if (err.code === 'PROGRESS_WALL') {
+        UpgradeWall.progress(err.body && err.body.logsCount);
+        btn.disabled = false; btn.textContent = label;
+        return;
+      }
       toast(err.message || 'Could not log this meal.', 'error');
       btn.disabled = false; btn.textContent = label;
     }
@@ -269,6 +274,11 @@ const Snap = (() => {
         body: fd,
       });
       const data = await res.json().catch(() => null);
+      if (res.status === 403 && data && data.code === 'SOCIAL_LOCK') {
+        UpgradeWall.social();
+        btn.disabled = false; btn.textContent = label;
+        return;
+      }
       if (!res.ok) throw new Error((data && data.error) || 'Could not share to the feed.');
       toast('Shared to the feed! 🎉', 'success');
       btn.textContent = '✓ Shared';

@@ -244,3 +244,23 @@ html, body { margin: 0; }
    sticky in-flow card instead of fixed above the (absent) nav. */
 .mb-embed .mb-totals { position: sticky; bottom: 16px; left: auto; right: auto; padding: 0; margin-top: 18px; }
 .mb-embed .mb-totals-inner { max-width: 620px; }
+
+/* ── Trigger 3 · AI Tease inline upsell (free user adds a 3rd food) ──────── */
+.mb-upsell { display: none; margin: 14px 0 4px; animation: mbUpsellIn 0.28s ease; }
+.mb-upsell.show { display: block; }
+.mb-upsell-lead {
+  font-weight: 800; font-size: 14.5px; color: var(--mb-text); margin-bottom: 8px; text-align: center;
+}
+.mb-upsell-card {
+  background: var(--mb-surface); border: 1px solid rgba(70,217,138,0.35);
+  border-radius: 16px; padding: 16px; text-align: center;
+}
+.mb-upsell-compare { margin: 0 0 14px; font-size: 13px; line-height: 1.5; color: var(--mb-text-2); }
+.mb-upsell-compare b { color: var(--mb-text); }
+.mb-upsell-btn {
+  display: inline-block; padding: 11px 22px; border-radius: 12px; text-decoration: none;
+  background: linear-gradient(135deg, #46D98A, #28b06d); color: var(--mb-accent-on);
+  font-weight: 800; font-size: 14px; box-shadow: 0 8px 22px rgba(70,217,138,0.26);
+}
+.mb-upsell-hint { margin: 10px 0 0; font-size: 12px; color: var(--mb-text-3); }
+@keyframes mbUpsellIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

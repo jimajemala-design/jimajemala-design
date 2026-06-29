@@ -98,10 +98,37 @@ window.MealBuilder = (() => {
   // ── add / remove / adjust ──────────────────────────────────────────────
   function atFreeLimit() {
     if (!isPremium() && selected.length >= FREE_FOOD_LIMIT) {
-      toast('Free plan is limited to 2 foods. Upgrade for unlimited meals + an AI verdict.', 'warning', 4000);
+      // Trigger 3 — AI Tease: don't hit the server. Show an inline upsell card
+      // right below the food list instead of silently blocking the add.
+      showAiTease();
       return true;
     }
     return false;
+  }
+  // Inline premium upsell shown when a free user tries to add a 3rd food.
+  function showAiTease() {
+    const list = $('mbSelectedList');
+    if (!list) return;
+    let card = $('mbUpsell');
+    if (!card) {
+      card = document.createElement('div');
+      card.id = 'mbUpsell';
+      card.className = 'mb-upsell';
+      card.setAttribute('data-trigger', 'ai_tease'); // analytics hook
+      list.parentNode.insertBefore(card, list.nextSibling);
+      card.innerHTML = `
+        <div class="mb-upsell-lead">🔒 Add unlimited foods with Premium</div>
+        <div class="mb-upsell-card">
+          <p class="mb-upsell-compare"><b>Free plan:</b> 2 foods max.<br><b>Premium:</b> unlimited foods + AI verdict + share to feed</p>
+          <a class="mb-upsell-btn" href="/pricing.html?trigger=ai_tease">Upgrade Now</a>
+          <p class="mb-upsell-hint">Remove a food to continue free</p>
+        </div>`;
+    }
+    card.classList.add('show');
+  }
+  function hideAiTease() {
+    const card = $('mbUpsell');
+    if (card) card.classList.remove('show');
   }
   function pushFood(food, grams, source) {
     if (selected.some(s => keyOf(s.food) === keyOf(food))) return false;
@@ -159,6 +186,8 @@ window.MealBuilder = (() => {
     if (!list) return;
     const empty = $('mbEmpty');
     if (empty) empty.style.display = selected.length ? 'none' : 'block';
+    // Removing a food back under the free cap clears the inline AI-tease upsell.
+    if (selected.length < FREE_FOOD_LIMIT) hideAiTease();
     list.innerHTML = selected.map(({ food, grams, source }) => {
       const c = contrib(food, grams);
       const key = keyOf(food);
@@ -293,6 +322,11 @@ window.MealBuilder = (() => {
       toast(`Logged ${lastResult.totalCalories} kcal to today 🎉`, 'success');
       btn.textContent = '✓ Logged';
     } catch (err) {
+      if (err.code === 'PROGRESS_WALL') {
+        UpgradeWall.progress(err.body && err.body.logsCount);
+        btn.disabled = false; btn.textContent = label;
+        return;
+      }
       toast(err.message || 'Could not log this meal.', 'error');
       btn.disabled = false; btn.textContent = label;
     }
@@ -309,6 +343,11 @@ window.MealBuilder = (() => {
       fd.append('type', 'text'); fd.append('caption', caption);
       const res = await fetch('/api/posts', { method: 'POST', headers: { Authorization: 'Bearer ' + Auth.token() }, body: fd });
       const data = await res.json().catch(() => null);
+      if (res.status === 403 && data && data.code === 'SOCIAL_LOCK') {
+        UpgradeWall.social();
+        btn.disabled = false; btn.textContent = label;
+        return;
+      }
       if (!res.ok) throw new Error((data && data.error) || 'Could not share to the feed.');
       toast('Shared to the feed! 🎉', 'success');
       btn.textContent = '✓ Shared';

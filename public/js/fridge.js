@@ -203,7 +203,10 @@
       renderTracker(); renderWeekly(); renderSuggestions();
       toast(entry.name + ' logged', 'success', 1600);
       maybeCelebrate(before, todayTotals().calories);
-    } catch (err) { toast(err.message, 'error'); }
+    } catch (err) {
+      if (err.code === 'PROGRESS_WALL') { UpgradeWall.progress(err.body && err.body.logsCount); return; }
+      toast(err.message, 'error');
+    }
   }
   async function deleteLog(id) {
     try {

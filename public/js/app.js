@@ -464,6 +464,22 @@ const App = (() => {
         <span>${d}</span>
       </li>`).join('');
 
+    // ── Trigger 4 · Medical Hook ──────────────────────────────────────────
+    // When a food's drawbacks touch a condition-relevant nutrient, tease the
+    // premium health-condition safety filters — but only to free users.
+    const MEDICAL_KEYWORDS = /potassium|phosphorus|sodium|sugar|oxalate/i;
+    const hasMedicalDrawback = food.drawbacks.some(d => MEDICAL_KEYWORDS.test(d));
+    let plan = '';
+    try { plan = String((JSON.parse(localStorage.getItem('nb_user')) || {}).plan || '').toLowerCase(); } catch {}
+    const isFreeUser = typeof UpgradeWall !== 'undefined' ? !UpgradeWall.isExempt()
+      : !['premium', 'pro', 'elite'].includes(plan);
+    const medicalHookHTML = (hasMedicalDrawback && isFreeUser) ? `
+      <div class="nf-medical-hook" data-trigger="medical_hook">
+        <div class="nf-mh-title">⚠️ Managing a health condition?</div>
+        <p class="nf-mh-body">Unlock CKD, Diabetes, and Low-FODMAP safety filters to see personalized warnings for your diet.</p>
+        <a class="nf-mh-btn" href="/pricing.html?trigger=medical_hook">Unlock Health Filters</a>
+      </div>` : '';
+
     const cat = CATEGORIES[food.id] || 'fruit';
 
     $('infoPanel').innerHTML = `
@@ -511,6 +527,7 @@ const App = (() => {
 
       <p class="section-label-sm">// Considerations</p>
       <ul class="bl-list">${drawbacks}</ul>
+      ${medicalHookHTML}
 
       <p class="nf-medical-note">⚕️ <strong>Not medical advice.</strong> Nutritional values are estimates per average serving. Always consult a healthcare professional before making significant dietary changes. <a href="/disclaimer.html">Full disclaimer</a></p>
     `;
