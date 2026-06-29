@@ -413,14 +413,22 @@
       .replace(/_(.+?)_/g, '<i>$1</i>')
       .replace(/\n/g, '<br>');
   }
+  // The save-to-meal-plan banner must ONLY ever appear inside the fridge page's
+  // NutriAI chat — guard on the pathname so it can never render elsewhere even
+  // if this code is reused.
+  const onFridgePage = () => /fridge/.test(location.pathname);
   function renderChat() {
     const body = $('chatBody');
     body.innerHTML = chatHistory.map((m, i) => {
       // Offer to save AI replies that look like a meal plan as a Weekly Plan.
-      const cta = (m.role === 'assistant' && looksLikeMealPlan(m.content))
+      const cta = (onFridgePage() && m.role === 'assistant' && looksLikeMealPlan(m.content))
         ? `<div class="chat-mealplan-cta" data-trigger="meal_plan_save">
-             <span class="cmp-text">📅 Save this as your Weekly Meal Plan?</span>
-             <button class="cmp-btn" type="button" data-mealplan-idx="${i}">Add to Meal Plan</button>
+             <div class="cmp-head">
+               <span class="cmp-emoji" aria-hidden="true">📅</span>
+               <span class="cmp-title">Meal Plan Detected!</span>
+             </div>
+             <p class="cmp-sub">NutriAI built you a weekly plan. Save it with one tap.</p>
+             <button class="cmp-btn" type="button" data-mealplan-idx="${i}">💾 Save to My Meal Plan →</button>
            </div>`
         : '';
       return `
