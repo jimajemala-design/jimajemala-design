@@ -139,9 +139,14 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
 // The Stripe webhook needs the raw request body for signature verification,
 // so JSON parsing is skipped for that one route (it uses express.raw instead).
+// Snap & Analyze posts a base64 food photo, which blows past the default
+// ~100kb JSON limit — give that one route a larger ceiling.
+const jsonSmall = express.json();
+const jsonLarge = express.json({ limit: '12mb' });
 app.use((req, res, next) => {
   if (req.originalUrl === '/api/webhook/stripe') return next();
-  express.json()(req, res, next);
+  if (req.originalUrl === '/api/analyze-food') return jsonLarge(req, res, next);
+  jsonSmall(req, res, next);
 });
 
 // Google Gemini — primary AI provider for the nutrition chat assistant
@@ -271,6 +276,12 @@ const ROLE_LEVELS = { user: 1, moderator: 2, admin: 3 };
 // explicit `role` string, fall back to the deprecated `isAdmin` flag, else 'user'.
 const roleOf = (u) => (u && u.role) || (u && u.isAdmin ? 'admin' : 'user');
 const roleLevel = (r) => ROLE_LEVELS[r] || 1;
+// Paid AI features (e.g. Snap & Analyze) are gated to premium accounts. The
+// app's paid tiers are 'pro' and 'elite'; the generic 'premium' is accepted
+// too, and admins always qualify so the owner can use/test premium features.
+const PREMIUM_PLANS = ['premium', 'pro', 'elite'];
+const isPremium = (u) => !!u && (PREMIUM_PLANS.includes(String((u && u.plan) || '').toLowerCase())
+  || roleLevel(roleOf(u)) >= ROLE_LEVELS.admin);
 // Accounts auto-granted the 'admin' role on every boot, in BOTH MySQL and JSON.
 // jimajemala@gmail.com (the repo owner) is retained so the owner is never locked
 // out after the isAdmin→role migration; override the whole list via ADMIN_EMAILS.
@@ -3217,6 +3228,92 @@ app.delete('/api/logs/:id', auth, async (req, res) => {
   const removed = await sDeleteMealLog(req.params.id, req.userId);
   if (!removed) return res.status(404).json({ error: 'Log not found' });
   res.json({ success: true });
+});
+
+// ─── SNAP & ANALYZE (premium) ──────────────────────────────────────────────
+// Gemini Vision food-photo analyzer. Accepts a base64 image (data URL or raw
+// base64) and returns structured nutrition JSON the feed UI renders into a
+// results sheet. Premium-gated; admins always pass (see isPremium).
+const SNAP_PROMPT = `You are a professional nutritionist. Analyze this food photo and respond ONLY with a JSON object (no markdown):
+{
+  "foodName": "name of the food",
+  "serving": "estimated serving size",
+  "calories": number,
+  "protein": number (grams),
+  "carbs": number (grams),
+  "fat": number (grams),
+  "fiber": number (grams),
+  "healthScore": number (1-10),
+  "benefits": ["benefit1", "benefit2", "benefit3"],
+  "drawbacks": ["drawback1", "drawback2"],
+  "verdict": "one sentence honest verdict"
+}`;
+
+app.post('/api/analyze-food', auth, async (req, res) => {
+  if (!isPremium(req.user)) {
+    return res.status(403).json({
+      error: 'Snap & Analyze is a premium feature. Upgrade to unlock AI food-photo analysis.',
+      code: 'PREMIUM_REQUIRED',
+    });
+  }
+  if (!genAI) {
+    return res.status(503).json({ error: 'AI analysis is not configured right now. Please try again later.', code: 'AI_UNAVAILABLE' });
+  }
+  const { image } = req.body || {};
+  if (!image || typeof image !== 'string') {
+    return res.status(400).json({ error: 'A food photo is required.' });
+  }
+  // Accept a data URL ("data:image/jpeg;base64,…") or raw base64. Default the
+  // MIME to JPEG (what the client canvas export produces).
+  let mimeType = 'image/jpeg';
+  let data = image;
+  const m = image.match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,(.+)$/i);
+  if (m) { mimeType = m[1].toLowerCase().replace('jpg', 'jpeg'); data = m[2]; }
+  else { data = image.replace(/^data:[^,]*,/, ''); }
+  if (!/^[A-Za-z0-9+/=\s]+$/.test(data.slice(0, 64))) {
+    return res.status(400).json({ error: 'That does not look like a valid image.' });
+  }
+  // ~11MB of base64 ≈ an 8MB image; the client downscales well below this.
+  if (data.length > 11 * 1024 * 1024) {
+    return res.status(413).json({ error: 'Image is too large. Please use a photo under 8MB.' });
+  }
+  try {
+    const model = genAI.getGenerativeModel({
+      model: process.env.GEMINI_VISION_MODEL || 'gemini-2.0-flash',
+    });
+    const result = await model.generateContent([
+      SNAP_PROMPT,
+      { inlineData: { data, mimeType } },
+    ]);
+    const raw = (result.response.text() || '').trim();
+    // Gemini sometimes wraps JSON in ```json fences — pull the first {...} block.
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return res.status(502).json({ error: 'Could not read that photo. Try a clearer shot of the food.' });
+    let a;
+    try { a = JSON.parse(match[0]); }
+    catch { return res.status(502).json({ error: 'Could not analyze that photo. Please try again.' }); }
+
+    // Normalize + clamp so the UI can trust every field.
+    const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+    const list = (v) => (Array.isArray(v) ? v : []).map(s => String(s).trim()).filter(Boolean).slice(0, 5).map(s => s.slice(0, 160));
+    const out = {
+      foodName: String(a.foodName || 'Unknown food').slice(0, 120),
+      serving: String(a.serving || '1 serving').slice(0, 80),
+      calories: Math.max(0, Math.round(num(a.calories))),
+      protein: Math.max(0, +num(a.protein).toFixed(1)),
+      carbs: Math.max(0, +num(a.carbs).toFixed(1)),
+      fat: Math.max(0, +num(a.fat).toFixed(1)),
+      fiber: Math.max(0, +num(a.fiber).toFixed(1)),
+      healthScore: Math.min(10, Math.max(1, Math.round(num(a.healthScore) || 5))),
+      benefits: list(a.benefits),
+      drawbacks: list(a.drawbacks),
+      verdict: String(a.verdict || '').slice(0, 300),
+    };
+    res.json(out);
+  } catch (err) {
+    console.error('analyze-food error:', err.message);
+    res.status(502).json({ error: 'AI analysis failed. Please try again in a moment.' });
+  }
 });
 
 // ─── AI CHAT (NutriAI) ─────────────────────────────────────────────────────
