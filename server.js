@@ -6947,6 +6947,12 @@ function errorPage({ code, title, message }) {
 </div></body></html>`;
 }
 
+// Deploy/version probe — verify which build is live. MUST be registered before
+// the '/api' 404 catch-all below, or it would be shadowed and return Not Found.
+app.get('/api/version', (req, res) => {
+  res.json({ version: 'snap-v1', time: new Date().toISOString() });
+});
+
 // Unknown API route → JSON 404; unknown page → SPA shell (client routes) ...
 app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Not found', path: req.originalUrl });
