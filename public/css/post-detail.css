@@ -1,0 +1,313 @@
+/* post-detail.css — immersive single-post view (design handoff).
+   Full-bleed hero (4:5 media) or large-text hero, content block, sticky action
+   dock, comments, and a keyboard-aware comment composer. Tokens mirror feed.css
+   so it renders identically across the app. */
+:root {
+  --bg: #090A0A;
+  --surface: #121614;
+  --surface-alt: #141816;
+  --border: rgba(255, 255, 255, 0.06);
+  --accent: #46D98A;
+  --accent-grad: linear-gradient(135deg, #46D98A, #28b06d);
+  --accent-on: #06140d;
+  --text: #F2F4F2;
+  --text-2: #C7CCC8;
+  --text-3: #9aa09b;
+  --text-4: #7d837e;
+  --text-5: #6b716c;
+  --radius-card: 24px;
+  --dock-h: 56px;
+  --composer-h: 64px;
+  --nav-h: 100px;   /* clears the floating bottom nav (pill + gradient padding) */
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body.pd-body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+a { color: inherit; text-decoration: none; }
+
+/* ── scroll container ─────────────────────────────────────────────────── */
+.pd-scroll {
+  max-width: 620px;
+  margin: 0 auto;
+  /* clear the fixed composer + action dock + floating nav */
+  padding-bottom: calc(var(--dock-h) + var(--composer-h) + var(--nav-h) + 24px);
+}
+
+/* ── HERO (media post) ────────────────────────────────────────────────── */
+.pd-hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  background: #000;
+  overflow: hidden;
+}
+.pd-hero img, .pd-hero video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.pd-hero-ph {
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  font-size: 64px;
+  background: radial-gradient(circle at 50% 35%, #1a201d, #0c100e);
+}
+/* bottom gradient: transparent → bg over the lower 40% */
+.pd-hero::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 40%;
+  background: linear-gradient(to bottom, rgba(9,10,10,0), var(--bg));
+  pointer-events: none;
+}
+
+/* circular overlay buttons (back / more) */
+.pd-overlay-btn {
+  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px));
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border: none; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  color: #fff; cursor: pointer; z-index: 3;
+}
+.pd-overlay-btn svg { width: 20px; height: 20px; }
+.pd-overlay-btn.back { left: 14px; }
+.pd-overlay-btn.more { right: 14px; }
+.pd-overlay-btn:active { transform: scale(0.94); }
+
+/* type pill sitting over the gradient, bottom-left of the hero */
+.pd-pill {
+  position: absolute; left: 16px; bottom: 16px; z-index: 3;
+  display: inline-flex; align-items: center;
+  padding: 6px 12px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  color: #fff; text-transform: uppercase;
+}
+
+/* ── TOP BAR (text post) ──────────────────────────────────────────────── */
+.pd-topbar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.pd-topbar .pd-bar-btn {
+  width: 40px; height: 40px; display: grid; place-items: center;
+  border: none; border-radius: 50%; cursor: pointer;
+  background: var(--surface); color: var(--text);
+}
+.pd-topbar .pd-bar-btn svg { width: 20px; height: 20px; }
+
+/* large text hero for a text-only post */
+.pd-text-hero {
+  padding: 26px 20px 6px;
+  font-size: 20px; line-height: 1.7; font-weight: 600;
+  color: var(--text);
+  white-space: pre-wrap; word-break: break-word;
+}
+.pd-text-hero .pd-hashtag { font-weight: 700; }
+
+/* ── CONTENT SECTION ──────────────────────────────────────────────────── */
+.pd-content { padding: 18px 20px 8px; }
+
+.pd-author {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px;
+}
+.pd-avatar {
+  width: 44px; height: 44px; flex: none;
+  border-radius: 50%;
+  background: var(--surface-alt) center/cover no-repeat;
+  display: grid; place-items: center;
+  font-weight: 700; color: var(--accent);
+  font-size: 17px;
+}
+.pd-author-meta { display: flex; flex-direction: column; min-width: 0; }
+.pd-name { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.pd-handle { font-size: 14px; color: var(--text-3); }
+.pd-follow {
+  margin-left: auto; flex: none;
+  padding: 6px 16px; border-radius: 999px;
+  border: 1px solid rgba(70, 217, 138, 0.5);
+  background: transparent; color: var(--accent);
+  font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.pd-follow.following {
+  border-color: rgba(255, 255, 255, 0.15); color: var(--text-3);
+}
+.pd-follow:active { transform: scale(0.97); }
+
+.pd-caption {
+  font-size: 17px; line-height: 1.6; color: var(--text-2);
+  white-space: pre-wrap; word-break: break-word;
+  margin: 0 0 14px;
+}
+.pd-hashtag { color: var(--accent); }
+.pd-mention { color: var(--accent); }
+
+.pd-timestamp { font-size: 13px; color: var(--text-4); }
+
+/* recipe meta chip line (when the post is a recipe) */
+.pd-recipe-meta {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 0 14px;
+  font-size: 13px; color: var(--text-3);
+}
+
+/* ── ACTION DOCK (fixed, just above the floating nav) ──────────────────── */
+.pd-dock {
+  position: fixed; left: 0; right: 0;
+  bottom: var(--nav-h);                 /* sits directly above the floating nav */
+  z-index: 60;
+  display: flex; align-items: center;
+  height: var(--dock-h);
+  padding: 0 18px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+.pd-dock-inner {
+  width: 100%; max-width: 620px; margin: 0 auto;
+  display: flex; align-items: center; gap: 22px;
+}
+.pd-act {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: none; background: none; cursor: pointer; padding: 0;
+  color: var(--text-2); font-family: inherit; font-size: 14px; font-weight: 600;
+}
+.pd-act svg { width: 24px; height: 24px; }
+.pd-act:active { transform: scale(0.92); }
+.pd-act.like.liked { color: var(--accent); }
+.pd-act.save.saved { color: var(--accent); }
+.pd-dock-spacer { flex: 1; }
+
+/* ── COMMENTS ─────────────────────────────────────────────────────────── */
+.pd-comments { padding: 14px 20px 4px; }
+.pd-comments-head {
+  font-size: 16px; font-weight: 700; color: var(--text);
+  margin: 6px 0 16px;
+}
+.pd-comment {
+  display: flex; gap: 12px; margin-bottom: 18px;
+}
+.pd-comment-av {
+  width: 36px; height: 36px; flex: none; border-radius: 50%;
+  background: var(--surface-alt) center/cover no-repeat;
+  display: grid; place-items: center; font-weight: 700; color: var(--accent); font-size: 14px;
+}
+.pd-comment-body { flex: 1; min-width: 0; }
+.pd-comment-top { display: flex; align-items: baseline; gap: 8px; }
+.pd-comment-user { font-size: 14px; font-weight: 600; color: var(--text); }
+.pd-comment-time { font-size: 12px; color: var(--text-5); }
+.pd-comment-text {
+  font-size: 14px; line-height: 1.5; color: var(--text-2);
+  margin: 3px 0 6px; white-space: pre-wrap; word-break: break-word;
+}
+.pd-comment-actions { display: flex; align-items: center; gap: 16px; }
+.pd-comment-reply {
+  border: none; background: none; cursor: pointer; padding: 0;
+  font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text-4);
+}
+.pd-comment-like {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: none; background: none; cursor: pointer; padding: 0;
+  font-family: inherit; font-size: 12px; color: var(--text-4);
+}
+.pd-comment-like svg { width: 15px; height: 15px; }
+.pd-comment-like.liked { color: var(--accent); }
+.pd-replies { margin-top: 12px; padding-left: 14px; border-left: 1px solid var(--border); }
+
+.pd-loadmore {
+  display: block; width: 100%; margin: 4px 0 10px;
+  padding: 11px; border-radius: 14px; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text-2); font-family: inherit; font-size: 13px; font-weight: 600;
+}
+.pd-comments-empty { color: var(--text-4); font-size: 14px; padding: 6px 0 18px; }
+
+/* ── COMMENT COMPOSER (fixed, above the action dock) ───────────────────── */
+.pd-composer {
+  position: fixed; left: 0; right: 0;
+  bottom: calc(var(--nav-h) + var(--dock-h));   /* directly above the action dock */
+  z-index: 61;
+  display: flex; align-items: center; gap: 10px;
+  height: var(--composer-h);
+  padding: 0 16px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+.pd-composer-inner {
+  width: 100%; max-width: 620px; margin: 0 auto;
+  display: flex; align-items: center; gap: 10px;
+}
+.pd-composer-av {
+  width: 40px; height: 40px; flex: none; border-radius: 50%;
+  background: var(--surface-alt) center/cover no-repeat;
+  display: grid; place-items: center; font-weight: 700; color: var(--accent); font-size: 15px;
+}
+.pd-composer-field {
+  flex: 1;
+  display: flex; align-items: center;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 0 6px 0 16px;
+}
+.pd-composer-field input {
+  flex: 1; height: 42px; border: none; background: none; outline: none;
+  color: var(--text); font-family: inherit; font-size: 14px;
+}
+.pd-composer-field input::placeholder { color: var(--text-4); }
+.pd-send {
+  width: 34px; height: 34px; flex: none; border: none; border-radius: 50%; cursor: pointer;
+  display: grid; place-items: center;
+  background: var(--accent-grad); color: var(--accent-on);
+}
+.pd-send svg { width: 18px; height: 18px; }
+.pd-send:disabled { opacity: 0.45; cursor: default; }
+
+/* reply-context chip above the composer */
+.pd-reply-context {
+  position: fixed; left: 0; right: 0;
+  bottom: calc(var(--nav-h) + var(--dock-h) + var(--composer-h));
+  z-index: 61;
+  display: none; align-items: center; gap: 8px;
+  padding: 8px 18px; background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--text-3);
+}
+.pd-reply-context.show { display: flex; }
+.pd-reply-context button {
+  margin-left: auto; border: none; background: none; color: var(--text-4);
+  cursor: pointer; font-size: 14px;
+}
+
+/* keyboard-open state: hide the nav + action dock, drop the composer to the
+   very bottom so it sits directly above the on-screen keyboard. */
+body.pd-kbd .nf-bottomnav { display: none; }
+body.pd-kbd .pd-dock { display: none; }
+body.pd-kbd .pd-composer { bottom: 0; }
+body.pd-kbd .pd-reply-context { bottom: var(--composer-h); }
+
+/* ── loading / error states ───────────────────────────────────────────── */
+.pd-loading, .pd-error {
+  display: grid; place-items: center; gap: 10px;
+  min-height: 60vh; text-align: center; color: var(--text-3); padding: 24px;
+}
+.pd-spinner {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.12); border-top-color: var(--accent);
+  animation: pdSpin 0.8s linear infinite;
+}
+@keyframes pdSpin { to { transform: rotate(360deg); } }
+.pd-error a { color: var(--accent); font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) { .pd-spinner { animation-duration: 2s; } }

@@ -682,7 +682,7 @@ body.feed-body { background: var(--bg); }
 
 /* ── Card base ── */
 .feed-list { gap: 14px; padding: 12px 16px calc(var(--bottom-h) + 40px); max-width: 620px; margin: 0 auto; }
-.nf-card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; overflow: hidden; margin: 0; }
+.nf-card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; overflow: hidden; margin: 0; cursor: pointer; }
 .nf-card .post-actions { border-top: none; background: transparent; margin-top: 0; padding: 0; }
 
 /* shared author row */

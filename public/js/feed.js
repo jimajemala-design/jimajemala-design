@@ -173,7 +173,8 @@ const Feed = (() => {
     const qs = new URLSearchParams({ page: String(state.page) });
     if (state.filter) qs.set('type', state.filter);
     if (state.ranking) qs.set('ranking', state.ranking);
-    const tag = new URLSearchParams(location.search).get('tag');
+    const params = new URLSearchParams(location.search);
+    const tag = params.get('hashtag') || params.get('tag');   // detail page links use ?hashtag=
     if (tag) qs.set('tag', tag);
     return Auth.api('/api/feed?' + qs.toString());
   }
@@ -254,7 +255,22 @@ const Feed = (() => {
 
       el.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-act]');
-        if (!btn) return;
+        if (!btn) {
+          // Tap anywhere that isn't an action button, link, or media control →
+          // open the immersive post detail. Links (author, hashtags) and the
+          // action buttons keep their own behavior and never navigate here.
+          if (e.target.closest('a, button, input, textarea, label, .carousel-dot, .reel-mute, .react-pop, .heart-burst')) return;
+          const goDetail = () => { location.href = '/post-detail.html?id=' + encodeURIComponent(id); };
+          // On media, defer so a double-tap (quick ❤️ like) can cancel it.
+          if (e.target.closest('[data-media]')) {
+            if (Date.now() - (el._noNav || 0) < 400) return;
+            clearTimeout(el._navT);
+            el._navT = setTimeout(() => { if (Date.now() - (el._noNav || 0) >= 400) goDetail(); }, 280);
+            return;
+          }
+          goDetail();
+          return;
+        }
         const act = btn.dataset.act;
         if (act === 'react') { e.preventDefault(); openReactPicker(el, btn); }
         else if (act === 'comment') { e.preventDefault(); openComments(id); }
@@ -310,7 +326,9 @@ const Feed = (() => {
       const media = el.querySelector('[data-media]');
       if (media) {
         let lastTap = 0;
-        const quick = () => doubleTapLike(el);
+        // Cancel any pending tap→detail navigation and suppress it briefly so a
+        // double-tap likes the post instead of opening the detail page.
+        const quick = () => { clearTimeout(el._navT); el._noNav = Date.now(); doubleTapLike(el); };
         media.addEventListener('dblclick', quick);
         media.addEventListener('touchend', (ev) => {
           const now = Date.now();
