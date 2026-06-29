@@ -91,3 +91,13 @@
 .snap-actions .btn-post { flex: 1; }
 .snap-actions .btn-ghost { flex: 1; }
 .snap-actions button:disabled { opacity: 0.6; }
+
+/* Add to Fridge — pill button on the NutriFell tokens, full width below the row */
+.snap-fridge-btn {
+  width: 100%; margin-top: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px; border-radius: 999px; cursor: pointer;
+  background: #121614; border: 1px solid rgba(255, 255, 255, 0.06); color: #F2F4F2;
+  font-family: inherit; font-weight: 700; font-size: 14px;
+}
+.snap-fridge-btn:hover { border-color: rgba(255, 255, 255, 0.12); }
+.snap-fridge-btn:disabled { opacity: 0.6; cursor: default; }

@@ -176,10 +176,38 @@ const Snap = (() => {
           <button class="btn-post" id="snapLog" type="button">＋ Log to Today</button>
           <button class="btn-ghost" id="snapShare" type="button">↗ Share to Feed</button>
         </div>
+        <button class="snap-fridge-btn" id="snapFridge" type="button">🧊 Add to Fridge</button>
       </div>`;
 
     document.getElementById('snapLog').addEventListener('click', logToToday);
     document.getElementById('snapShare').addEventListener('click', shareToFeed);
+    document.getElementById('snapFridge').addEventListener('click', addToFridge);
+  }
+
+  // Pull a gram weight out of the analysis serving string (e.g. "1 cup (240g)",
+  // "150 g", "100g"); fall back to 100g when nothing parseable is found.
+  function servingGrams(serving) {
+    const s = String(serving || '');
+    const m = s.match(/(\d+(?:\.\d+)?)\s*(?:g|grams?)\b/i) || s.match(/(\d+(?:\.\d+)?)/);
+    const g = m ? Math.round(Number(m[1])) : 0;
+    return (g > 0 && g <= 5000) ? g : 100;
+  }
+  async function addToFridge() {
+    if (!current) return;
+    const btn = document.getElementById('snapFridge');
+    const label = btn.textContent; btn.disabled = true; btn.textContent = 'Adding…';
+    try {
+      // Matches POST /api/fridge: { name, quantity, category?, foodId? }.
+      await Auth.api('/api/fridge', {
+        method: 'POST',
+        body: JSON.stringify({ name: current.foodName, quantity: servingGrams(current.serving) + 'g' }),
+      });
+      toast('Added to fridge!', 'success');
+      btn.textContent = '✓ Added to Fridge';
+    } catch (err) {
+      toast(err.message || 'Could not add to fridge.', 'error');
+      btn.disabled = false; btn.textContent = label;
+    }
   }
 
   // ── actions ────────────────────────────────────────────────────────────
