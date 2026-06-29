@@ -31,6 +31,7 @@ const Snap = (() => {
   // away from the feed: it just opens the photo picker. Auth + premium are
   // enforced server-side and any gate is surfaced inside the results sheet.
   function start() {
+    console.log('snap clicked');
     // NOTE: auth.js declares `const Auth` (a lexical global, NOT window.Auth),
     // so test the bare binding via typeof — `window.Auth` is always undefined
     // and previously made this guard return early for everyone, so the button
@@ -74,6 +75,7 @@ const Snap = (() => {
 
   async function onFilePicked(file) {
     if (!file) return;
+    console.log('file selected', file.name, file.size);
     if (!/^image\//.test(file.type)) { toast('Please choose a photo of food.', 'error'); return; }
     if (file.size > 25 * 1024 * 1024) { toast('That image is too large (max 25MB).', 'error'); return; }
     openSheet();
@@ -81,10 +83,17 @@ const Snap = (() => {
     try {
       const raw = await fileToDataURL(file);
       currentImage = await downscale(raw);
-      const analysis = await Auth.api('/api/analyze-food', {
+      // Raw fetch (rather than Auth.api) so we can log the HTTP status; keeps
+      // the same semantics — parse JSON, throw the server's error on !ok.
+      console.log('sending to analyze-food');
+      const res = await fetch('/api/analyze-food', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + Auth.token() },
         body: JSON.stringify({ image: currentImage }),
       });
+      console.log('response status', res.status);
+      const analysis = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((analysis && analysis.error) || 'Could not analyze that photo.');
       current = analysis;
       renderResult(analysis);
     } catch (err) {
