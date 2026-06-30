@@ -96,16 +96,20 @@ app.use('/api', (req, res, next) => {
 });
 
 // Cache-Control policy:
-//   • GET /api/foods, /api/foods/:id → 1 hour (static catalog)
-//   • other GET /api → 5 minutes, private
-//   • mutations + everything else → no-store
+//   • GET /api/foods, /api/foods/:id → 1 hour (public, non-user-specific catalog)
+//   • EVERYTHING else → no-store
+//
+// Every other /api response is per-user/authenticated (fridge, logs, profile,
+// meal plans, feed, notifications…). The HTTP cache is keyed by URL and ignores
+// the Authorization header (there is no Vary: Authorization), so a cacheable
+// per-user response leaks across accounts: on a shared device, User A's
+// `GET /api/fridge` would be served from cache to User B who logs in next.
+// `private, max-age` does NOT help — "private" only excludes shared/proxy
+// caches, not the local browser cache that is the source of the leak. So all
+// authenticated responses must be no-store.
 app.use('/api', (req, res, next) => {
-  if (req.method === 'GET') {
-    if (req.path === '/foods' || /^\/foods\//.test(req.path)) {
-      res.set('Cache-Control', 'public, max-age=3600');
-    } else {
-      res.set('Cache-Control', 'private, max-age=300');
-    }
+  if (req.method === 'GET' && (req.path === '/foods' || /^\/foods\//.test(req.path))) {
+    res.set('Cache-Control', 'public, max-age=3600');
   } else {
     res.set('Cache-Control', 'no-store');
   }
