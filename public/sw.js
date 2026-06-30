@@ -6,7 +6,11 @@
 //         (rescues the display:none-at-init race) + spinner handoff fix.
 // 4.3.0 — social feed (Phase 1): precache feed assets; never-cache the
 //         per-viewer feed/posts/users/notifications APIs.
-const VERSION = '4.6.0';
+// 4.7.0 — roll all caches to evict any per-user API responses (fridge/logs/
+//         profile) that an older service worker may have stored before those
+//         routes were excluded — closes the cross-user data leak on existing
+//         clients. Server now also sends no-store on all authenticated /api.
+const VERSION = '4.7.0';
 const STATIC_CACHE = `nutrifell-static-${VERSION}`;
 const API_CACHE = `nutrifell-api-${VERSION}`;
 const CDN_CACHE = `nutrifell-cdn-${VERSION}`;
