@@ -229,6 +229,10 @@ console.log('Email configured:', !!mailer, '| EMAIL_USER set:', !!process.env.EM
 
 // In-memory pending registrations: email -> { name, email, passwordHash, code, expiresAt, lastSent }
 const pendingVerifications = new Map();
+// Codes for IN-APP email verification: the account already exists and the user
+// is already in the app — verification happens in the background via a banner,
+// never blocking access. Keyed by normalized email → { code, expiresAt }.
+const emailVerifyCodes = new Map();
 const VERIFY_TTL = 10 * 60 * 1000; // 10 minutes
 
 const genCode = () => String(Math.floor(100000 + Math.random() * 900000));
@@ -2960,9 +2964,13 @@ app.post('/api/auth/verify-code', async (req, res) => {
   res.status(201).json({ token, user: publicUser(user) });
 });
 
+// Fast signup: create the account immediately from just email + password, drop
+// the user straight into the app, and verify their email in the BACKGROUND.
+// Name and all profile data (age/weight/height/goal/activity) are optional and
+// collected later via the skippable onboarding flow — none of it blocks signup.
 app.post('/api/register', async (req, res) => {
   const { email, password, name, age, weight, goal } = req.body || {};
-  if (!email || !password || !name) return res.status(400).json({ error: 'Name, email and password are required' });
+  if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
   if (String(password).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
@@ -2973,11 +2981,14 @@ app.post('/api/register', async (req, res) => {
   if (existingUser) {
     return res.status(409).json({ error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
   }
+  // Default the display name to the email's local part; the user can set a real
+  // name in onboarding. (Trimmed name still wins when provided.)
+  const cleanName = name && String(name).trim() ? String(name).trim() : emailNorm.split('@')[0];
   const user = {
     id: uuidv4(),
     email: emailNorm,
     password: await bcrypt.hash(String(password), 10),
-    name: String(name).trim(),
+    name: cleanName,
     age: age ? Number(age) : null,
     weight: weight ? Number(weight) : null,
     height: null,
@@ -2985,14 +2996,72 @@ app.post('/api/register', async (req, res) => {
     goal: goal || 'maintain',
     role: 'user',
     banned: false,
+    plan: 'free',
+    emailVerified: false,
     createdAt: new Date().toISOString(),
   };
   if (db) await dbInsertUser(user);
   const users = readJSON(USERS_FILE);
   users.push(user);
   writeJSON(USERS_FILE, users);
+
+  // Fire off the verification code. Account access does NOT depend on this — a
+  // failed/slow email just means the in-app banner offers a "Resend" button.
+  const code = genCode();
+  emailVerifyCodes.set(emailNorm, { code, expiresAt: Date.now() + VERIFY_TTL });
+  let emailSent = false;
+  try { emailSent = await sendVerificationEmail(emailNorm, code); }
+  catch (err) { console.error('Verification email failed (non-blocking):', err.message); emailSent = false; }
+  if (!emailSent) console.log(`[verify] in-app code for ${emailNorm}: ${code}`);
+
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
-  res.status(201).json({ token, user: publicUser(user) });
+  res.status(201).json({
+    token,
+    user: publicUser(user),
+    emailSent,
+    // Dev fallback so the flow is testable when email isn't configured.
+    devCode: emailSent ? undefined : code,
+  });
+});
+
+// Verify the email of a logged-in user (background verification — the banner).
+app.post('/api/auth/verify-email', auth, async (req, res) => {
+  const { code } = req.body || {};
+  if (!code) return res.status(400).json({ error: 'Verification code is required' });
+  if (req.user.emailVerified) return res.json({ user: publicUser(req.user), alreadyVerified: true });
+
+  const emailNorm = String(req.user.email).trim().toLowerCase();
+  const pending = emailVerifyCodes.get(emailNorm);
+  if (!pending) return res.status(400).json({ error: 'No code found — tap Resend to get a new one.', code: 'NO_CODE' });
+  if (Date.now() > pending.expiresAt) {
+    emailVerifyCodes.delete(emailNorm);
+    return res.status(400).json({ error: 'Code expired — tap Resend to get a new one.', code: 'CODE_EXPIRED' });
+  }
+  if (String(code).trim() !== pending.code) {
+    return res.status(400).json({ error: 'Incorrect code — please try again.', code: 'CODE_INCORRECT' });
+  }
+
+  const u = Object.assign({}, req.user, { emailVerified: true });
+  delete u._id; delete u.__v;
+  if (db) await dbUpdateUser(req.userId, u);
+  const users = readJSON(USERS_FILE);
+  const idx = users.findIndex(x => x.id === req.userId);
+  if (idx !== -1) { users[idx] = u; writeJSON(USERS_FILE, users); }
+  emailVerifyCodes.delete(emailNorm);
+  res.json({ user: publicUser(u) });
+});
+
+// Resend the in-app verification code.
+app.post('/api/auth/resend-verification', auth, async (req, res) => {
+  if (req.user.emailVerified) return res.json({ alreadyVerified: true });
+  const emailNorm = String(req.user.email).trim().toLowerCase();
+  const code = genCode();
+  emailVerifyCodes.set(emailNorm, { code, expiresAt: Date.now() + VERIFY_TTL });
+  let emailSent = false;
+  try { emailSent = await sendVerificationEmail(emailNorm, code); }
+  catch (err) { console.error('Resend verification email failed:', err.message); emailSent = false; }
+  if (!emailSent) console.log(`[verify] resent in-app code for ${emailNorm}: ${code}`);
+  res.json({ emailSent, devCode: emailSent ? undefined : code });
 });
 
 app.post('/api/login', async (req, res) => {

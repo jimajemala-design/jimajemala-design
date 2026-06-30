@@ -620,129 +620,132 @@ function requireAuth() {
   return true;
 }
 
-// ── Register form ─────────────────────────────────────────────────────────
+// ── Register form (fast, single-step) ──────────────────────────────────────
+// Email + password create the account immediately and drop the user into the
+// app. Email verification happens in the background via a banner (see
+// initVerifyBanner); profile data is collected later via skippable onboarding.
 function initRegister() {
   const form = document.getElementById('registerForm');
   if (!form) return;
-  if (Auth.isAuthed()) { location.href = '/fridge.html'; return; }
+  if (Auth.isAuthed()) { location.href = '/index.html'; return; }
 
-  const detailsStep = document.getElementById('detailsStep');
-  const verifyStep = document.getElementById('verifyStep');
   const f = {
-    name: form.querySelector('[name=name]'),
     email: form.querySelector('[name=email]'),
     password: form.querySelector('[name=password]'),
-    confirm: form.querySelector('[name=confirm]'),
     ageConfirm: form.querySelector('[name=age_confirm]'),
   };
   Object.values(f).forEach(i => { if (i) i.addEventListener('input', () => clearError(i)); });
 
-  const reg = { name: '', email: '', password: '' }; // kept for verify + resend
-  let resendTimer = null;
+  // Show/hide password toggle.
+  const reveal = document.getElementById('reg-reveal');
+  if (reveal) reveal.addEventListener('click', () => {
+    const showing = f.password.type === 'text';
+    f.password.type = showing ? 'password' : 'text';
+    reveal.textContent = showing ? 'Show' : 'Hide';
+    reveal.setAttribute('aria-pressed', String(!showing));
+    reveal.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+  });
 
-  const sendCode = () => Auth.api('/api/auth/send-code', { method: 'POST', body: JSON.stringify(reg) });
-
-  function showDevHint(data, prefix) {
-    const hint = document.getElementById('devCodeHint');
-    if (data && data.devCode) {
-      hint.style.display = 'block';
-      hint.innerHTML = `${prefix} <strong>${data.devCode}</strong>`;
-    } else { hint.style.display = 'none'; }
-  }
-
-  // ── Step 1: validate details → send code ────────────────────────────────
   form.addEventListener('submit', async e => {
     e.preventDefault();
     let ok = true;
-    if (!f.name.value.trim()) { setError(f.name, 'What should we call you?'); ok = false; } else markValid(f.name);
-    if (!validEmail(f.email.value.trim())) { setError(f.email, 'Please use a valid email — we send your verification code here'); ok = false; } else markValid(f.email);
+    if (!validEmail(f.email.value.trim())) { setError(f.email, 'Please enter a valid email address'); ok = false; } else markValid(f.email);
     if (f.password.value.length < 6) { setError(f.password, 'Choose a password (at least 6 characters)'); ok = false; } else markValid(f.password);
-    if (f.confirm.value !== f.password.value) { setError(f.confirm, "These passwords don't match — try again"); ok = false; } else markValid(f.confirm);
     if (f.ageConfirm && !f.ageConfirm.checked) { setError(f.ageConfirm, 'You must be 18 or older to use NutriFell'); ok = false; }
     if (!ok) return;
 
-    reg.name = f.name.value.trim();
-    reg.email = f.email.value.trim();
-    reg.password = f.password.value;
-
     const btn = form.querySelector('button[type=submit]');
     const label = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Sending code…';
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Creating your account…';
     try {
-      const data = await sendCode();
-      document.getElementById('verifyEmail').textContent = reg.email;
-      detailsStep.style.display = 'none';
-      verifyStep.style.display = 'block';
-      const codeInput = document.getElementById('verifyCode');
-      codeInput.value = ''; codeInput.focus();
-      showDevHint(data, "📭 Email isn't configured yet — your code is");
-      startResendCooldown();
+      const data = await Auth.api('/api/register', {
+        method: 'POST',
+        body: JSON.stringify({ email: f.email.value.trim(), password: f.password.value }),
+      });
+      Auth.setSession(data.token, data.user);
+      try { localStorage.setItem('nf_tour_pending', '1'); } catch {} // run the feature tour on first homepage visit
+      // Stash the dev code so the in-app banner can surface it when email isn't configured.
+      try {
+        if (data.devCode) localStorage.setItem('nf_verify_devcode', data.devCode);
+        else localStorage.removeItem('nf_verify_devcode');
+      } catch {}
+      toast('Welcome to NutriFell! 🌿', 'success');
+      setTimeout(() => location.href = '/index.html', 600);
     } catch (err) {
-      toast(err.message, 'error');
-    } finally {
+      if (err.code === 'EMAIL_EXISTS') { setError(f.email, 'That email is already registered — try logging in.'); }
+      else { toast(err.message, 'error'); }
       btn.disabled = false; btn.innerHTML = label;
     }
   });
+}
 
-  // ── Resend (60s cooldown) ───────────────────────────────────────────────
-  const resendBtn = document.getElementById('resendBtn');
-  function startResendCooldown() {
-    let left = 60;
-    clearInterval(resendTimer);
-    resendBtn.disabled = true;
-    resendBtn.textContent = `Resend code (${left}s)`;
-    resendTimer = setInterval(() => {
-      left--;
-      if (left <= 0) { clearInterval(resendTimer); resendBtn.disabled = false; resendBtn.textContent = 'Resend code'; }
-      else { resendBtn.textContent = `Resend code (${left}s)`; }
-    }, 1000);
-  }
-  if (resendBtn) resendBtn.addEventListener('click', async () => {
-    resendBtn.disabled = true;
+// ── In-app email verification banner ───────────────────────────────────────
+// Non-blocking: an unverified user can use the whole app; this just nudges them
+// to confirm their email with the 6-digit code, with a Resend option. Shows on
+// any page that loads auth.js once the user is authed but not yet verified.
+function initVerifyBanner() {
+  const user = Auth.user();
+  if (!Auth.isAuthed() || !user) return;
+  // Only explicit `false` counts as unverified — legacy accounts (undefined) are left alone.
+  if (user.emailVerified !== false) return;
+  if (sessionStorage.getItem('nf_verify_hidden') === '1') return;
+  if (document.getElementById('nfVerifyBanner')) return;
+
+  const devCode = (() => { try { return localStorage.getItem('nf_verify_devcode'); } catch { return null; } })();
+  const banner = document.createElement('div');
+  banner.id = 'nfVerifyBanner';
+  banner.className = 'nf-verify-banner';
+  banner.setAttribute('role', 'status');
+  banner.innerHTML = `
+    <span class="nf-vb-ico" aria-hidden="true">📧</span>
+    <span class="nf-vb-text">Verify your email to secure your account.${devCode ? ` <span class="nf-vb-dev">Code: <strong>${devCode}</strong></span>` : ''}</span>
+    <span class="nf-vb-form">
+      <input class="nf-vb-input" id="nfVbCode" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit code" aria-label="Verification code" autocomplete="one-time-code" />
+      <button class="nf-vb-btn" id="nfVbVerify" type="button">Verify</button>
+      <button class="nf-vb-link" id="nfVbResend" type="button">Resend</button>
+    </span>
+    <button class="nf-vb-x" id="nfVbClose" aria-label="Dismiss">✕</button>`;
+  document.body.appendChild(banner);
+  requestAnimationFrame(() => banner.classList.add('show'));
+
+  const codeEl = document.getElementById('nfVbCode');
+  const verifyEl = document.getElementById('nfVbVerify');
+  const resendEl = document.getElementById('nfVbResend');
+  const dismiss = () => {
+    try { sessionStorage.setItem('nf_verify_hidden', '1'); } catch {}
+    banner.classList.remove('show');
+    setTimeout(() => banner.remove(), 350);
+  };
+  document.getElementById('nfVbClose').addEventListener('click', dismiss);
+  codeEl.addEventListener('input', () => { codeEl.value = codeEl.value.replace(/\D/g, '').slice(0, 6); });
+
+  verifyEl.addEventListener('click', async () => {
+    const code = (codeEl.value || '').trim();
+    if (code.length !== 6) { codeEl.focus(); toast('Enter the 6-digit code', 'error', 2500); return; }
+    verifyEl.disabled = true; const lbl = verifyEl.textContent; verifyEl.textContent = '…';
     try {
-      const data = await sendCode();
-      toast('New code sent', 'success', 2000);
-      showDevHint(data, '📭 Dev code:');
-      startResendCooldown();
+      const data = await Auth.api('/api/auth/verify-email', { method: 'POST', body: JSON.stringify({ code }) });
+      if (data.user) Auth.updateUser(data.user);
+      try { localStorage.removeItem('nf_verify_devcode'); } catch {}
+      toast('Email verified — thank you! ✓', 'success');
+      banner.classList.remove('show');
+      setTimeout(() => banner.remove(), 350);
     } catch (err) {
-      toast(err.message, 'error');
-      resendBtn.disabled = false;
+      toast(err.message || 'Could not verify that code.', 'error');
+      verifyEl.disabled = false; verifyEl.textContent = lbl;
     }
   });
 
-  // ── Back to step 1 ──────────────────────────────────────────────────────
-  const backBtn = document.getElementById('regBackBtn');
-  if (backBtn) backBtn.addEventListener('click', () => {
-    clearInterval(resendTimer);
-    verifyStep.style.display = 'none';
-    detailsStep.style.display = 'block';
-  });
-
-  // ── Step 2: verify code → create account ────────────────────────────────
-  const verifyBtn = document.getElementById('verifyBtn');
-  const codeInput = document.getElementById('verifyCode');
-  const errEl = document.getElementById('verifyError');
-  if (codeInput) codeInput.addEventListener('input', () => {
-    codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 6);
-    if (errEl) errEl.classList.remove('show');
-  });
-  if (verifyBtn) verifyBtn.addEventListener('click', async () => {
-    const code = (codeInput.value || '').trim();
-    if (code.length !== 6) { errEl.textContent = 'Enter the 6-digit code'; errEl.classList.add('show'); return; }
-    const label = verifyBtn.innerHTML;
-    verifyBtn.disabled = true; verifyBtn.innerHTML = '<span class="spinner"></span> Verifying…';
+  resendEl.addEventListener('click', async () => {
+    resendEl.disabled = true;
     try {
-      const data = await Auth.api('/api/auth/verify-code', {
-        method: 'POST', body: JSON.stringify({ email: reg.email, code }),
-      });
-      clearInterval(resendTimer);
-      Auth.setSession(data.token, data.user);
-      try { localStorage.setItem('nf_tour_pending', '1'); } catch {} // run the feature tour on first homepage visit
-      toast('Email verified! Setting up your profile…', 'success');
-      setTimeout(() => location.href = '/profile.html', 700);
+      const data = await Auth.api('/api/auth/resend-verification', { method: 'POST' });
+      if (data.devCode) { try { localStorage.setItem('nf_verify_devcode', data.devCode); } catch {} }
+      toast(data.emailSent ? 'New code sent to your email' : `Dev code: ${data.devCode}`, 'success', 3000);
     } catch (err) {
-      errEl.textContent = err.message; errEl.classList.add('show');
-      verifyBtn.disabled = false; verifyBtn.innerHTML = label;
+      toast(err.message || 'Could not resend the code.', 'error');
+    } finally {
+      setTimeout(() => { resendEl.disabled = false; }, 3000);
     }
   });
 }
@@ -780,8 +783,9 @@ function initLogin() {
       });
       Auth.setSession(data.token, data.user);
       toast('Welcome back, ' + (data.user.name ? data.user.name.split(' ')[0] : 'friend') + '!', 'success');
-      const ready = data.user.weight && data.user.height && data.user.age;
-      setTimeout(() => location.href = ready ? '/fridge.html' : '/profile.html', 700);
+      // Onboarding is optional now — always land in the app. Features that need
+      // profile data prompt for it inline when they're actually used.
+      setTimeout(() => location.href = '/fridge.html', 700);
     } catch (err) {
       toast(err.message, 'error');
       btn.disabled = false; btn.innerHTML = label;
@@ -1051,6 +1055,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderNav();
   NetStatus.init();
   initRegister();
+  initVerifyBanner();
   initLogin();
   initProfile();
   initReveal();

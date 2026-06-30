@@ -33,25 +33,17 @@
     <div class="auth-wrap">
       <div class="auth-card">
 
-        <!-- STEP 1 — details -->
+        <!-- Single-step signup — email + password only -->
         <div id="detailsStep">
         <div class="auth-head">
           <div class="auth-logo" aria-hidden="true">
             <svg width="20" height="22" viewBox="0 0 16 18" fill="none"><path d="M8 1C8 1 1.5 4.5 1.5 10.5C1.5 13.8 4.5 16.5 8 16.5C11.5 16.5 14.5 13.8 14.5 10.5C14.5 4.5 8 1 8 1Z" fill="#051008"/></svg>
           </div>
-          <h1 class="auth-title" data-i18n="register_title">Your nutrition journey starts here</h1>
-          <p class="auth-sub" data-i18n="register_subtitle">74 foods in 3D. AI meal plans. Free to start.</p>
+          <h1 class="auth-title" data-i18n="register_title">Create your free account</h1>
+          <p class="auth-sub" data-i18n="register_subtitle">Just an email and password — explore the app right away.</p>
         </div>
 
         <form id="registerForm" novalidate>
-          <div class="form-group">
-            <label class="form-label" for="reg-name" data-i18n="register_name">Full Name</label>
-            <div class="input-wrap">
-              <input class="form-input" id="reg-name" name="name" type="text" placeholder="Jane Doe" autocomplete="name" />
-              <span class="input-check">✓</span>
-            </div>
-            <p class="form-error"></p>
-          </div>
           <div class="form-group">
             <label class="form-label" for="reg-email" data-i18n="register_email">Email</label>
             <div class="input-wrap">
@@ -64,15 +56,7 @@
             <label class="form-label" for="reg-password" data-i18n="register_password">Password</label>
             <div class="input-wrap">
               <input class="form-input" id="reg-password" name="password" type="password" placeholder="At least 6 characters" autocomplete="new-password" />
-              <span class="input-check">✓</span>
-            </div>
-            <p class="form-error"></p>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="reg-confirm" data-i18n="register_confirm">Confirm Password</label>
-            <div class="input-wrap">
-              <input class="form-input" id="reg-confirm" name="confirm" type="password" placeholder="Re-enter password" autocomplete="new-password" />
-              <span class="input-check">✓</span>
+              <button class="input-reveal" id="reg-reveal" type="button" aria-label="Show password" aria-pressed="false">Show</button>
             </div>
             <p class="form-error"></p>
           </div>
@@ -83,33 +67,11 @@
             </label>
             <p class="form-error" id="ageConfirmError"></p>
           </div>
-          <button class="btn-primary btn-block" type="submit" data-i18n="register_btn">Create Account</button>
+          <button class="btn-primary btn-block" type="submit" data-i18n="register_btn">Create Account &amp; Start</button>
         </form>
 
         <p class="auth-foot"><span data-i18n="register_have_account">Already have an account?</span> <a href="/login.html" data-i18n="register_login">Log in</a></p>
         </div><!-- /detailsStep -->
-
-        <!-- STEP 2 — verify -->
-        <div id="verifyStep" style="display:none">
-          <div class="auth-head">
-            <div class="auth-logo" aria-hidden="true">
-              <svg width="20" height="22" viewBox="0 0 16 18" fill="none"><path d="M8 1C8 1 1.5 4.5 1.5 10.5C1.5 13.8 4.5 16.5 8 16.5C11.5 16.5 14.5 13.8 14.5 10.5C14.5 4.5 8 1 8 1Z" fill="#051008"/></svg>
-            </div>
-            <h1 class="auth-title">One more step — check your inbox</h1>
-            <p class="auth-sub">Enter the 6-digit code we sent to <strong id="verifyEmail"></strong></p>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="verifyCode">Verification code</label>
-            <input class="form-input code-input" id="verifyCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" aria-label="6-digit verification code" />
-            <p class="form-error" id="verifyError"></p>
-          </div>
-          <button class="btn-primary btn-block" id="verifyBtn" type="button">Confirm &amp; Create My Account</button>
-          <p class="dev-code-hint" id="devCodeHint" style="display:none"></p>
-          <div class="verify-actions">
-            <button class="link-btn" id="resendBtn" type="button">Resend code</button>
-            <button class="link-btn" id="regBackBtn" type="button">← Back</button>
-          </div>
-        </div><!-- /verifyStep -->
       </div>
     </div>
   </main>

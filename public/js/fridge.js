@@ -31,6 +31,7 @@
   }
   const findFood = (item) => foods.find(f => f.id === item.foodId) || foods.find(f => f.name.toLowerCase() === String(item.name).toLowerCase());
   const emojiFor = (item) => { const f = findFood(item); return f ? f.emoji : '🍽️'; };
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   // ── Init ────────────────────────────────────────────────────────────────
   async function init() {
@@ -49,6 +50,7 @@
       logs = await Auth.api('/api/logs');
       renderFridge();
       renderTracker();
+      renderQuickLog();
       renderWeekly();
       renderSuggestions();
       const existing = await Auth.api('/api/mealplan');
@@ -106,6 +108,41 @@
       </div>`).join('');
     host.querySelectorAll('.logged-meal').forEach(row => {
       row.querySelector('.lm-del').addEventListener('click', () => deleteLog(row.dataset.id));
+    });
+  }
+
+  // ── Quick Log (5 most-recently-logged meals → one-tap re-log) ─────────────
+  function recentMeals() {
+    const sorted = [...logs].sort((a, b) =>
+      String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || '')));
+    const seen = new Set();
+    const out = [];
+    for (const l of sorted) {
+      const key = String(l.name || '').trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(l);
+      if (out.length >= 5) break;
+    }
+    return out;
+  }
+  function renderQuickLog() {
+    const sec = $('quickLog'), host = $('quickLogChips');
+    if (!sec || !host) return;
+    const recents = recentMeals();
+    if (!recents.length) { sec.hidden = true; host.innerHTML = ''; return; }
+    sec.hidden = false;
+    host.innerHTML = recents.map((l, i) =>
+      `<button class="ql-chip" data-i="${i}" type="button" title="Log ${esc(l.name)} again">
+        <span class="ql-emoji" aria-hidden="true">${emojiFor({ name: l.name })}</span>
+        <span class="ql-name">${esc(l.name)}</span>
+        <span class="ql-cal">${l.calories} kcal</span>
+      </button>`).join('');
+    host.querySelectorAll('.ql-chip').forEach(chip => {
+      const l = recents[+chip.dataset.i];
+      chip.addEventListener('click', () => logMeal({
+        name: l.name, calories: l.calories, protein: l.protein, carbs: l.carbs, fat: l.fat,
+      }));
     });
   }
 
@@ -200,7 +237,7 @@
       const before = todayTotals().calories;
       const saved = await Auth.api('/api/logs', { method: 'POST', body: JSON.stringify(entry) });
       logs.push(saved);
-      renderTracker(); renderWeekly(); renderSuggestions();
+      renderTracker(); renderQuickLog(); renderWeekly(); renderSuggestions();
       toast(entry.name + ' logged', 'success', 1600);
       maybeCelebrate(before, todayTotals().calories);
     } catch (err) {
@@ -212,7 +249,7 @@
     try {
       await Auth.api('/api/logs/' + id, { method: 'DELETE' });
       logs = logs.filter(l => l.id !== id);
-      renderTracker(); renderWeekly(); renderSuggestions();
+      renderTracker(); renderQuickLog(); renderWeekly(); renderSuggestions();
     } catch (err) { toast(err.message, 'error'); }
   }
 
