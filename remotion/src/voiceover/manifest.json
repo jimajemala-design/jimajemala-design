@@ -1,0 +1,16 @@
+{
+  "voiceId": "21m00Tcm4TlvDq8ikWAM",
+  "modelId": "eleven_multilingual_v2",
+  "voiceSettings": { "stability": 0.45, "similarity_boost": 0.8, "style": 0.15, "use_speaker_boost": true },
+  "fps": 30,
+  "clips": [
+    { "id": 1, "atSec": 0.5,  "scene": "Logo",      "text": "NutriFell. Fuel your best self." },
+    { "id": 2, "atSec": 3.4,  "scene": "Food",      "text": "Explore seventy-four foods in stunning 3D." },
+    { "id": 3, "atSec": 6.0,  "scene": "Food",      "text": "Every nutrient, every detail, right at your fingertips." },
+    { "id": 4, "atSec": 8.4,  "scene": "Chat",      "text": "Meet NutriAI, your personal nutrition assistant." },
+    { "id": 5, "atSec": 13.4, "scene": "Features",  "text": "Track your water, quit smoking, and plan every meal." },
+    { "id": 6, "atSec": 18.4, "scene": "Community", "text": "Join a community sharing recipes you'll love." },
+    { "id": 7, "atSec": 23.6, "scene": "CTA",       "text": "Start free today." },
+    { "id": 8, "atSec": 26.0, "scene": "CTA",       "text": "NutriFell dot com. Install it as an app. No store needed." }
+  ]
+}

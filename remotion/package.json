@@ -3,7 +3,10 @@
   "private": true,
   "scripts": {
     "music": "node scripts/generate-music.js",
+    "voiceover": "node scripts/generate-voiceover.js",
     "studio": "remotion studio src/index.ts",
+    "render:promo:h:chrome": "remotion render src/index.ts PromoHorizontal ../public/videos/nutrifell-promo-horizontal.mp4 --browser-executable=\"C:/Program Files/Google/Chrome/Application/chrome.exe\"",
+    "render:promo:v:chrome": "remotion render src/index.ts PromoVertical   ../public/videos/nutrifell-promo-vertical.mp4 --browser-executable=\"C:/Program Files/Google/Chrome/Application/chrome.exe\"",
     "render:floating": "remotion render src/index.ts FloatingFoods  out/FloatingFoods.mp4",
     "render:wave": "remotion render src/index.ts GradientWave   out/GradientWave.mp4",
     "render:particles": "remotion render src/index.ts ParticleFlow   out/ParticleFlow.mp4",
